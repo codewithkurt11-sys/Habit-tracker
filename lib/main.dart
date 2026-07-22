@@ -1,40 +1,38 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
-import 'core/theme/app_theme.dart';
 import 'data/hive_boxes.dart';
+import 'logic/app_state.dart';
+import 'core/theme/app_theme.dart';
+import 'ui/widgets/app_shell.dart';
+import 'ui/screens/onboarding_screen.dart';
 
-Future<void> main() async {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
-
   await HiveInitializer.init();
-
-  runApp(const HabitsApp());
+  runApp(const HabitTrackerApp());
 }
 
-class HabitsApp extends StatelessWidget {
-  const HabitsApp({super.key});
+class HabitTrackerApp extends StatelessWidget {
+  const HabitTrackerApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Habits',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
-      themeMode: ThemeMode.system,
-      home: const Scaffold(
-        body: Center(
-          child: Text(
-            'Habits',
-            style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
-          ),
-        ),
+    return ChangeNotifierProvider(
+      create: (_) => AppState()..seedQuotes(),
+      child: Consumer<AppState>(
+        builder: (context, state, _) {
+          return MaterialApp(
+            title: 'Habit Tracker',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.light(),
+            darkTheme: AppTheme.dark(),
+            themeMode: state.isDark ? ThemeMode.dark : ThemeMode.light,
+            home: state.onboardingComplete
+                ? const AppShell()
+                : const OnboardingScreen(),
+          );
+        },
       ),
     );
   }
