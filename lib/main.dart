@@ -38,6 +38,7 @@ class HabitTrackerApp extends StatelessWidget {
         final state = AppState();
         state.seedQuotes();
         state.initSync();
+        state.initNotifications();
         return state;
       },
       child: Consumer<AppState>(

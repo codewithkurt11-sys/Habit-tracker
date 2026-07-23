@@ -62,8 +62,9 @@ class FriendsRepository {
           .where((p) => p.uid != _uid) // exclude self
           .toList();
     } catch (e) {
-      if (kDebugMode)
+      if (kDebugMode) {
         debugPrint('FriendsRepository.searchByUsername error: $e');
+      }
       return [];
     }
   }

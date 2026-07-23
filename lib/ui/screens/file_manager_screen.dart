@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
 import 'package:share_plus/share_plus.dart';
 
@@ -19,6 +20,7 @@ class FileManagerScreen extends StatefulWidget {
 class _FileManagerScreenState extends State<FileManagerScreen> {
   final _service = FileManagerService();
   bool _permissionGranted = false;
+  bool _fullStorageAccess = false;
   bool _loading = true;
   String? _error;
   List<StorageRoot> _roots = [];
@@ -28,6 +30,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
   FileSortBy _sortBy = FileSortBy.name;
   bool _ascending = true;
   bool _showHidden = false;
+  bool _gridView = false;
   final _searchController = TextEditingController();
 
   List<FileSystemEntity> get _visibleEntries {
@@ -56,6 +59,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
       if (!mounted) return;
       setState(() {
         _permissionGranted = granted;
+        _fullStorageAccess = _service.hasBroadStorageAccess;
         _loading = false;
       });
       if (granted) {
@@ -165,7 +169,8 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
       // Storage roots view
       return Column(
         children: [
-          _buildHeader('File Manager', 'Select a storage location'),
+          _buildHeader('File Manager', 'Browse and manage device files'),
+          if (!_fullStorageAccess) _buildLimitedAccessBanner(),
           Expanded(
             child: _roots.isEmpty
                 ? const EmptyState(
@@ -190,6 +195,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
     return Column(
       children: [
         _buildBreadcrumbBar(),
+        if (!_fullStorageAccess) _buildLimitedAccessBanner(),
         _buildSearchBar(),
         if (_error != null)
           Container(
@@ -211,24 +217,43 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
                       ? 'This folder has no files'
                       : 'Try a different search term',
                 )
-              : ListView.builder(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
-                  itemCount: _visibleEntries.length,
-                  itemBuilder: (_, i) {
-                    final entity = _visibleEntries[i];
-                    return _FileEntityTile(
-                      entity: entity,
-                      onTap: () {
-                        if (entity is Directory) {
-                          _navigateTo(entity.path);
-                        } else {
-                          _showEntityOptions(entity);
-                        }
+              : _gridView
+                  ? GridView.builder(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.md,
+                        AppSpacing.xs,
+                        AppSpacing.md,
+                        AppSpacing.xxl,
+                      ),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        crossAxisSpacing: AppSpacing.sm,
+                        mainAxisSpacing: AppSpacing.sm,
+                        childAspectRatio: 0.9,
+                      ),
+                      itemCount: _visibleEntries.length,
+                      itemBuilder: (_, i) {
+                        final entity = _visibleEntries[i];
+                        return _FileEntityGridTile(
+                          entity: entity,
+                          onTap: () => _openEntity(entity),
+                          onLongPress: () => _showEntityOptions(entity),
+                        );
                       },
-                      onLongPress: () => _showEntityOptions(entity),
-                    );
-                  },
-                ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
+                      itemCount: _visibleEntries.length,
+                      itemBuilder: (_, i) {
+                        final entity = _visibleEntries[i];
+                        return _FileEntityTile(
+                          entity: entity,
+                          onTap: () => _openEntity(entity),
+                          onLongPress: () => _showEntityOptions(entity),
+                        );
+                      },
+                    ),
         ),
         // Bottom action bar
         _buildActionBar(),
@@ -315,6 +340,16 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
             ),
           ),
           IconButton(
+            icon: Icon(
+              _gridView ? Icons.view_list_outlined : Icons.grid_view_outlined,
+              size: 20,
+            ),
+            onPressed: () => setState(() => _gridView = !_gridView),
+            tooltip: _gridView ? 'List view' : 'Grid view',
+            constraints: const BoxConstraints(),
+            padding: const EdgeInsets.all(AppSpacing.sm),
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh, size: 20),
             onPressed: _refresh,
             tooltip: 'Refresh',
@@ -322,6 +357,61 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
             padding: const EdgeInsets.all(AppSpacing.sm),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildLimitedAccessBanner() {
+    final theme = Theme.of(context);
+    return Container(
+      margin: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.xs,
+        AppSpacing.md,
+        AppSpacing.sm,
+      ),
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.lock_outline, size: 20),
+          const SizedBox(width: AppSpacing.sm),
+          const Expanded(
+            child: Text(
+              'Limited access. Allow all files access to browse shared storage.',
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              await _service.openPermissionSettings();
+              await _initPermission();
+            },
+            child: const Text('Allow'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openEntity(FileSystemEntity entity) async {
+    if (entity is Directory) {
+      await _navigateTo(entity.path);
+      return;
+    }
+    final result = await OpenFilex.open(entity.path);
+    if (!mounted || result.type == ResultType.done) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(result.message.isEmpty
+            ? 'No app can open this file type.'
+            : result.message),
+        action: SnackBarAction(
+          label: 'Options',
+          onPressed: () => _showEntityOptions(entity),
+        ),
       ),
     );
   }
@@ -808,6 +898,61 @@ class _StorageRootTile extends StatelessWidget {
               ),
               Icon(Icons.chevron_right,
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.3)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FileEntityGridTile extends StatelessWidget {
+  final FileSystemEntity entity;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  const _FileEntityGridTile({
+    required this.entity,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final kind = FileUtils.kindOf(entity);
+    final color = FileUtils.colorFor(kind);
+    final name = p.basename(entity.path);
+    return Card(
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+                ),
+                child: Icon(FileUtils.iconFor(kind), color: color, size: 28),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                name,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
         ),

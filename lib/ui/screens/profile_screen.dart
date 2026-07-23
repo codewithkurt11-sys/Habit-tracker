@@ -46,8 +46,6 @@ class ProfileScreen extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(name, style: theme.textTheme.headlineSmall),
-              const SizedBox(height: 4),
-              Text('Productivity OS', style: theme.textTheme.bodySmall),
             ],
           ),
         ),

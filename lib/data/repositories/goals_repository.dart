@@ -13,8 +13,9 @@ class GoalsRepository {
     list.sort((a, b) {
       if (a.completed && !b.completed) return 1;
       if (!a.completed && b.completed) return -1;
-      if (a.deadline != null && b.deadline != null)
+      if (a.deadline != null && b.deadline != null) {
         return a.deadline!.compareTo(b.deadline!);
+      }
       return b.createdAt.compareTo(a.createdAt);
     });
     return list;

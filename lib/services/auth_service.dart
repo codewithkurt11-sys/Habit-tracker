@@ -122,32 +122,34 @@ class AuthService extends ChangeNotifier {
           'Username must be 3-20 chars: lowercase letters, numbers, underscore.';
       return false;
     }
-    if (uid == null) {
+    final currentUid = uid;
+    if (currentUid == null) {
       lastError = 'You must be signed in to claim a username.';
       return false;
     }
     try {
+      final userRef = _db.collection('users').doc(currentUid);
+      final userSnapshot = await userRef.get();
+      final existingUsername = userSnapshot.data()?['username'] as String?;
+      if (existingUsername != null && existingUsername.isNotEmpty) {
+        lastError = 'You already have a username and cannot change it.';
+        return false;
+      }
+
       final result = await _db.runTransaction((tx) async {
         final nameRef = _db.collection('usernames').doc(name);
         final nameSnap = await tx.get(nameRef);
         if (nameSnap.exists) {
           // Already claimed by someone else?
           final owner = nameSnap.data()?['uid'] as String?;
-          if (owner == uid) return true; // same user re-claiming
+          if (owner == currentUid) return true; // same user re-claiming
           return false; // taken by another user
         }
-        tx.set(
-            nameRef, {'uid': uid, 'claimedAt': FieldValue.serverTimestamp()});
-        // Also set username on the user doc.
-        final userRef = _db.collection('users').doc(uid);
-        final userSnap = await tx.get(userRef);
-        if (userSnap.exists) {
-          // If this user had an old username, release it.
-          final oldName = userSnap.data()?['username'] as String?;
-          if (oldName != null && oldName != name) {
-            tx.delete(_db.collection('usernames').doc(oldName));
-          }
-        }
+        tx.set(nameRef, {
+          'uid': currentUid,
+          'claimedAt': FieldValue.serverTimestamp(),
+        });
+        // Usernames are permanent: rules intentionally forbid update/delete.
         tx.update(userRef, {'username': name});
         return true;
       });

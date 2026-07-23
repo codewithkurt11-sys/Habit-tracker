@@ -56,6 +56,33 @@ class SettingsScreen extends StatelessWidget {
 
         const SizedBox(height: AppSpacing.xl),
 
+        const _SectionLabel('Reminders'),
+        Card(
+          child: ListTile(
+            leading: Icon(Icons.notifications_active_outlined,
+                color: theme.colorScheme.primary),
+            title: const Text('Task & schedule notifications'),
+            subtitle: const Text(
+              'Get a reminder when a dated task or schedule item is due',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async {
+              final granted = await state.requestNotificationPermission();
+              state.initNotifications();
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(granted
+                      ? 'Notifications enabled.'
+                      : 'Notifications are disabled. Enable them in system settings.'),
+                ),
+              );
+            },
+          ),
+        ),
+
+        const SizedBox(height: AppSpacing.xl),
+
         // About section
         const _SectionLabel('About'),
         Card(

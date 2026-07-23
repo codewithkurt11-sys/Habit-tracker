@@ -16,9 +16,6 @@ class HabitsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     final habits = state.habitsRepo.getDueToday();
-    final today = DateTime.now();
-    final dateStr =
-        '${today.month}/${today.day}/${today.year}'; // ignore: unused_local_variable
 
     return Scaffold(
       body: SafeArea(

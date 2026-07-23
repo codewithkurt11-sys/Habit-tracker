@@ -1,6 +1,14 @@
-# flutter_app
+# Yourself
 
-A new Flutter project.
+A local-first habit, task, schedule, focus, and personal organization app with optional cloud sync and friend visibility.
+
+## Firebase indexes
+
+The incoming friend-request query requires the composite index in `firestore.indexes.json`. Deploy it before using cloud friend requests:
+
+```bash
+firebase deploy --only firestore:indexes
+```
 
 ## Getting Started
 

@@ -45,29 +45,60 @@ class PasteResult {
 /// Handles filesystem interaction for the file manager.
 class FileManagerService {
   FileClipboard? clipboard;
+  bool _hasBroadStorageAccess = !Platform.isAndroid;
+
+  bool get hasBroadStorageAccess => _hasBroadStorageAccess;
 
   Future<bool> ensurePermission() async {
     if (!Platform.isAndroid) return true;
-    if (await Permission.storage.isGranted) return true;
 
-    // Shared-storage access is only requestable on legacy Android versions.
-    // App-specific storage remains available when this request is denied.
-    await Permission.storage.request();
-    return true;
+    if (await Permission.manageExternalStorage.isGranted ||
+        await Permission.storage.isGranted) {
+      _hasBroadStorageAccess = true;
+      return true;
+    }
+
+    // Android 11+ file managers need "All files access" to browse shared
+    // storage. On older Android versions, the legacy storage permission is
+    // used instead. If both are unavailable, app-specific storage still works.
+    final allFiles = await Permission.manageExternalStorage.request();
+    if (allFiles.isGranted) {
+      _hasBroadStorageAccess = true;
+      return true;
+    }
+
+    final legacyStorage = await Permission.storage.request();
+    _hasBroadStorageAccess = legacyStorage.isGranted;
+    return _hasBroadStorageAccess ||
+        await getExternalStorageDirectory() != null;
   }
 
   Future<bool> hasPermission() async {
     if (!Platform.isAndroid) return true;
-    return await Permission.storage.isGranted ||
+    _hasBroadStorageAccess = await Permission.manageExternalStorage.isGranted ||
+        await Permission.storage.isGranted;
+    return _hasBroadStorageAccess ||
         await getExternalStorageDirectory() != null;
   }
 
-  Future<bool> openPermissionSettings() => openAppSettings();
+  Future<bool> openPermissionSettings() async {
+    if (Platform.isAndroid) {
+      final result = await Permission.manageExternalStorage.request();
+      if (result.isGranted) {
+        _hasBroadStorageAccess = true;
+        return true;
+      }
+    }
+    return openAppSettings();
+  }
 
   Future<List<StorageRoot>> storageRoots() async {
     final roots = <StorageRoot>[];
     if (Platform.isAndroid) {
-      final canBrowseSharedStorage = await Permission.storage.isGranted;
+      final canBrowseSharedStorage =
+          await Permission.manageExternalStorage.isGranted ||
+              await Permission.storage.isGranted;
+      _hasBroadStorageAccess = canBrowseSharedStorage;
       if (canBrowseSharedStorage) {
         const primary = '/storage/emulated/0';
         if (await Directory(primary).exists()) {
@@ -76,6 +107,19 @@ class FileManagerService {
             path: primary,
             isPrimary: true,
           ));
+          for (final folder in const [
+            'Download',
+            'Documents',
+            'DCIM',
+            'Pictures',
+            'Music',
+            'Movies',
+          ]) {
+            final path = p.join(primary, folder);
+            if (await Directory(path).exists()) {
+              roots.add(StorageRoot(label: folder, path: path));
+            }
+          }
         }
 
         try {

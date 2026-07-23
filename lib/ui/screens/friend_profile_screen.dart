@@ -179,7 +179,7 @@ class _HabitsTab extends StatelessWidget {
         }
         final habits = snapshot.data ?? [];
         if (habits.isEmpty) {
-          return _EmptyState(text: 'No habits visible.');
+          return const _EmptyState(text: 'No habits visible.');
         }
         return ListView.builder(
           padding: const EdgeInsets.all(AppSpacing.md),
@@ -213,7 +213,7 @@ class _HabitsTab extends StatelessWidget {
         })
         .whereType<DateTime>()
         .toSet();
-    final dayKey = (DateTime d) => DateTime(d.year, d.month, d.day);
+    DateTime dayKey(DateTime d) => DateTime(d.year, d.month, d.day);
     final dayKeys = dates.map(dayKey).toSet();
     int streak = 0;
     var cursor = dayKey(DateTime.now());
@@ -242,9 +242,11 @@ class _GoalsTab extends StatelessWidget {
             !snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
-        final goals = snapshot.data ?? [];
+        final goals = (snapshot.data ?? [])
+            .where((goal) => goal['archived'] != true)
+            .toList();
         if (goals.isEmpty) {
-          return _EmptyState(text: 'No goals visible.');
+          return const _EmptyState(text: 'No goals visible.');
         }
         return ListView.builder(
           padding: const EdgeInsets.all(AppSpacing.md),
@@ -305,12 +307,22 @@ class _TasksTab extends StatelessWidget {
             !snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
-        final tasks = snapshot.data ?? [];
-        if (tasks.isEmpty) {
-          return _EmptyState(text: 'No tasks visible.');
+        final tasks = List<Map<String, dynamic>>.from(snapshot.data ?? [])
+          ..sort((a, b) {
+            final aDate = _parseDate(a['completedAt']) ??
+                _parseDate(a['createdAt']) ??
+                DateTime.fromMillisecondsSinceEpoch(0);
+            final bDate = _parseDate(b['completedAt']) ??
+                _parseDate(b['createdAt']) ??
+                DateTime.fromMillisecondsSinceEpoch(0);
+            return bDate.compareTo(aDate);
+          });
+        final recentTasks = tasks.take(20).toList();
+        if (recentTasks.isEmpty) {
+          return const _EmptyState(text: 'No tasks visible.');
         }
-        final statusLabels = ['Todo', 'In Progress', 'Done', 'Archived'];
-        final statusIcons = [
+        const statusLabels = ['Todo', 'In Progress', 'Done', 'Archived'];
+        const statusIcons = [
           Icons.radio_button_unchecked,
           Icons.play_circle_outline,
           Icons.check_circle,
@@ -318,9 +330,9 @@ class _TasksTab extends StatelessWidget {
         ];
         return ListView.builder(
           padding: const EdgeInsets.all(AppSpacing.md),
-          itemCount: tasks.length,
+          itemCount: recentTasks.length,
           itemBuilder: (context, index) {
-            final t = tasks[index];
+            final t = recentTasks[index];
             final title = (t['title'] as String?) ?? 'Untitled';
             final statusIdx = (t['status'] as int?) ?? 0;
             final statusLabel = statusIdx < statusLabels.length
@@ -335,9 +347,8 @@ class _TasksTab extends StatelessWidget {
                 title: Text(title),
                 subtitle: Text(statusLabel),
                 trailing: t['archived'] == true
-                    ? Chip(
-                        label: Text('Archived',
-                            style: const TextStyle(fontSize: 10)))
+                    ? const Chip(
+                        label: Text('Archived', style: TextStyle(fontSize: 10)))
                     : null,
               ),
             );
@@ -345,6 +356,13 @@ class _TasksTab extends StatelessWidget {
         );
       },
     );
+  }
+
+  DateTime? _parseDate(dynamic value) {
+    if (value == null) return null;
+    if (value is Timestamp) return value.toDate();
+    if (value is String) return DateTime.tryParse(value);
+    return null;
   }
 }
 
@@ -365,11 +383,15 @@ class _ScheduleTab extends StatelessWidget {
             !snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
-        final items = snapshot.data ?? [];
+        final now = DateTime.now();
+        final items = (snapshot.data ?? []).where((item) {
+          final date = _parseDate(item['dateTime']);
+          return date != null && !date.isBefore(now);
+        }).toList();
         if (items.isEmpty) {
-          return _EmptyState(text: 'No schedule items visible.');
+          return const _EmptyState(text: 'No upcoming schedule items.');
         }
-        // Sort by dateTime ascending
+        // Sort upcoming items by dateTime ascending.
         items.sort((a, b) {
           final aDt = _parseDate(a['dateTime']);
           final bDt = _parseDate(b['dateTime']);

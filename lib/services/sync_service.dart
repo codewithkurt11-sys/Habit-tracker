@@ -231,8 +231,9 @@ class SyncService extends ChangeNotifier {
       }
       // local-only -> push up
       for (final h in localHabits) {
-        if (!cloudHabits.containsKey(h.id))
+        if (!cloudHabits.containsKey(h.id)) {
           addWrite('habits', h.id, habitToMap(h));
+        }
       }
 
       // --- Tasks ---
@@ -251,8 +252,9 @@ class SyncService extends ChangeNotifier {
         }
       }
       for (final t in localTasks) {
-        if (!cloudTasks.containsKey(t.id))
+        if (!cloudTasks.containsKey(t.id)) {
           addWrite('tasks', t.id, taskToMap(t));
+        }
       }
 
       // --- Goals ---
@@ -271,8 +273,9 @@ class SyncService extends ChangeNotifier {
         }
       }
       for (final g in localGoals) {
-        if (!cloudGoals.containsKey(g.id))
+        if (!cloudGoals.containsKey(g.id)) {
           addWrite('goals', g.id, goalToMap(g));
+        }
       }
 
       // --- Schedule ---
@@ -291,8 +294,9 @@ class SyncService extends ChangeNotifier {
         }
       }
       for (final s in localSchedule) {
-        if (!cloudSchedule.containsKey(s.id))
+        if (!cloudSchedule.containsKey(s.id)) {
           addWrite('schedule', s.id, scheduleToMap(s));
+        }
       }
 
       // Push in chunked batches (500 writes max per batch).

@@ -212,8 +212,6 @@ class _AppShellState extends State<AppShell> {
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(name, style: theme.textTheme.titleLarge),
-            const SizedBox(height: 2),
-            Text('Productivity OS', style: theme.textTheme.bodySmall),
           ],
         ),
       ),
@@ -250,18 +248,7 @@ class _AppShellState extends State<AppShell> {
                 ],
               ),
             ),
-            const Divider(height: 1),
-            ListTile(
-              leading: Icon(Icons.info_outline,
-                  color: Theme.of(context)
-                      .colorScheme
-                      .onSurface
-                      .withValues(alpha: 0.5)),
-              title: Text('Version 2.0.0',
-                  style: Theme.of(context).textTheme.bodySmall),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-            ),
+            const SizedBox(height: AppSpacing.sm),
           ],
         ),
       ),

@@ -27,19 +27,23 @@ class FinanceRepository {
 
   double getTotalIncome({int? year, int? month}) {
     var entries = getIncome();
-    if (year != null)
+    if (year != null) {
       entries = entries.where((e) => e.date.year == year).toList();
-    if (month != null)
+    }
+    if (month != null) {
       entries = entries.where((e) => e.date.month == month).toList();
+    }
     return entries.fold(0, (sum, e) => sum + e.amount);
   }
 
   double getTotalExpenses({int? year, int? month}) {
     var entries = getExpenses();
-    if (year != null)
+    if (year != null) {
       entries = entries.where((e) => e.date.year == year).toList();
-    if (month != null)
+    }
+    if (month != null) {
       entries = entries.where((e) => e.date.month == month).toList();
+    }
     return entries.fold(0, (sum, e) => sum + e.amount);
   }
 

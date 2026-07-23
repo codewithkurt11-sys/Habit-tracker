@@ -15,6 +15,7 @@ import '../data/repositories/settings_repository.dart';
 import '../services/auth_service.dart';
 import '../services/sync_service.dart';
 import '../services/friends_repository.dart';
+import '../services/notification_service.dart';
 
 /// Central app state exposed via [Provider].
 ///
@@ -36,6 +37,7 @@ class AppState extends ChangeNotifier {
   final authService = AuthService();
   final syncService = SyncService();
   final friendsRepo = FriendsRepository();
+  final notificationService = NotificationService();
 
   bool _busy = false;
   bool get busy => _busy;
@@ -51,6 +53,16 @@ class AppState extends ChangeNotifier {
     // Also trigger an initial reconcile if already signed in + online.
     if (syncService.shouldReconcile) _reconcileWithCloud();
   }
+
+  void initNotifications() {
+    notificationService.refreshAll(
+      tasks: tasksRepo.getAll(includeArchived: true),
+      schedule: scheduleRepo.getAll(),
+    );
+  }
+
+  Future<bool> requestNotificationPermission() =>
+      notificationService.requestPermission();
 
   void _onSyncServiceChanged() {
     if (syncService.shouldReconcile) {
@@ -184,6 +196,7 @@ class AppState extends ChangeNotifier {
         subtaskTitles: subtaskTitles,
       );
       _pushRecord('tasks', task.id, syncService.taskToMap(task));
+      await notificationService.scheduleTask(task);
     } finally {
       _busy = false;
       notifyListeners();
@@ -203,6 +216,7 @@ class AppState extends ChangeNotifier {
     t.touch();
     await tasksRepo.update(t);
     _pushRecord('tasks', t.id, syncService.taskToMap(t));
+    await notificationService.scheduleTask(t);
     notifyListeners();
   }
 
@@ -216,6 +230,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> deleteTask(String id) async {
     await tasksRepo.delete(id);
+    await notificationService.cancelTask(id);
     _pushDelete('tasks', id);
     notifyListeners();
   }
@@ -410,6 +425,7 @@ class AppState extends ChangeNotifier {
     try {
       final item = await scheduleRepo.create(title: title, dateTime: dateTime);
       _pushRecord('schedule', item.id, syncService.scheduleToMap(item));
+      await notificationService.scheduleItem(item);
     } finally {
       _busy = false;
       notifyListeners();
@@ -421,13 +437,16 @@ class AppState extends ChangeNotifier {
     if (s == null) return;
     await scheduleRepo.toggle(s);
     final updated = scheduleRepo.getAll().where((x) => x.id == id).firstOrNull;
-    if (updated != null)
+    if (updated != null) {
       _pushRecord('schedule', id, syncService.scheduleToMap(updated));
+      await notificationService.scheduleItem(updated);
+    }
     notifyListeners();
   }
 
   Future<void> deleteSchedule(String id) async {
     await scheduleRepo.delete(id);
+    await notificationService.cancelSchedule(id);
     _pushDelete('schedule', id);
     notifyListeners();
   }
