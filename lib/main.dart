@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'core/theme/app_theme.dart';
 import 'data/hive_boxes.dart';
 import 'logic/app_state.dart';
-import 'core/theme/app_theme.dart';
-import 'ui/widgets/app_shell.dart';
 import 'ui/screens/onboarding_screen.dart';
+import 'ui/widgets/app_shell.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await HiveInitializer.init();
   runApp(const HabitTrackerApp());
@@ -23,7 +23,7 @@ class HabitTrackerApp extends StatelessWidget {
       child: Consumer<AppState>(
         builder: (context, state, _) {
           return MaterialApp(
-            title: 'Habit Tracker',
+            title: 'Yourself',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.light(),
             darkTheme: AppTheme.dark(),
