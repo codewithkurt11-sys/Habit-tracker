@@ -8,7 +8,8 @@ class TasksRepository {
   final _uuid = const Uuid();
 
   List<Task> getAll({bool includeArchived = false}) {
-    final list = _box.values.where((t) => includeArchived || !t.archived).toList();
+    final list =
+        _box.values.where((t) => includeArchived || !t.archived).toList();
     list.sort((a, b) {
       if (a.isOverdue && !b.isOverdue) return -1;
       if (!a.isOverdue && b.isOverdue) return 1;
@@ -80,6 +81,7 @@ class TasksRepository {
   }
 
   Future<void> update(Task task) async {
+    task.touch();
     await _box.put(task.id, task);
   }
 
@@ -88,6 +90,7 @@ class TasksRepository {
   Future<void> markDone(Task task) async {
     task.status = TaskStatus.done;
     task.completedAt = DateTime.now();
+    task.touch();
     await _box.put(task.id, task);
   }
 
@@ -98,17 +101,20 @@ class TasksRepository {
         task.status = TaskStatus.done;
         task.completedAt = DateTime.now();
       }
+      task.touch();
       await _box.put(task.id, task);
     }
   }
 
   Future<void> archive(Task task) async {
     task.archived = true;
+    task.touch();
     await _box.put(task.id, task);
   }
 
   Future<void> restore(Task task) async {
     task.archived = false;
+    task.touch();
     await _box.put(task.id, task);
   }
 }

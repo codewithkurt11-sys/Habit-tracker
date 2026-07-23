@@ -106,8 +106,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         Icon(Icons.eco, size: 80, color: theme.colorScheme.secondary),
         const SizedBox(height: AppSpacing.lg),
         Text('Welcome to\nHabit Tracker',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.displayMedium),
+            textAlign: TextAlign.center, style: theme.textTheme.displayMedium),
         const SizedBox(height: AppSpacing.md),
         Text(
           'Build better habits, track your progress,\nand become the best version of yourself.',
@@ -120,18 +119,29 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Widget _buildFeaturesPage(ThemeData theme) {
     final features = [
-      (Icons.dashboard_outlined, 'Dashboard', 'Daily overview with quick actions'),
+      (
+        Icons.dashboard_outlined,
+        'Dashboard',
+        'Daily overview with quick actions'
+      ),
       (Icons.repeat_rounded, 'Habits', 'Track habits with streaks & heatmap'),
       (Icons.check_circle_outline, 'Tasks', 'Manage tasks & Kanban board'),
       (Icons.analytics_outlined, 'Analytics', 'Insights, trends & statistics'),
-      (Icons.calendar_month_outlined, 'Calendar', 'Monthly view & activity heatmap'),
-      (Icons.account_balance_wallet_outlined, 'Finance', 'Budget, savings & categories'),
+      (
+        Icons.calendar_month_outlined,
+        'Calendar',
+        'Monthly view & activity heatmap'
+      ),
+      (
+        Icons.account_balance_wallet_outlined,
+        'Finance',
+        'Budget, savings & categories'
+      ),
     ];
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text('Everything you need',
-            style: theme.textTheme.displaySmall),
+        Text('Everything you need', style: theme.textTheme.displaySmall),
         const SizedBox(height: AppSpacing.xl),
         ...features.map((f) => Padding(
               padding: const EdgeInsets.symmetric(
@@ -143,7 +153,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     height: 48,
                     decoration: BoxDecoration(
                       color: theme.colorScheme.primary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+                      borderRadius:
+                          BorderRadius.circular(AppSpacing.radiusMedium),
                     ),
                     child: Icon(f.$1, color: theme.colorScheme.primary),
                   ),
@@ -168,8 +179,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       children: [
         Icon(Icons.waving_hand, size: 64, color: theme.colorScheme.secondary),
         const SizedBox(height: AppSpacing.lg),
-        Text("What's your name?",
-            style: theme.textTheme.displaySmall),
+        Text("What's your name?", style: theme.textTheme.displaySmall),
         const SizedBox(height: AppSpacing.xl),
         TextField(
           controller: _nameController,

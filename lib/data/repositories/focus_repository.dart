@@ -13,24 +13,27 @@ class FocusRepository {
     return list;
   }
 
-  List<FocusSession> getCompleted() => getAll().where((s) => s.completed).toList();
+  List<FocusSession> getCompleted() =>
+      getAll().where((s) => s.completed).toList();
 
-  List<FocusSession> getForDate(DateTime date) =>
-      getAll().where((s) =>
-        s.startedAt.year == date.year &&
-        s.startedAt.month == date.month &&
-        s.startedAt.day == date.day
-      ).toList();
+  List<FocusSession> getForDate(DateTime date) => getAll()
+      .where((s) =>
+          s.startedAt.year == date.year &&
+          s.startedAt.month == date.month &&
+          s.startedAt.day == date.day)
+      .toList();
 
   int getTotalFocusMinutesToday() {
     final today = DateTime.now();
-    return getForDate(today).fold(0, (sum, s) => sum + s.completedSeconds ~/ 60);
+    return getForDate(today)
+        .fold(0, (sum, s) => sum + s.completedSeconds ~/ 60);
   }
 
   int getTotalFocusMinutesThisWeek() {
     final now = DateTime.now();
     final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-    final start = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+    final start =
+        DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
     return getAll()
         .where((s) => s.startedAt.isAfter(start))
         .fold(0, (sum, s) => sum + s.completedSeconds ~/ 60);
@@ -59,7 +62,8 @@ class FocusRepository {
     return session;
   }
 
-  Future<void> completeSession(FocusSession session, int completedSeconds) async {
+  Future<void> completeSession(
+      FocusSession session, int completedSeconds) async {
     session.completedSeconds = completedSeconds;
     session.completed = completedSeconds >= session.durationSeconds * 0.8;
     await _box.put(session.id, session);

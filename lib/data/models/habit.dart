@@ -81,6 +81,7 @@ class Habit extends HiveObject {
   int iconIndex;
   int? colorValue;
   int targetStreak;
+  DateTime updatedAt;
 
   Habit({
     required this.id,
@@ -93,9 +94,14 @@ class Habit extends HiveObject {
     this.iconIndex = 15, // HabitIcon.custom
     this.colorValue,
     this.targetStreak = 0,
-  }) : customDays = customDays ?? [],
-       completionLog = completionLog ?? [],
-       createdAt = createdAt ?? DateTime.now();
+    DateTime? updatedAt,
+  })  : customDays = customDays ?? [],
+        completionLog = completionLog ?? [],
+        createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
+
+  /// Touch [updatedAt] to now. Called by repositories on every mutation.
+  void touch() => updatedAt = DateTime.now();
 
   HabitIcon get icon =>
       HabitIcon.values[iconIndex.clamp(0, HabitIcon.values.length - 1)];
@@ -152,13 +158,12 @@ class Habit extends HiveObject {
   /// Best (longest) streak across scheduled days, ignoring duplicate logs.
   int bestStreak() {
     if (completionLog.isEmpty) return 0;
-    final completedDays =
-        completionLog
-            .map((d) => DateTime(d.year, d.month, d.day))
-            .where(isDueOn)
-            .toSet()
-            .toList()
-          ..sort();
+    final completedDays = completionLog
+        .map((d) => DateTime(d.year, d.month, d.day))
+        .where(isDueOn)
+        .toSet()
+        .toList()
+      ..sort();
     if (completedDays.isEmpty) return 0;
 
     var best = 0;
@@ -250,13 +255,15 @@ class HabitAdapter extends TypeAdapter<Habit> {
       iconIndex: fields[7] as int? ?? 15,
       colorValue: fields[8] as int?,
       targetStreak: fields[9] as int? ?? 0,
+      // updatedAt (field 10) — backward compatible: fall back to createdAt
+      updatedAt: fields[10] as DateTime? ?? fields[6] as DateTime,
     );
   }
 
   @override
   void write(BinaryWriter writer, Habit obj) {
     writer
-      ..writeByte(10)
+      ..writeByte(11)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -276,6 +283,8 @@ class HabitAdapter extends TypeAdapter<Habit> {
       ..writeByte(8)
       ..write(obj.colorValue)
       ..writeByte(9)
-      ..write(obj.targetStreak);
+      ..write(obj.targetStreak)
+      ..writeByte(10)
+      ..write(obj.updatedAt);
   }
 }

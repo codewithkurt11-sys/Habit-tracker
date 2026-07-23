@@ -5,7 +5,8 @@ import '../models/finance_entry.dart';
 
 class FinanceRepository {
   Box<FinanceEntry> get _box => Hive.box<FinanceEntry>(HiveBoxes.finance);
-  Box<FinanceBudget> get _budgetBox => Hive.box<FinanceBudget>(HiveBoxes.financeBudget);
+  Box<FinanceBudget> get _budgetBox =>
+      Hive.box<FinanceBudget>(HiveBoxes.financeBudget);
   static const _budgetKey = 'budget';
   final _uuid = const Uuid();
 
@@ -15,29 +16,36 @@ class FinanceRepository {
     return list;
   }
 
-  List<FinanceEntry> getForMonth(int year, int month) =>
-      getAll().where((e) => e.date.year == year && e.date.month == month).toList();
+  List<FinanceEntry> getForMonth(int year, int month) => getAll()
+      .where((e) => e.date.year == year && e.date.month == month)
+      .toList();
 
   List<FinanceEntry> getIncome() => getAll().where((e) => e.isIncome).toList();
 
-  List<FinanceEntry> getExpenses() => getAll().where((e) => !e.isIncome).toList();
+  List<FinanceEntry> getExpenses() =>
+      getAll().where((e) => !e.isIncome).toList();
 
   double getTotalIncome({int? year, int? month}) {
     var entries = getIncome();
-    if (year != null) entries = entries.where((e) => e.date.year == year).toList();
-    if (month != null) entries = entries.where((e) => e.date.month == month).toList();
+    if (year != null)
+      entries = entries.where((e) => e.date.year == year).toList();
+    if (month != null)
+      entries = entries.where((e) => e.date.month == month).toList();
     return entries.fold(0, (sum, e) => sum + e.amount);
   }
 
   double getTotalExpenses({int? year, int? month}) {
     var entries = getExpenses();
-    if (year != null) entries = entries.where((e) => e.date.year == year).toList();
-    if (month != null) entries = entries.where((e) => e.date.month == month).toList();
+    if (year != null)
+      entries = entries.where((e) => e.date.year == year).toList();
+    if (month != null)
+      entries = entries.where((e) => e.date.month == month).toList();
     return entries.fold(0, (sum, e) => sum + e.amount);
   }
 
   double getBalance({int? year, int? month}) =>
-      getTotalIncome(year: year, month: month) - getTotalExpenses(year: year, month: month);
+      getTotalIncome(year: year, month: month) -
+      getTotalExpenses(year: year, month: month);
 
   /// Expense breakdown by category for a given month
   Map<String, double> getCategoryBreakdown(int year, int month) {

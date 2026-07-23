@@ -74,7 +74,10 @@ class HabitDetailScreen extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [color.withValues(alpha: 0.15), theme.colorScheme.surface],
+                  colors: [
+                    color.withValues(alpha: 0.15),
+                    theme.colorScheme.surface
+                  ],
                 ),
               ),
               child: Padding(
@@ -82,12 +85,18 @@ class HabitDetailScreen extends StatelessWidget {
                 child: Column(
                   children: [
                     Container(
-                      width: 64, height: 64,
-                      decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(AppSpacing.radiusMedium)),
+                      width: 64,
+                      height: 64,
+                      decoration: BoxDecoration(
+                          color: color.withValues(alpha: 0.15),
+                          borderRadius:
+                              BorderRadius.circular(AppSpacing.radiusMedium)),
                       child: Icon(habit.icon.data, color: color, size: 32),
                     ),
                     const SizedBox(height: AppSpacing.sm),
-                    Text(habit.name, style: theme.textTheme.headlineSmall, textAlign: TextAlign.center),
+                    Text(habit.name,
+                        style: theme.textTheme.headlineSmall,
+                        textAlign: TextAlign.center),
                     const SizedBox(height: 4),
                     Wrap(
                       spacing: 8,
@@ -106,17 +115,37 @@ class HabitDetailScreen extends StatelessWidget {
           // Stats grid
           Row(
             children: [
-              Expanded(child: _StatBox(label: 'Current Streak', value: '$currentStreak', unit: 'days', color: const Color(0xFFE8C56F))),
+              Expanded(
+                  child: _StatBox(
+                      label: 'Current Streak',
+                      value: '$currentStreak',
+                      unit: 'days',
+                      color: const Color(0xFFE8C56F))),
               const SizedBox(width: AppSpacing.sm),
-              Expanded(child: _StatBox(label: 'Best Streak', value: '$bestStreak', unit: 'days', color: const Color(0xFFE8946F))),
+              Expanded(
+                  child: _StatBox(
+                      label: 'Best Streak',
+                      value: '$bestStreak',
+                      unit: 'days',
+                      color: const Color(0xFFE8946F))),
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
           Row(
             children: [
-              Expanded(child: _StatBox(label: 'Completion (30d)', value: '${(completionRate30 * 100).round()}', unit: '%', color: color)),
+              Expanded(
+                  child: _StatBox(
+                      label: 'Completion (30d)',
+                      value: '${(completionRate30 * 100).round()}',
+                      unit: '%',
+                      color: color)),
               const SizedBox(width: AppSpacing.sm),
-              Expanded(child: _StatBox(label: 'Total Done', value: '$totalCompletions', unit: '', color: AppColors.lightSuccess)),
+              Expanded(
+                  child: _StatBox(
+                      label: 'Total Done',
+                      value: '$totalCompletions',
+                      unit: '',
+                      color: AppColors.lightSuccess)),
             ],
           ),
           const SizedBox(height: AppSpacing.md),
@@ -124,12 +153,19 @@ class HabitDetailScreen extends StatelessWidget {
           if (missStreak > 0) ...[
             Container(
               padding: const EdgeInsets.all(AppSpacing.sm + 4),
-              decoration: BoxDecoration(color: theme.colorScheme.error.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(AppSpacing.radiusMedium)),
+              decoration: BoxDecoration(
+                  color: theme.colorScheme.error.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMedium)),
               child: Row(
                 children: [
-                  Icon(Icons.warning_amber, color: theme.colorScheme.error, size: 20),
+                  Icon(Icons.warning_amber,
+                      color: theme.colorScheme.error, size: 20),
                   const SizedBox(width: 8),
-                  Expanded(child: Text('Missed $missStreak scheduled day${missStreak > 1 ? "s" : ""} in a row', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error))),
+                  Expanded(
+                      child: Text(
+                          'Missed $missStreak scheduled day${missStreak > 1 ? "s" : ""} in a row',
+                          style: theme.textTheme.bodySmall
+                              ?.copyWith(color: theme.colorScheme.error))),
                 ],
               ),
             ),
@@ -144,25 +180,33 @@ class HabitDetailScreen extends StatelessWidget {
               child: Wrap(
                 spacing: 3,
                 runSpacing: 3,
-                children: history.map((h) => Tooltip(
-                  message: '${h.date.month}/${h.date.day}: ${h.isDone ? "Done" : h.isDue ? "Missed" : "Not due"}',
-                  child: Container(
-                    width: 28, height: 28,
-                    decoration: BoxDecoration(
-                      color: h.isDone
-                          ? color
-                          : h.isDue
-                              ? color.withValues(alpha: 0.15)
-                              : theme.colorScheme.onSurface.withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: h.isDone
-                        ? const Icon(Icons.check, size: 16, color: Colors.white)
-                        : h.isDue
-                            ? Icon(Icons.close, size: 14, color: color.withValues(alpha: 0.4))
-                            : null,
-                  ),
-                )).toList(),
+                children: history
+                    .map((h) => Tooltip(
+                          message:
+                              '${h.date.month}/${h.date.day}: ${h.isDone ? "Done" : h.isDue ? "Missed" : "Not due"}',
+                          child: Container(
+                            width: 28,
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: h.isDone
+                                  ? color
+                                  : h.isDue
+                                      ? color.withValues(alpha: 0.15)
+                                      : theme.colorScheme.onSurface
+                                          .withValues(alpha: 0.05),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: h.isDone
+                                ? const Icon(Icons.check,
+                                    size: 16, color: Colors.white)
+                                : h.isDue
+                                    ? Icon(Icons.close,
+                                        size: 14,
+                                        color: color.withValues(alpha: 0.4))
+                                    : null,
+                          ),
+                        ))
+                    .toList(),
               ),
             ),
           ),
@@ -175,16 +219,20 @@ class HabitDetailScreen extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.all(AppSpacing.md),
                 child: Column(
-                  children: recent.map((d) => Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Row(
-                      children: [
-                        Icon(Icons.check_circle, size: 16, color: color),
-                        const SizedBox(width: 8),
-                        Text('${d.month}/${d.day}/${d.year}', style: theme.textTheme.bodyMedium),
-                      ],
-                    ),
-                  )).toList(),
+                  children: recent
+                      .map((d) => Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Row(
+                              children: [
+                                Icon(Icons.check_circle,
+                                    size: 16, color: color),
+                                const SizedBox(width: 8),
+                                Text('${d.month}/${d.day}/${d.year}',
+                                    style: theme.textTheme.bodyMedium),
+                              ],
+                            ),
+                          ))
+                      .toList(),
                 ),
               ),
             ),
@@ -197,27 +245,33 @@ class HabitDetailScreen extends StatelessWidget {
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(AppSpacing.md),
-                child: Center(child: Text('No notes for this habit yet', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.4)))),
+                child: Center(
+                    child: Text('No notes for this habit yet',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.4)))),
               ),
             )
           else
             ...notes.map((n) => Card(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(n.title, style: theme.textTheme.titleSmall),
-                    if (n.body.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(n.body, style: theme.textTheme.bodyMedium),
-                    ],
-                    const SizedBox(height: 4),
-                    Text('${n.timestamp.month}/${n.timestamp.day} ${n.timestamp.hour.toString().padLeft(2, "0")}:${n.timestamp.minute.toString().padLeft(2, "0")}', style: theme.textTheme.bodySmall),
-                  ],
-                ),
-              ),
-            )),
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(n.title, style: theme.textTheme.titleSmall),
+                        if (n.body.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(n.body, style: theme.textTheme.bodyMedium),
+                        ],
+                        const SizedBox(height: 4),
+                        Text(
+                            '${n.timestamp.month}/${n.timestamp.day} ${n.timestamp.hour.toString().padLeft(2, "0")}:${n.timestamp.minute.toString().padLeft(2, "0")}',
+                            style: theme.textTheme.bodySmall),
+                      ],
+                    ),
+                  ),
+                )),
 
           const SizedBox(height: AppSpacing.md),
 
@@ -241,11 +295,16 @@ class HabitDetailScreen extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Delete Habit'),
-        content: const Text('Are you sure you want to delete this habit? All completion history will be lost.'),
+        content: const Text(
+            'Are you sure you want to delete this habit? All completion history will be lost.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+                foregroundColor: Colors.white),
             onPressed: () {
               state.deleteHabit(id);
               Navigator.pop(context);
@@ -258,7 +317,8 @@ class HabitDetailScreen extends StatelessWidget {
     );
   }
 
-  void _showAddNoteDialog(BuildContext context, AppState state, String habitId) {
+  void _showAddNoteDialog(
+      BuildContext context, AppState state, String habitId) {
     final titleController = TextEditingController();
     final bodyController = TextEditingController();
     showDialog(
@@ -268,18 +328,29 @@ class HabitDetailScreen extends StatelessWidget {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Title'), autofocus: true),
+            TextField(
+                controller: titleController,
+                decoration: const InputDecoration(labelText: 'Title'),
+                autofocus: true),
             const SizedBox(height: 8),
-            TextField(controller: bodyController, decoration: const InputDecoration(labelText: 'Note'), maxLines: 3),
+            TextField(
+                controller: bodyController,
+                decoration: const InputDecoration(labelText: 'Note'),
+                maxLines: 3),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () {
               final title = titleController.text.trim();
               if (title.isEmpty) return;
-              state.notesRepo.create(title: title, body: bodyController.text.trim(), habitId: habitId);
+              state.notesRepo.create(
+                  title: title,
+                  body: bodyController.text.trim(),
+                  habitId: habitId);
               state.refresh();
               Navigator.pop(context);
             },
@@ -298,8 +369,12 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(left: AppSpacing.xs, bottom: AppSpacing.xs),
-      child: Text(text, style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.5), fontWeight: FontWeight.bold)),
+      padding:
+          const EdgeInsets.only(left: AppSpacing.xs, bottom: AppSpacing.xs),
+      child: Text(text,
+          style: theme.textTheme.labelLarge?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              fontWeight: FontWeight.bold)),
     );
   }
 }
@@ -309,7 +384,11 @@ class _StatBox extends StatelessWidget {
   final String value;
   final String unit;
   final Color color;
-  const _StatBox({required this.label, required this.value, required this.unit, required this.color});
+  const _StatBox(
+      {required this.label,
+      required this.value,
+      required this.unit,
+      required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -323,13 +402,18 @@ class _StatBox extends StatelessWidget {
               text: TextSpan(
                 style: theme.textTheme.headlineMedium,
                 children: [
-                  TextSpan(text: value, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
-                  if (unit.isNotEmpty) TextSpan(text: ' $unit', style: theme.textTheme.bodySmall),
+                  TextSpan(
+                      text: value,
+                      style:
+                          TextStyle(color: color, fontWeight: FontWeight.bold)),
+                  if (unit.isNotEmpty)
+                    TextSpan(text: ' $unit', style: theme.textTheme.bodySmall),
                 ],
               ),
             ),
             const SizedBox(height: 4),
-            Text(label, style: theme.textTheme.bodySmall, textAlign: TextAlign.center),
+            Text(label,
+                style: theme.textTheme.bodySmall, textAlign: TextAlign.center),
           ],
         ),
       ),

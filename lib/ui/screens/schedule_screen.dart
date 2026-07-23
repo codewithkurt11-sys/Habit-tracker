@@ -28,7 +28,8 @@ class ScheduleScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Schedule', style: Theme.of(context).textTheme.headlineSmall),
+                    Text('Schedule',
+                        style: Theme.of(context).textTheme.headlineSmall),
                     const SizedBox(height: 2),
                     Text('${today.length} items today',
                         style: Theme.of(context).textTheme.bodySmall),
@@ -96,9 +97,11 @@ class _ScheduleTile extends StatelessWidget {
                     width: 56,
                     padding: const EdgeInsets.symmetric(vertical: 4),
                     decoration: BoxDecoration(
-                      color: (isPast ? theme.colorScheme.onSurface.withValues(alpha: 0.1)
+                      color: (isPast
+                          ? theme.colorScheme.onSurface.withValues(alpha: 0.1)
                           : theme.colorScheme.primary.withValues(alpha: 0.12)),
-                      borderRadius: BorderRadius.circular(AppSpacing.radiusSmall),
+                      borderRadius:
+                          BorderRadius.circular(AppSpacing.radiusSmall),
                     ),
                     child: Column(
                       children: [
@@ -108,17 +111,21 @@ class _ScheduleTile extends StatelessWidget {
                           style: theme.textTheme.labelMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: isPast
-                                ? theme.colorScheme.onSurface.withValues(alpha: 0.4)
+                                ? theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.4)
                                 : theme.colorScheme.primary,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          isToday ? 'Today' : '${item.dateTime.month}/${item.dateTime.day}',
+                          isToday
+                              ? 'Today'
+                              : '${item.dateTime.month}/${item.dateTime.day}',
                           style: theme.textTheme.bodySmall?.copyWith(
                             fontSize: 10,
                             color: isPast
-                                ? theme.colorScheme.onSurface.withValues(alpha: 0.3)
+                                ? theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.3)
                                 : null,
                           ),
                         ),
@@ -130,7 +137,8 @@ class _ScheduleTile extends StatelessWidget {
                     child: Text(
                       item.title,
                       style: theme.textTheme.titleSmall?.copyWith(
-                        decoration: item.done ? TextDecoration.lineThrough : null,
+                        decoration:
+                            item.done ? TextDecoration.lineThrough : null,
                         color: item.done
                             ? theme.colorScheme.onSurface.withValues(alpha: 0.4)
                             : null,
@@ -138,7 +146,9 @@ class _ScheduleTile extends StatelessWidget {
                     ),
                   ),
                   Icon(
-                    item.done ? Icons.check_circle : Icons.radio_button_unchecked,
+                    item.done
+                        ? Icons.check_circle
+                        : Icons.radio_button_unchecked,
                     size: 22,
                     color: item.done
                         ? theme.extension<AppThemeExtension>()!.success
@@ -198,18 +208,23 @@ class _AddScheduleDialogState extends State<_AddScheduleDialog> {
                       context: context,
                       initialDate: _dateTime,
                       firstDate: DateTime.now(),
-                      lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+                      lastDate:
+                          DateTime.now().add(const Duration(days: 365 * 2)),
                     );
                     if (d != null) {
                       setState(() {
                         _dateTime = DateTime(
-                          d.year, d.month, d.day,
-                          _dateTime.hour, _dateTime.minute,
+                          d.year,
+                          d.month,
+                          d.day,
+                          _dateTime.hour,
+                          _dateTime.minute,
                         );
                       });
                     }
                   },
-                  child: Text('${_dateTime.month}/${_dateTime.day}/${_dateTime.year}'),
+                  child: Text(
+                      '${_dateTime.month}/${_dateTime.day}/${_dateTime.year}'),
                 ),
               ],
             ),
@@ -225,8 +240,11 @@ class _AddScheduleDialogState extends State<_AddScheduleDialog> {
                     if (t != null) {
                       setState(() {
                         _dateTime = DateTime(
-                          _dateTime.year, _dateTime.month, _dateTime.day,
-                          t.hour, t.minute,
+                          _dateTime.year,
+                          _dateTime.month,
+                          _dateTime.day,
+                          t.hour,
+                          t.minute,
                         );
                       });
                     }

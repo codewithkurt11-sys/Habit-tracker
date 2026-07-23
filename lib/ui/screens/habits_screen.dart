@@ -17,7 +17,8 @@ class HabitsScreen extends StatelessWidget {
     final state = context.watch<AppState>();
     final habits = state.habitsRepo.getDueToday();
     final today = DateTime.now();
-    final dateStr = '${today.month}/${today.day}/${today.year}'; // ignore: unused_local_variable
+    final dateStr =
+        '${today.month}/${today.day}/${today.year}'; // ignore: unused_local_variable
 
     return Scaffold(
       body: SafeArea(
@@ -37,11 +38,9 @@ class HabitsScreen extends StatelessWidget {
                       actionLabel: 'Add Habit',
                     )
                   : ListView.builder(
-                      padding: const EdgeInsets.only(
-                          bottom: AppSpacing.xxl),
+                      padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
                       itemCount: habits.length,
-                      itemBuilder: (_, i) =>
-                          _HabitTile(habit: habits[i]),
+                      itemBuilder: (_, i) => _HabitTile(habit: habits[i]),
                     ),
             ),
           ],
@@ -81,7 +80,8 @@ class _HabitTile extends StatelessWidget {
         child: InkWell(
           onTap: () => state.toggleHabit(habit.id),
           onLongPress: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => HabitDetailScreen(habitId: habit.id)),
+            MaterialPageRoute(
+                builder: (_) => HabitDetailScreen(habitId: habit.id)),
           ),
           borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
           child: Padding(
@@ -105,9 +105,8 @@ class _HabitTile extends StatelessWidget {
                     children: [
                       Text(habit.name,
                           style: theme.textTheme.titleMedium?.copyWith(
-                              decoration: done
-                                  ? TextDecoration.lineThrough
-                                  : null,
+                              decoration:
+                                  done ? TextDecoration.lineThrough : null,
                               color: done
                                   ? theme.colorScheme.onSurface
                                       .withValues(alpha: 0.4)
@@ -137,14 +136,11 @@ class _HabitTile extends StatelessWidget {
                   height: 32,
                   decoration: BoxDecoration(
                     color: done ? color : Colors.transparent,
-                    border: Border.all(
-                        color: color, width: 2),
-                    borderRadius:
-                        BorderRadius.circular(AppSpacing.radiusSmall),
+                    border: Border.all(color: color, width: 2),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusSmall),
                   ),
                   child: done
-                      ? const Icon(Icons.check,
-                          color: Colors.white, size: 18)
+                      ? const Icon(Icons.check, color: Colors.white, size: 18)
                       : null,
                 ),
               ],
@@ -237,16 +233,13 @@ class _AddHabitDialogState extends State<_AddHabitDialog> {
                     decoration: BoxDecoration(
                       color: sel
                           ? theme.colorScheme.primary
-                          : theme.extension<AppThemeExtension>()!
-                              .surfaceMuted,
+                          : theme.extension<AppThemeExtension>()!.surfaceMuted,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
                       HabitIcon.values[i].data,
                       size: 20,
-                      color: sel
-                          ? Colors.white
-                          : theme.colorScheme.onSurface,
+                      color: sel ? Colors.white : theme.colorScheme.onSurface,
                     ),
                   ),
                 );
@@ -270,7 +263,8 @@ class _AddHabitDialogState extends State<_AddHabitDialog> {
                       color: AppColors.habitColorPalette[i],
                       shape: BoxShape.circle,
                       border: sel
-                          ? Border.all(color: theme.colorScheme.onSurface, width: 3)
+                          ? Border.all(
+                              color: theme.colorScheme.onSurface, width: 3)
                           : null,
                     ),
                   ),
@@ -325,20 +319,16 @@ class _AddHabitDialogState extends State<_AddHabitDialog> {
             return GestureDetector(
               onTap: () => onChanged(i),
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                  color: sel
-                      ? theme.colorScheme.primary
-                      : ext.surfaceMuted,
+                  color: sel ? theme.colorScheme.primary : ext.surfaceMuted,
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
                   options[i],
                   style: TextStyle(
-                    color: sel
-                        ? Colors.white
-                        : theme.colorScheme.onSurface,
+                    color: sel ? Colors.white : theme.colorScheme.onSurface,
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
                   ),

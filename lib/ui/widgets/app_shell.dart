@@ -21,6 +21,7 @@ import '../screens/export_screen.dart';
 import '../screens/kanban_screen.dart';
 import '../screens/calendar_screen.dart';
 import '../screens/search_screen.dart';
+import '../screens/friends_screen.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -71,8 +72,10 @@ class _AppShellState extends State<AppShell> {
       case 8:
         return const ProfileScreen();
       case 9:
-        return const SettingsScreen();
+        return const FriendsScreen();
       case 10:
+        return const SettingsScreen();
+      case 11:
         return const ExportScreen();
       default:
         return const SizedBox.shrink();
@@ -90,6 +93,7 @@ class _AppShellState extends State<AppShell> {
       'Calendar',
       'File Manager',
       'Profile',
+      'Friends',
       'Settings',
       'Backup & Export',
     ];
@@ -107,6 +111,7 @@ class _AppShellState extends State<AppShell> {
       Icons.calendar_month_outlined,
       Icons.folder_outlined,
       Icons.person_outline,
+      Icons.group_outlined,
       Icons.settings_outlined,
       Icons.download_outlined,
     ];
@@ -128,7 +133,8 @@ class _AppShellState extends State<AppShell> {
               IconButton(
                 icon: const Icon(Icons.search),
                 onPressed: () => Navigator.of(ctx).push(
-                  MaterialPageRoute(builder: (_) => const Scaffold(body: SearchScreen())),
+                  MaterialPageRoute(
+                      builder: (_) => const Scaffold(body: SearchScreen())),
                 ),
               ),
             ],
@@ -217,13 +223,12 @@ class _AppShellState extends State<AppShell> {
   Widget _buildSidebarItem(BuildContext context, int index) {
     final theme = Theme.of(context);
     return ListTile(
-      leading: Icon(_sidebarIcon(index),
-          color: theme.colorScheme.primary, size: 22),
+      leading:
+          Icon(_sidebarIcon(index), color: theme.colorScheme.primary, size: 22),
       title: Text(_sidebarLabel(index), style: theme.textTheme.bodyLarge),
       trailing: Icon(Icons.chevron_right,
           color: theme.colorScheme.onSurface.withValues(alpha: 0.3)),
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       onTap: () => _openSidebarScreen(index),
     );
   }
@@ -241,14 +246,16 @@ class _AppShellState extends State<AppShell> {
               child: ListView(
                 padding: EdgeInsets.zero,
                 children: [
-                  for (int i = 0; i < 11; i++) _buildSidebarItem(context, i),
+                  for (int i = 0; i < 12; i++) _buildSidebarItem(context, i),
                 ],
               ),
             ),
             const Divider(height: 1),
             ListTile(
               leading: Icon(Icons.info_outline,
-                  color: Theme.of(context).colorScheme.onSurface
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface
                       .withValues(alpha: 0.5)),
               title: Text('Version 2.0.0',
                   style: Theme.of(context).textTheme.bodySmall),

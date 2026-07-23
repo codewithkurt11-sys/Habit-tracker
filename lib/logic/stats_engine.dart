@@ -51,7 +51,8 @@ class StatsEngine {
     final today = DateTime(now.year, now.month, now.day);
     final result = <int>[];
     for (int w = weeks - 1; w >= 0; w--) {
-      final weekStart = today.subtract(Duration(days: today.weekday - 1 + w * 7));
+      final weekStart =
+          today.subtract(Duration(days: today.weekday - 1 + w * 7));
       var count = 0;
       for (int d = 0; d < 7; d++) {
         final date = weekStart.add(Duration(days: d));
@@ -96,7 +97,8 @@ class StatsEngine {
   /// Best streak across all habits.
   static int bestStreakAcross(List<Habit> habits) {
     if (habits.isEmpty) return 0;
-    return habits.fold(0, (max, h) => h.bestStreak() > max ? h.bestStreak() : max);
+    return habits.fold(
+        0, (max, h) => h.bestStreak() > max ? h.bestStreak() : max);
   }
 
   /// Current streak across all habits (max of current streaks).
@@ -144,7 +146,8 @@ class StatsEngine {
     final d = DateTime(date.year, date.month, date.day);
     return tasks.where((t) {
       if (t.completedAt == null) return false;
-      final cd = DateTime(t.completedAt!.year, t.completedAt!.month, t.completedAt!.day);
+      final cd = DateTime(
+          t.completedAt!.year, t.completedAt!.month, t.completedAt!.day);
       return cd.isAtSameMomentAs(d);
     }).length;
   }
@@ -201,35 +204,44 @@ class StatsEngine {
   }
 
   static int completedPomodoros(List<FocusSession> sessions) {
-    return sessions.where((s) => s.type == FocusType.pomodoro && s.completed).length;
+    return sessions
+        .where((s) => s.type == FocusType.pomodoro && s.completed)
+        .length;
   }
 
   // ─── Finance Statistics ─────────────────────────────────────────
 
-  static double monthlyBalance(List<FinanceEntry> entries, int year, int month) {
+  static double monthlyBalance(
+      List<FinanceEntry> entries, int year, int month) {
     final income = entries
-        .where((e) => e.isIncome && e.date.year == year && e.date.month == month)
+        .where(
+            (e) => e.isIncome && e.date.year == year && e.date.month == month)
         .fold(0.0, (s, e) => s + e.amount);
     final expenses = entries
-        .where((e) => !e.isIncome && e.date.year == year && e.date.month == month)
+        .where(
+            (e) => !e.isIncome && e.date.year == year && e.date.month == month)
         .fold(0.0, (s, e) => s + e.amount);
     return income - expenses;
   }
 
   static double monthlyIncome(List<FinanceEntry> entries, int year, int month) {
     return entries
-        .where((e) => e.isIncome && e.date.year == year && e.date.month == month)
+        .where(
+            (e) => e.isIncome && e.date.year == year && e.date.month == month)
         .fold(0.0, (s, e) => s + e.amount);
   }
 
-  static double monthlyExpenses(List<FinanceEntry> entries, int year, int month) {
+  static double monthlyExpenses(
+      List<FinanceEntry> entries, int year, int month) {
     return entries
-        .where((e) => !e.isIncome && e.date.year == year && e.date.month == month)
+        .where(
+            (e) => !e.isIncome && e.date.year == year && e.date.month == month)
         .fold(0.0, (s, e) => s + e.amount);
   }
 
   /// Expense breakdown by category for a given month.
-  static Map<String, double> expenseByCategory(List<FinanceEntry> entries, int year, int month) {
+  static Map<String, double> expenseByCategory(
+      List<FinanceEntry> entries, int year, int month) {
     final map = <String, double>{};
     for (final e in entries) {
       if (!e.isIncome && e.date.year == year && e.date.month == month) {
@@ -237,7 +249,8 @@ class StatsEngine {
       }
     }
     // Sort by value descending
-    final sorted = map.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    final sorted = map.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
     return Map.fromEntries(sorted);
   }
 
@@ -307,7 +320,8 @@ class StatsEngine {
       insights.add(HabitInsight(
         icon: '🔥',
         title: 'Best Streak: $best days',
-        description: 'Your longest habit streak is $best consecutive days. Keep it going!',
+        description:
+            'Your longest habit streak is $best consecutive days. Keep it going!',
         type: InsightType.achievement,
       ));
     }
@@ -318,7 +332,8 @@ class StatsEngine {
       insights.add(HabitInsight(
         icon: '⚡',
         title: 'Current Streak: $current days',
-        description: 'You\'re on a $current-day streak. Don\'t break the chain!',
+        description:
+            'You\'re on a $current-day streak. Don\'t break the chain!',
         type: InsightType.streak,
       ));
     }
@@ -346,7 +361,8 @@ class StatsEngine {
       insights.add(HabitInsight(
         icon: '🎯',
         title: 'Total Focus: ${hours}h',
-        description: 'You\'ve focused for $focusMin minutes ($hours hours) total.',
+        description:
+            'You\'ve focused for $focusMin minutes ($hours hours) total.',
         type: InsightType.focus,
       ));
     }
@@ -357,7 +373,8 @@ class StatsEngine {
       insights.add(HabitInsight(
         icon: '⚠️',
         title: '$overdue Overdue Task${overdue > 1 ? 's' : ''}',
-        description: 'You have $overdue overdue task${overdue > 1 ? 's' : ''}. Consider rescheduling or completing them.',
+        description:
+            'You have $overdue overdue task${overdue > 1 ? 's' : ''}. Consider rescheduling or completing them.',
         type: InsightType.warning,
       ));
     }

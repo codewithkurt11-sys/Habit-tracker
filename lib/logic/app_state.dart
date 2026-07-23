@@ -12,6 +12,9 @@ import '../data/repositories/focus_repository.dart';
 import '../data/repositories/schedule_repository.dart';
 import '../data/repositories/quotes_repository.dart';
 import '../data/repositories/settings_repository.dart';
+import '../services/auth_service.dart';
+import '../services/sync_service.dart';
+import '../services/friends_repository.dart';
 
 /// Central app state exposed via [Provider].
 ///
@@ -29,8 +32,56 @@ class AppState extends ChangeNotifier {
   final quotesRepo = QuotesRepository();
   final settingsRepo = SettingsRepository();
 
+  // Cloud sync layer (optional). Always present but no-op when signed out.
+  final authService = AuthService();
+  final syncService = SyncService();
+  final friendsRepo = FriendsRepository();
+
   bool _busy = false;
   bool get busy => _busy;
+
+  // ---------- cloud sync wiring ----------
+  /// Whether the cloud layer is available (signed in + online).
+  bool get cloudAvailable => authService.isSignedIn && syncService.isOnline;
+
+  /// Listen to SyncService notifyListeners (offline->online / sign-in) and
+  /// trigger reconciliation. Call once after construction (in main.dart).
+  void initSync() {
+    syncService.addListener(_onSyncServiceChanged);
+    // Also trigger an initial reconcile if already signed in + online.
+    if (syncService.shouldReconcile) _reconcileWithCloud();
+  }
+
+  void _onSyncServiceChanged() {
+    if (syncService.shouldReconcile) {
+      _reconcileWithCloud();
+    }
+  }
+
+  /// Full reconciliation: push all local records, pull cloud-only / newer.
+  Future<void> _reconcileWithCloud() async {
+    await syncService.reconcile(
+      localHabits: habitsRepo.getAll(),
+      localTasks: tasksRepo.getAll(includeArchived: true),
+      localGoals: goalsRepo.getAll(includeArchived: true),
+      localSchedule: scheduleRepo.getAll(),
+      onHabitFromCloud: (h) => habitsRepo.update(h),
+      onTaskFromCloud: (t) => tasksRepo.update(t),
+      onGoalFromCloud: (g) => goalsRepo.update(g),
+      onScheduleFromCloud: (s) => scheduleRepo.update(s),
+    );
+    notifyListeners();
+  }
+
+  /// Fire-and-forget push of a single record after a local mutation.
+  void _pushRecord(String type, String id, Map<String, dynamic> data) {
+    // no-op when signed out / offline
+    syncService.pushRecord(type, id, data);
+  }
+
+  void _pushDelete(String type, String id) {
+    syncService.pushDelete(type, id);
+  }
 
   // ---------- theme ----------
   UserSettings get settings => settingsRepo.current;
@@ -76,7 +127,7 @@ class AppState extends ChangeNotifier {
     _busy = true;
     notifyListeners();
     try {
-      await habitsRepo.create(
+      final habit = await habitsRepo.create(
         name: name,
         category: _habitCategory(categoryIndex),
         frequency: _habitFrequency(frequencyIndex),
@@ -85,6 +136,7 @@ class AppState extends ChangeNotifier {
         colorValue: colorValue,
         targetStreak: targetStreak,
       );
+      _pushRecord('habits', habit.id, syncService.habitToMap(habit));
     } finally {
       _busy = false;
       notifyListeners();
@@ -95,16 +147,19 @@ class AppState extends ChangeNotifier {
     final h = habitsRepo.getById(id);
     if (h == null) return;
     await habitsRepo.toggleCompletion(h, date: date);
+    _pushRecord('habits', h.id, syncService.habitToMap(h));
     notifyListeners();
   }
 
   Future<void> deleteHabit(String id) async {
     await habitsRepo.delete(id);
+    _pushDelete('habits', id);
     notifyListeners();
   }
 
   Future<void> updateHabit(Habit habit) async {
     await habitsRepo.update(habit);
+    _pushRecord('habits', habit.id, syncService.habitToMap(habit));
     notifyListeners();
   }
 
@@ -120,7 +175,7 @@ class AppState extends ChangeNotifier {
     _busy = true;
     notifyListeners();
     try {
-      await tasksRepo.create(
+      final task = await tasksRepo.create(
         title: title,
         description: description,
         priority: _taskPriority(priorityIndex),
@@ -128,6 +183,7 @@ class AppState extends ChangeNotifier {
         dueDate: dueDate,
         subtaskTitles: subtaskTitles,
       );
+      _pushRecord('tasks', task.id, syncService.taskToMap(task));
     } finally {
       _busy = false;
       notifyListeners();
@@ -144,7 +200,9 @@ class AppState extends ChangeNotifier {
       t.status = _taskStatus(2); // done
       t.completedAt = DateTime.now();
     }
+    t.touch();
     await tasksRepo.update(t);
+    _pushRecord('tasks', t.id, syncService.taskToMap(t));
     notifyListeners();
   }
 
@@ -152,11 +210,13 @@ class AppState extends ChangeNotifier {
     final t = tasksRepo.getById(taskId);
     if (t == null) return;
     await tasksRepo.toggleSubtask(t, index);
+    _pushRecord('tasks', t.id, syncService.taskToMap(t));
     notifyListeners();
   }
 
   Future<void> deleteTask(String id) async {
     await tasksRepo.delete(id);
+    _pushDelete('tasks', id);
     notifyListeners();
   }
 
@@ -172,7 +232,7 @@ class AppState extends ChangeNotifier {
     _busy = true;
     notifyListeners();
     try {
-      await goalsRepo.create(
+      final goal = await goalsRepo.create(
         title: title,
         description: description,
         categoryIndex: categoryIndex,
@@ -180,6 +240,7 @@ class AppState extends ChangeNotifier {
         targetValue: targetValue,
         colorValue: colorValue,
       );
+      _pushRecord('goals', goal.id, syncService.goalToMap(goal));
     } finally {
       _busy = false;
       notifyListeners();
@@ -187,28 +248,42 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> updateGoalProgress(String id, double value) async {
-    final g = goalsRepo.getAll(includeArchived: true).where((g) => g.id == id).firstOrNull;
+    final g = goalsRepo
+        .getAll(includeArchived: true)
+        .where((g) => g.id == id)
+        .firstOrNull;
     if (g == null) return;
     await goalsRepo.updateProgress(g, value);
+    _pushRecord('goals', g.id, syncService.goalToMap(g));
     notifyListeners();
   }
 
   Future<void> toggleGoalMilestone(String id, int index) async {
-    final g = goalsRepo.getAll(includeArchived: true).where((g) => g.id == id).firstOrNull;
+    final g = goalsRepo
+        .getAll(includeArchived: true)
+        .where((g) => g.id == id)
+        .firstOrNull;
     if (g == null) return;
     await goalsRepo.toggleMilestone(g, index);
+    _pushRecord('goals', g.id, syncService.goalToMap(g));
     notifyListeners();
   }
 
-  Future<void> addGoalMilestone(String id, String title, {DateTime? dueDate}) async {
-    final g = goalsRepo.getAll(includeArchived: true).where((g) => g.id == id).firstOrNull;
+  Future<void> addGoalMilestone(String id, String title,
+      {DateTime? dueDate}) async {
+    final g = goalsRepo
+        .getAll(includeArchived: true)
+        .where((g) => g.id == id)
+        .firstOrNull;
     if (g == null) return;
     await goalsRepo.addMilestone(g, title, dueDate: dueDate);
+    _pushRecord('goals', g.id, syncService.goalToMap(g));
     notifyListeners();
   }
 
   Future<void> deleteGoal(String id) async {
     await goalsRepo.delete(id);
+    _pushDelete('goals', id);
     notifyListeners();
   }
 
@@ -333,7 +408,8 @@ class AppState extends ChangeNotifier {
     _busy = true;
     notifyListeners();
     try {
-      await scheduleRepo.create(title: title, dateTime: dateTime);
+      final item = await scheduleRepo.create(title: title, dateTime: dateTime);
+      _pushRecord('schedule', item.id, syncService.scheduleToMap(item));
     } finally {
       _busy = false;
       notifyListeners();
@@ -344,11 +420,15 @@ class AppState extends ChangeNotifier {
     final s = scheduleRepo.getAll().where((s) => s.id == id).firstOrNull;
     if (s == null) return;
     await scheduleRepo.toggle(s);
+    final updated = scheduleRepo.getAll().where((x) => x.id == id).firstOrNull;
+    if (updated != null)
+      _pushRecord('schedule', id, syncService.scheduleToMap(updated));
     notifyListeners();
   }
 
   Future<void> deleteSchedule(String id) async {
     await scheduleRepo.delete(id);
+    _pushDelete('schedule', id);
     notifyListeners();
   }
 
@@ -381,98 +461,126 @@ class AppState extends ChangeNotifier {
     };
 
     // habits
-    data['habits'] = habitsRepo.getAll().map((h) => {
-      'id': h.id,
-      'name': h.name,
-      'category': h.category.name,
-      'frequency': h.frequency.name,
-      'customDays': h.customDays,
-      'completionLog': h.completionLog.map((d) => d.toIso8601String()).toList(),
-      'createdAt': h.createdAt.toIso8601String(),
-      'iconIndex': h.iconIndex,
-      'colorValue': h.colorValue,
-      'targetStreak': h.targetStreak,
-      'currentStreak': h.currentStreak(),
-      'bestStreak': h.bestStreak(),
-      'totalCompletions': h.totalCompletions,
-      'completionRate': h.completionRate(),
-    }).toList();
+    data['habits'] = habitsRepo
+        .getAll()
+        .map((h) => {
+              'id': h.id,
+              'name': h.name,
+              'category': h.category.name,
+              'frequency': h.frequency.name,
+              'customDays': h.customDays,
+              'completionLog':
+                  h.completionLog.map((d) => d.toIso8601String()).toList(),
+              'createdAt': h.createdAt.toIso8601String(),
+              'iconIndex': h.iconIndex,
+              'colorValue': h.colorValue,
+              'targetStreak': h.targetStreak,
+              'currentStreak': h.currentStreak(),
+              'bestStreak': h.bestStreak(),
+              'totalCompletions': h.totalCompletions,
+              'completionRate': h.completionRate(),
+            })
+        .toList();
 
     // tasks
-    data['tasks'] = tasksRepo.getAll(includeArchived: true).map((t) => {
-      'id': t.id,
-      'title': t.title,
-      'description': t.description,
-      'priority': t.priority.name,
-      'status': t.status.name,
-      'category': t.category.name,
-      'dueDate': t.dueDate?.toIso8601String(),
-      'tags': t.tags,
-      'subtasks': List.generate(t.subtaskTitles.length, (i) => {
-        'title': t.subtaskTitles[i],
-        'done': i < t.subtaskDone.length ? t.subtaskDone[i] : false,
-      }),
-      'isRecurring': t.isRecurring,
-      'recurringPattern': t.recurringPattern,
-      'createdAt': t.createdAt.toIso8601String(),
-      'completedAt': t.completedAt?.toIso8601String(),
-      'archived': t.archived,
-    }).toList();
+    data['tasks'] = tasksRepo
+        .getAll(includeArchived: true)
+        .map((t) => {
+              'id': t.id,
+              'title': t.title,
+              'description': t.description,
+              'priority': t.priority.name,
+              'status': t.status.name,
+              'category': t.category.name,
+              'dueDate': t.dueDate?.toIso8601String(),
+              'tags': t.tags,
+              'subtasks': List.generate(
+                  t.subtaskTitles.length,
+                  (i) => {
+                        'title': t.subtaskTitles[i],
+                        'done':
+                            i < t.subtaskDone.length ? t.subtaskDone[i] : false,
+                      }),
+              'isRecurring': t.isRecurring,
+              'recurringPattern': t.recurringPattern,
+              'createdAt': t.createdAt.toIso8601String(),
+              'completedAt': t.completedAt?.toIso8601String(),
+              'archived': t.archived,
+            })
+        .toList();
 
     // goals
-    data['goals'] = goalsRepo.getAll(includeArchived: true).map((g) => {
-      'id': g.id,
-      'title': g.title,
-      'description': g.description,
-      'category': g.category.name,
-      'deadline': g.deadline?.toIso8601String(),
-      'targetValue': g.targetValue,
-      'currentValue': g.currentValue,
-      'progress': g.progressFraction,
-      'milestones': List.generate(g.milestoneTitles.length, (i) => {
-        'title': g.milestoneTitles[i],
-        'done': i < g.milestoneDone.length ? g.milestoneDone[i] : false,
-        'dueDate': i < g.milestoneDates.length ? g.milestoneDates[i]?.toIso8601String() : null,
-      }),
-      'completed': g.completed,
-      'archived': g.archived,
-      'createdAt': g.createdAt.toIso8601String(),
-    }).toList();
+    data['goals'] = goalsRepo
+        .getAll(includeArchived: true)
+        .map((g) => {
+              'id': g.id,
+              'title': g.title,
+              'description': g.description,
+              'category': g.category.name,
+              'deadline': g.deadline?.toIso8601String(),
+              'targetValue': g.targetValue,
+              'currentValue': g.currentValue,
+              'progress': g.progressFraction,
+              'milestones': List.generate(
+                  g.milestoneTitles.length,
+                  (i) => {
+                        'title': g.milestoneTitles[i],
+                        'done': i < g.milestoneDone.length
+                            ? g.milestoneDone[i]
+                            : false,
+                        'dueDate': i < g.milestoneDates.length
+                            ? g.milestoneDates[i]?.toIso8601String()
+                            : null,
+                      }),
+              'completed': g.completed,
+              'archived': g.archived,
+              'createdAt': g.createdAt.toIso8601String(),
+            })
+        .toList();
 
     // journal
-    data['journal'] = journalRepo.getAll().map((j) => {
-      'id': j.id,
-      'title': j.title,
-      'body': j.body,
-      'mood': j.mood?.name,
-      'date': j.date.toIso8601String(),
-      'tags': j.tags,
-      'isFavorite': j.isFavorite,
-      'createdAt': j.createdAt.toIso8601String(),
-    }).toList();
+    data['journal'] = journalRepo
+        .getAll()
+        .map((j) => {
+              'id': j.id,
+              'title': j.title,
+              'body': j.body,
+              'mood': j.mood?.name,
+              'date': j.date.toIso8601String(),
+              'tags': j.tags,
+              'isFavorite': j.isFavorite,
+              'createdAt': j.createdAt.toIso8601String(),
+            })
+        .toList();
 
     // notes
-    data['notes'] = notesRepo.getAll().map((n) => {
-      'id': n.id,
-      'title': n.title,
-      'body': n.body,
-      'mood': n.mood?.name,
-      'timestamp': n.timestamp.toIso8601String(),
-      'habitId': n.habitId,
-      'linkedDate': n.linkedDate?.toIso8601String(),
-    }).toList();
+    data['notes'] = notesRepo
+        .getAll()
+        .map((n) => {
+              'id': n.id,
+              'title': n.title,
+              'body': n.body,
+              'mood': n.mood?.name,
+              'timestamp': n.timestamp.toIso8601String(),
+              'habitId': n.habitId,
+              'linkedDate': n.linkedDate?.toIso8601String(),
+            })
+        .toList();
 
     // finance
-    data['finance'] = financeRepo.getAll().map((f) => {
-      'id': f.id,
-      'title': f.title,
-      'amount': f.amount,
-      'type': f.type.name,
-      'category': f.categoryLabel,
-      'date': f.date.toIso8601String(),
-      'note': f.note,
-      'createdAt': f.createdAt.toIso8601String(),
-    }).toList();
+    data['finance'] = financeRepo
+        .getAll()
+        .map((f) => {
+              'id': f.id,
+              'title': f.title,
+              'amount': f.amount,
+              'type': f.type.name,
+              'category': f.categoryLabel,
+              'date': f.date.toIso8601String(),
+              'note': f.note,
+              'createdAt': f.createdAt.toIso8601String(),
+            })
+        .toList();
 
     // finance budget
     final budget = financeRepo.budget;
@@ -483,31 +591,40 @@ class AppState extends ChangeNotifier {
     };
 
     // focus sessions
-    data['focusSessions'] = focusRepo.getAll().map((s) => {
-      'id': s.id,
-      'type': s.type.name,
-      'durationSeconds': s.durationSeconds,
-      'completedSeconds': s.completedSeconds,
-      'completed': s.completed,
-      'startedAt': s.startedAt.toIso8601String(),
-      'taskTitle': s.taskTitle,
-    }).toList();
+    data['focusSessions'] = focusRepo
+        .getAll()
+        .map((s) => {
+              'id': s.id,
+              'type': s.type.name,
+              'durationSeconds': s.durationSeconds,
+              'completedSeconds': s.completedSeconds,
+              'completed': s.completed,
+              'startedAt': s.startedAt.toIso8601String(),
+              'taskTitle': s.taskTitle,
+            })
+        .toList();
 
     // schedule
-    data['schedule'] = scheduleRepo.getAll().map((s) => {
-      'id': s.id,
-      'title': s.title,
-      'dateTime': s.dateTime.toIso8601String(),
-      'done': s.done,
-    }).toList();
+    data['schedule'] = scheduleRepo
+        .getAll()
+        .map((s) => {
+              'id': s.id,
+              'title': s.title,
+              'dateTime': s.dateTime.toIso8601String(),
+              'done': s.done,
+            })
+        .toList();
 
     // quotes
-    data['quotes'] = quotesRepo.getAll().map((q) => {
-      'id': q.id,
-      'text': q.text,
-      'author': q.author,
-      'isCustom': q.isCustom,
-    }).toList();
+    data['quotes'] = quotesRepo
+        .getAll()
+        .map((q) => {
+              'id': q.id,
+              'text': q.text,
+              'author': q.author,
+              'isCustom': q.isCustom,
+            })
+        .toList();
 
     // summary counts
     data['_summary'] = {

@@ -19,8 +19,10 @@ class FinanceScreen extends StatelessWidget {
     final entries = state.financeRepo.getForMonth(now.year, now.month)
       ..sort((a, b) => b.date.compareTo(a.date));
 
-    final income = state.financeRepo.getTotalIncome(year: now.year, month: now.month);
-    final expenses = state.financeRepo.getTotalExpenses(year: now.year, month: now.month);
+    final income =
+        state.financeRepo.getTotalIncome(year: now.year, month: now.month);
+    final expenses =
+        state.financeRepo.getTotalExpenses(year: now.year, month: now.month);
     final balance = income - expenses;
     final monthName = DateFormat.MMMM().format(now);
     final budget = state.financeRepo.budget;
@@ -171,7 +173,8 @@ class _BudgetOverviewCard extends StatelessWidget {
     final fmt = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
     final budgetPct = budget > 0 ? (expenses / budget).clamp(0.0, 1.0) : 0.0;
     final savings = income - expenses;
-    final savingsPct = savingsGoal > 0 ? (savings / savingsGoal).clamp(0.0, 1.0) : 0.0;
+    final savingsPct =
+        savingsGoal > 0 ? (savings / savingsGoal).clamp(0.0, 1.0) : 0.0;
     final overBudget = budget > 0 && expenses > budget;
 
     return Padding(
@@ -186,9 +189,14 @@ class _BudgetOverviewCard extends StatelessWidget {
               if (budget > 0) ...[
                 Row(
                   children: [
-                    Icon(Icons.account_balance, size: 18, color: overBudget ? theme.colorScheme.error : ext.success),
+                    Icon(Icons.account_balance,
+                        size: 18,
+                        color:
+                            overBudget ? theme.colorScheme.error : ext.success),
                     const SizedBox(width: 8),
-                    Expanded(child: Text('Monthly Budget', style: theme.textTheme.titleSmall)),
+                    Expanded(
+                        child: Text('Monthly Budget',
+                            style: theme.textTheme.titleSmall)),
                     Text(
                       '${fmt.format(expenses)} / ${fmt.format(budget)}',
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -204,14 +212,19 @@ class _BudgetOverviewCard extends StatelessWidget {
                   child: LinearProgressIndicator(
                     value: budgetPct,
                     minHeight: 8,
-                    backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.08),
-                    valueColor: AlwaysStoppedAnimation<Color>(overBudget ? theme.colorScheme.error : ext.success),
+                    backgroundColor:
+                        theme.colorScheme.onSurface.withValues(alpha: 0.08),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                        overBudget ? theme.colorScheme.error : ext.success),
                   ),
                 ),
                 if (overBudget)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
-                    child: Text('Over budget by ${fmt.format(expenses - budget)}', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error)),
+                    child: Text(
+                        'Over budget by ${fmt.format(expenses - budget)}',
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: theme.colorScheme.error)),
                   ),
                 const SizedBox(height: AppSpacing.md),
               ],
@@ -219,10 +232,15 @@ class _BudgetOverviewCard extends StatelessWidget {
               if (savingsGoal > 0) ...[
                 Row(
                   children: [
-                    Icon(Icons.savings, size: 18, color: theme.colorScheme.primary),
+                    Icon(Icons.savings,
+                        size: 18, color: theme.colorScheme.primary),
                     const SizedBox(width: 8),
-                    Expanded(child: Text('Savings Goal', style: theme.textTheme.titleSmall)),
-                    Text('${fmt.format(savings)} / ${fmt.format(savingsGoal)}', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
+                    Expanded(
+                        child: Text('Savings Goal',
+                            style: theme.textTheme.titleSmall)),
+                    Text('${fmt.format(savings)} / ${fmt.format(savingsGoal)}',
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(fontWeight: FontWeight.bold)),
                   ],
                 ),
                 const SizedBox(height: 6),
@@ -231,15 +249,19 @@ class _BudgetOverviewCard extends StatelessWidget {
                   child: LinearProgressIndicator(
                     value: savingsPct,
                     minHeight: 8,
-                    backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.08),
-                    valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
+                    backgroundColor:
+                        theme.colorScheme.onSurface.withValues(alpha: 0.08),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                        theme.colorScheme.primary),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.md),
               ],
               // Category breakdown
               if (categoryBreakdown.isNotEmpty) ...[
-                Text('Spending by Category', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
+                Text('Spending by Category',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: AppSpacing.xs),
                 ...categoryBreakdown.entries.take(5).map((e) {
                   final pct = expenses > 0 ? (e.value / expenses * 100) : 0.0;
@@ -247,19 +269,29 @@ class _BudgetOverviewCard extends StatelessWidget {
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Row(
                       children: [
-                        SizedBox(width: 80, child: Text(e.key, style: theme.textTheme.bodySmall)),
+                        SizedBox(
+                            width: 80,
+                            child:
+                                Text(e.key, style: theme.textTheme.bodySmall)),
                         Expanded(
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(4),
                             child: LinearProgressIndicator(
                               value: pct / 100,
                               minHeight: 6,
-                              backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.08),
-                              valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.error.withValues(alpha: 0.6)),
+                              backgroundColor: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.08),
+                              valueColor: AlwaysStoppedAnimation<Color>(theme
+                                  .colorScheme.error
+                                  .withValues(alpha: 0.6)),
                             ),
                           ),
                         ),
-                        SizedBox(width: 50, child: Text('\$${e.value.toStringAsFixed(0)}', style: theme.textTheme.bodySmall, textAlign: TextAlign.right)),
+                        SizedBox(
+                            width: 50,
+                            child: Text('\$${e.value.toStringAsFixed(0)}',
+                                style: theme.textTheme.bodySmall,
+                                textAlign: TextAlign.right)),
                       ],
                     ),
                   );
@@ -303,11 +335,14 @@ class _MiniStat extends StatelessWidget {
             children: [
               Icon(icon, size: 14, color: color),
               const SizedBox(width: 4),
-              Text(label, style: theme.textTheme.bodySmall?.copyWith(color: color)),
+              Text(label,
+                  style: theme.textTheme.bodySmall?.copyWith(color: color)),
             ],
           ),
           const SizedBox(height: 4),
-          Text(value, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+          Text(value,
+              style: theme.textTheme.titleSmall
+                  ?.copyWith(fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -348,9 +383,11 @@ class _FinanceTile extends StatelessWidget {
                   height: 44,
                   decoration: BoxDecoration(
                     color: entry.categoryColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+                    borderRadius:
+                        BorderRadius.circular(AppSpacing.radiusMedium),
                   ),
-                  child: Icon(entry.categoryIcon, color: entry.categoryColor, size: 22),
+                  child: Icon(entry.categoryIcon,
+                      color: entry.categoryColor, size: 22),
                 ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
@@ -361,7 +398,9 @@ class _FinanceTile extends StatelessWidget {
                       const SizedBox(height: 2),
                       Row(
                         children: [
-                          PillChip(label: entry.categoryLabel, color: entry.categoryColor),
+                          PillChip(
+                              label: entry.categoryLabel,
+                              color: entry.categoryColor),
                           const SizedBox(width: 6),
                           Text(
                             '${entry.date.month}/${entry.date.day}',
@@ -376,7 +415,9 @@ class _FinanceTile extends StatelessWidget {
                   '${isIncome ? '+' : '-'}${fmt.format(entry.amount)}',
                   style: theme.textTheme.titleSmall?.copyWith(
                     color: isIncome
-                        ? Theme.of(context).extension<AppThemeExtension>()!.success
+                        ? Theme.of(context)
+                            .extension<AppThemeExtension>()!
+                            .success
                         : theme.colorScheme.error,
                     fontWeight: FontWeight.bold,
                   ),
@@ -444,17 +485,23 @@ class _AddFinanceDialogState extends State<_AddFinanceDialog> {
               children: [
                 Expanded(
                   child: GestureDetector(
-                    onTap: () => setState(() { _typeIndex = 0; _categoryIndex = 0; }),
+                    onTap: () => setState(() {
+                      _typeIndex = 0;
+                      _categoryIndex = 0;
+                    }),
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       decoration: BoxDecoration(
                         color: _typeIndex == 0 ? ext.success : ext.surfaceMuted,
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusPill),
                       ),
                       child: Center(
                         child: Text('Income',
                             style: TextStyle(
-                              color: _typeIndex == 0 ? Colors.white : theme.colorScheme.onSurface,
+                              color: _typeIndex == 0
+                                  ? Colors.white
+                                  : theme.colorScheme.onSurface,
                               fontWeight: FontWeight.w600,
                             )),
                       ),
@@ -464,17 +511,25 @@ class _AddFinanceDialogState extends State<_AddFinanceDialog> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: GestureDetector(
-                    onTap: () => setState(() { _typeIndex = 1; _categoryIndex = 0; }),
+                    onTap: () => setState(() {
+                      _typeIndex = 1;
+                      _categoryIndex = 0;
+                    }),
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       decoration: BoxDecoration(
-                        color: _typeIndex == 1 ? theme.colorScheme.error : ext.surfaceMuted,
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+                        color: _typeIndex == 1
+                            ? theme.colorScheme.error
+                            : ext.surfaceMuted,
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusPill),
                       ),
                       child: Center(
                         child: Text('Expense',
                             style: TextStyle(
-                              color: _typeIndex == 1 ? Colors.white : theme.colorScheme.onSurface,
+                              color: _typeIndex == 1
+                                  ? Colors.white
+                                  : theme.colorScheme.onSurface,
                               fontWeight: FontWeight.w600,
                             )),
                       ),
@@ -499,7 +554,8 @@ class _AddFinanceDialogState extends State<_AddFinanceDialog> {
                 labelText: 'Amount',
                 prefixText: '\$ ',
               ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
             ),
             const SizedBox(height: AppSpacing.md),
             // Category
@@ -516,21 +572,29 @@ class _AddFinanceDialogState extends State<_AddFinanceDialog> {
                 return GestureDetector(
                   onTap: () => setState(() => _categoryIndex = i),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: sel ? theme.colorScheme.primary : ext.surfaceMuted,
-                      borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+                      borderRadius:
+                          BorderRadius.circular(AppSpacing.radiusPill),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(_categoryIcons[i], size: 14,
-                            color: sel ? Colors.white : theme.colorScheme.onSurface),
+                        Icon(_categoryIcons[i],
+                            size: 14,
+                            color: sel
+                                ? Colors.white
+                                : theme.colorScheme.onSurface),
                         const SizedBox(width: 4),
                         Text(_categoryLabels[i],
                             style: TextStyle(
-                              color: sel ? Colors.white : theme.colorScheme.onSurface,
-                              fontWeight: FontWeight.w600, fontSize: 12,
+                              color: sel
+                                  ? Colors.white
+                                  : theme.colorScheme.onSurface,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
                             )),
                       ],
                     ),

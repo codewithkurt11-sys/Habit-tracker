@@ -33,8 +33,7 @@ class JournalScreen extends StatelessWidget {
                       actionLabel: 'Write Entry',
                     )
                   : ListView.builder(
-                      padding: const EdgeInsets.only(
-                          bottom: AppSpacing.xxl),
+                      padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
                       itemCount: entries.length,
                       itemBuilder: (_, i) => _JournalTile(entry: entries[i]),
                     ),
@@ -90,19 +89,18 @@ class _JournalTile extends StatelessWidget {
                             style: theme.textTheme.titleMedium),
                       ),
                       if (entry.mood != null)
-                        Text(entry.mood!.emoji, style: const TextStyle(fontSize: 20)),
+                        Text(entry.mood!.emoji,
+                            style: const TextStyle(fontSize: 20)),
                       IconButton(
                         icon: Icon(
                           entry.isFavorite
                               ? Icons.star_rounded
                               : Icons.star_border_rounded,
                           size: 20,
-                          color: entry.isFavorite
-                              ? const Color(0xFFE8C56F)
-                              : null,
+                          color:
+                              entry.isFavorite ? const Color(0xFFE8C56F) : null,
                         ),
-                        onPressed: () =>
-                            state.toggleJournalFavorite(entry.id),
+                        onPressed: () => state.toggleJournalFavorite(entry.id),
                         constraints: const BoxConstraints(),
                         padding: EdgeInsets.zero,
                       ),
@@ -111,7 +109,8 @@ class _JournalTile extends StatelessWidget {
                   const SizedBox(height: AppSpacing.xs),
                   Text(entry.body,
                       style: theme.textTheme.bodyMedium,
-                      maxLines: 3, overflow: TextOverflow.ellipsis),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis),
                   const SizedBox(height: AppSpacing.sm),
                   Text(
                     '${entry.date.month}/${entry.date.day}/${entry.date.year}',
@@ -190,12 +189,17 @@ class _AddJournalDialogState extends State<_AddJournalDialog> {
                     decoration: BoxDecoration(
                       color: sel ? m.color.withValues(alpha: 0.2) : null,
                       border: Border.all(
-                        color: sel ? m.color : theme.colorScheme.onSurface.withValues(alpha: 0.15),
+                        color: sel
+                            ? m.color
+                            : theme.colorScheme.onSurface
+                                .withValues(alpha: 0.15),
                         width: sel ? 2 : 1,
                       ),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Center(child: Text(m.emoji, style: const TextStyle(fontSize: 22))),
+                    child: Center(
+                        child: Text(m.emoji,
+                            style: const TextStyle(fontSize: 22))),
                   ),
                 );
               }),

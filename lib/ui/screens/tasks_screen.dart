@@ -33,8 +33,7 @@ class TasksScreen extends StatelessWidget {
                       actionLabel: 'Add Task',
                     )
                   : ListView.builder(
-                      padding: const EdgeInsets.only(
-                          bottom: AppSpacing.xxl),
+                      padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
                       itemCount: tasks.length,
                       itemBuilder: (_, i) => _TaskTile(task: tasks[i]),
                     ),
@@ -90,16 +89,12 @@ class _TaskTile extends StatelessWidget {
                     height: 24,
                     margin: const EdgeInsets.only(top: 2),
                     decoration: BoxDecoration(
-                      color: done
-                          ? task.priority.color
-                          : Colors.transparent,
-                      border: Border.all(
-                          color: task.priority.color, width: 2),
+                      color: done ? task.priority.color : Colors.transparent,
+                      border: Border.all(color: task.priority.color, width: 2),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: done
-                        ? const Icon(Icons.check,
-                            color: Colors.white, size: 16)
+                        ? const Icon(Icons.check, color: Colors.white, size: 16)
                         : null,
                   ),
                 ),
@@ -110,9 +105,8 @@ class _TaskTile extends StatelessWidget {
                     children: [
                       Text(task.title,
                           style: theme.textTheme.titleSmall?.copyWith(
-                              decoration: done
-                                  ? TextDecoration.lineThrough
-                                  : null,
+                              decoration:
+                                  done ? TextDecoration.lineThrough : null,
                               color: done
                                   ? theme.colorScheme.onSurface
                                       .withValues(alpha: 0.4)
@@ -121,7 +115,8 @@ class _TaskTile extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(task.description,
                             style: theme.textTheme.bodySmall,
-                            maxLines: 2, overflow: TextOverflow.ellipsis),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis),
                       ],
                       const SizedBox(height: AppSpacing.sm),
                       Wrap(
@@ -213,16 +208,18 @@ class _AddTaskDialogState extends State<_AddTaskDialog> {
                 return GestureDetector(
                   onTap: () => setState(() => _priorityIndex = i),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 7),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                     decoration: BoxDecoration(
                       color: sel ? p.color : ext.surfaceMuted,
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(p.label,
                         style: TextStyle(
-                          color: sel ? Colors.white : theme.colorScheme.onSurface,
-                          fontWeight: FontWeight.w600, fontSize: 13,
+                          color:
+                              sel ? Colors.white : theme.colorScheme.onSurface,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
                         )),
                   ),
                 );
@@ -244,24 +241,28 @@ class _AddTaskDialogState extends State<_AddTaskDialog> {
                 return GestureDetector(
                   onTap: () => setState(() => _categoryIndex = i),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: sel
-                          ? theme.colorScheme.primary
-                          : ext.surfaceMuted,
+                      color: sel ? theme.colorScheme.primary : ext.surfaceMuted,
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(c.icon, size: 14,
-                            color: sel ? Colors.white : theme.colorScheme.onSurface),
+                        Icon(c.icon,
+                            size: 14,
+                            color: sel
+                                ? Colors.white
+                                : theme.colorScheme.onSurface),
                         const SizedBox(width: 4),
                         Text(c.label,
                             style: TextStyle(
-                              color: sel ? Colors.white : theme.colorScheme.onSurface,
-                              fontWeight: FontWeight.w600, fontSize: 12,
+                              color: sel
+                                  ? Colors.white
+                                  : theme.colorScheme.onSurface,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
                             )),
                       ],
                     ),
@@ -280,7 +281,8 @@ class _AddTaskDialogState extends State<_AddTaskDialog> {
                       context: context,
                       initialDate: DateTime.now(),
                       firstDate: DateTime.now(),
-                      lastDate: DateTime.now().add(const Duration(days: 365 * 3)),
+                      lastDate:
+                          DateTime.now().add(const Duration(days: 365 * 3)),
                     );
                     if (d != null) setState(() => _dueDate = d);
                   },

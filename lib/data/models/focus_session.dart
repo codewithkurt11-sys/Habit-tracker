@@ -5,21 +5,31 @@ enum FocusType { pomodoro, shortBreak, longBreak, stopwatch, countdown }
 extension FocusTypeExt on FocusType {
   String get label {
     switch (this) {
-      case FocusType.pomodoro: return 'Pomodoro';
-      case FocusType.shortBreak: return 'Short Break';
-      case FocusType.longBreak: return 'Long Break';
-      case FocusType.stopwatch: return 'Stopwatch';
-      case FocusType.countdown: return 'Countdown';
+      case FocusType.pomodoro:
+        return 'Pomodoro';
+      case FocusType.shortBreak:
+        return 'Short Break';
+      case FocusType.longBreak:
+        return 'Long Break';
+      case FocusType.stopwatch:
+        return 'Stopwatch';
+      case FocusType.countdown:
+        return 'Countdown';
     }
   }
 
   int get defaultSeconds {
     switch (this) {
-      case FocusType.pomodoro: return 25 * 60;
-      case FocusType.shortBreak: return 5 * 60;
-      case FocusType.longBreak: return 15 * 60;
-      case FocusType.stopwatch: return 0;
-      case FocusType.countdown: return 60 * 60;
+      case FocusType.pomodoro:
+        return 25 * 60;
+      case FocusType.shortBreak:
+        return 5 * 60;
+      case FocusType.longBreak:
+        return 15 * 60;
+      case FocusType.stopwatch:
+        return 0;
+      case FocusType.countdown:
+        return 60 * 60;
     }
   }
 }
@@ -72,12 +82,19 @@ class FocusSessionAdapter extends TypeAdapter<FocusSession> {
   void write(BinaryWriter writer, FocusSession obj) {
     writer
       ..writeByte(7)
-      ..writeByte(0)..write(obj.id)
-      ..writeByte(1)..write(obj.typeIndex)
-      ..writeByte(2)..write(obj.durationSeconds)
-      ..writeByte(3)..write(obj.completedSeconds)
-      ..writeByte(4)..write(obj.completed)
-      ..writeByte(5)..write(obj.startedAt)
-      ..writeByte(6)..write(obj.taskTitle);
+      ..writeByte(0)
+      ..write(obj.id)
+      ..writeByte(1)
+      ..write(obj.typeIndex)
+      ..writeByte(2)
+      ..write(obj.durationSeconds)
+      ..writeByte(3)
+      ..write(obj.completedSeconds)
+      ..writeByte(4)
+      ..write(obj.completed)
+      ..writeByte(5)
+      ..write(obj.startedAt)
+      ..writeByte(6)
+      ..write(obj.taskTitle);
   }
 }

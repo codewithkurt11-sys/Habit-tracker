@@ -1,0 +1,43 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(uid) { return isSignedIn() && request.auth.uid == uid; }
+    function friendshipId(a, b) { return a < b ? a + '_' + b : b + '_' + a; }
+    function areFriends(a, b) {
+      return exists(/databases/$(database)/documents/friendships/$(friendshipId(a, b)))
+        && get(/databases/$(database)/documents/friendships/$(friendshipId(a, b))).data.status == 'accepted';
+    }
+
+    match /usernames/{username} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if false; // immutable once claimed
+    }
+
+    match /users/{uid} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(uid);
+
+      match /{collection}/{docId} {
+        allow read: if isOwner(uid) || areFriends(request.auth.uid, uid);
+        allow write: if isOwner(uid);
+      }
+    }
+
+    match /friendRequests/{reqId} {
+      allow create: if isSignedIn();
+      allow read, delete: if isSignedIn();
+      // TODO before production: validate reqId matches the two UIDs
+      // involved, and that fromUid == request.auth.uid on create.
+    }
+
+    match /friendships/{id} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+      // TODO before production: tighten to require the write only
+      // happen as part of accepting an existing pending request.
+    }
+  }
+}

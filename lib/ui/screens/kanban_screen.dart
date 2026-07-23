@@ -34,9 +34,12 @@ class _KanbanScreenState extends State<KanbanScreen> {
     final theme = Theme.of(context);
     final allTasks = state.tasksRepo.getAll(includeArchived: true);
 
-    final todoTasks = allTasks.where((t) => t.status == TaskStatus.todo).toList();
-    final inProgressTasks = allTasks.where((t) => t.status == TaskStatus.inProgress).toList();
-    final doneTasks = allTasks.where((t) => t.status == TaskStatus.done).toList();
+    final todoTasks =
+        allTasks.where((t) => t.status == TaskStatus.todo).toList();
+    final inProgressTasks =
+        allTasks.where((t) => t.status == TaskStatus.inProgress).toList();
+    final doneTasks =
+        allTasks.where((t) => t.status == TaskStatus.done).toList();
 
     return Scaffold(
       body: SafeArea(
@@ -110,11 +113,21 @@ class _KanbanScreenState extends State<KanbanScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(controller: _titleController, decoration: const InputDecoration(labelText: 'Task title'), autofocus: true),
+                TextField(
+                    controller: _titleController,
+                    decoration: const InputDecoration(labelText: 'Task title'),
+                    autofocus: true),
                 const SizedBox(height: 8),
-                TextField(controller: _descController, decoration: const InputDecoration(labelText: 'Description (optional)'), maxLines: 2),
+                TextField(
+                    controller: _descController,
+                    decoration: const InputDecoration(
+                        labelText: 'Description (optional)'),
+                    maxLines: 2),
                 const SizedBox(height: AppSpacing.md),
-                Align(alignment: Alignment.centerLeft, child: Text('Priority', style: Theme.of(ctx).textTheme.labelLarge)),
+                Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('Priority',
+                        style: Theme.of(ctx).textTheme.labelLarge)),
                 const SizedBox(height: 4),
                 Wrap(
                   spacing: 8,
@@ -123,9 +136,22 @@ class _KanbanScreenState extends State<KanbanScreen> {
                     return GestureDetector(
                       onTap: () => setSt(() => _priority = p),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(color: sel ? p.color : Theme.of(ctx).extension<AppThemeExtension>()!.surfaceMuted, borderRadius: BorderRadius.circular(999)),
-                        child: Text(p.label, style: TextStyle(color: sel ? Colors.white : Theme.of(ctx).colorScheme.onSurface, fontWeight: FontWeight.w600, fontSize: 12)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                            color: sel
+                                ? p.color
+                                : Theme.of(ctx)
+                                    .extension<AppThemeExtension>()!
+                                    .surfaceMuted,
+                            borderRadius: BorderRadius.circular(999)),
+                        child: Text(p.label,
+                            style: TextStyle(
+                                color: sel
+                                    ? Colors.white
+                                    : Theme.of(ctx).colorScheme.onSurface,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12)),
                       ),
                     );
                   }).toList(),
@@ -134,12 +160,18 @@ class _KanbanScreenState extends State<KanbanScreen> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel')),
             ElevatedButton(
               onPressed: () {
                 final title = _titleController.text.trim();
                 if (title.isEmpty) return;
-                context.read<AppState>().addTask(title: title, description: _descController.text.trim(), priorityIndex: _priority.index, categoryIndex: _category.index);
+                context.read<AppState>().addTask(
+                    title: title,
+                    description: _descController.text.trim(),
+                    priorityIndex: _priority.index,
+                    categoryIndex: _category.index);
                 Navigator.pop(ctx);
               },
               child: const Text('Add'),
@@ -158,30 +190,48 @@ class _KanbanColumn extends StatelessWidget {
   final IconData icon;
   final AppState state;
   final VoidCallback? onAdd;
-  const _KanbanColumn({required this.title, required this.tasks, required this.color, required this.icon, required this.state, this.onAdd});
+  const _KanbanColumn(
+      {required this.title,
+      required this.tasks,
+      required this.color,
+      required this.icon,
+      required this.state,
+      this.onAdd});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
       width: 280,
-      margin: const EdgeInsets.only(left: AppSpacing.md, bottom: AppSpacing.xxl),
+      margin:
+          const EdgeInsets.only(left: AppSpacing.md, bottom: AppSpacing.xxl),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Column header
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm + 2),
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(AppSpacing.radiusMedium)),
+            padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md, vertical: AppSpacing.sm + 2),
+            decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMedium)),
             child: Row(
               children: [
                 Icon(icon, color: color, size: 20),
                 const SizedBox(width: 8),
-                Expanded(child: Text(title, style: theme.textTheme.titleSmall?.copyWith(color: color))),
+                Expanded(
+                    child: Text(title,
+                        style: theme.textTheme.titleSmall
+                            ?.copyWith(color: color))),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(color: color.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(999)),
-                  child: Text('${tasks.length}', style: theme.textTheme.bodySmall?.copyWith(color: color, fontWeight: FontWeight.bold)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(999)),
+                  child: Text('${tasks.length}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                          color: color, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -212,7 +262,8 @@ class _KanbanCard extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
-            border: Border.all(color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
+            border: Border.all(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
           ),
           child: InkWell(
             onTap: () => _showCardOptions(context),
@@ -225,16 +276,24 @@ class _KanbanCard extends StatelessWidget {
                   Row(
                     children: [
                       Container(
-                        width: 4, height: 32,
-                        decoration: BoxDecoration(color: task.priority.color, borderRadius: BorderRadius.circular(2)),
+                        width: 4,
+                        height: 32,
+                        decoration: BoxDecoration(
+                            color: task.priority.color,
+                            borderRadius: BorderRadius.circular(2)),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           task.title,
                           style: theme.textTheme.bodyLarge?.copyWith(
-                            decoration: task.status == TaskStatus.done ? TextDecoration.lineThrough : null,
-                            color: task.status == TaskStatus.done ? theme.colorScheme.onSurface.withValues(alpha: 0.4) : null,
+                            decoration: task.status == TaskStatus.done
+                                ? TextDecoration.lineThrough
+                                : null,
+                            color: task.status == TaskStatus.done
+                                ? theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.4)
+                                : null,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -244,15 +303,22 @@ class _KanbanCard extends StatelessWidget {
                   ),
                   if (task.description.isNotEmpty) ...[
                     const SizedBox(height: 4),
-                    Text(task.description, style: theme.textTheme.bodySmall, maxLines: 2, overflow: TextOverflow.ellipsis),
+                    Text(task.description,
+                        style: theme.textTheme.bodySmall,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis),
                   ],
                   const SizedBox(height: AppSpacing.xs),
                   Wrap(
                     spacing: 4,
                     runSpacing: 4,
                     children: [
-                      PillChip(label: task.priority.label, color: task.priority.color, icon: task.priority.icon),
-                      PillChip(label: task.category.label, icon: task.category.icon),
+                      PillChip(
+                          label: task.priority.label,
+                          color: task.priority.color,
+                          icon: task.priority.icon),
+                      PillChip(
+                          label: task.category.label, icon: task.category.icon),
                     ],
                   ),
                 ],
@@ -301,8 +367,10 @@ class _KanbanCard extends StatelessWidget {
               },
             ),
             ListTile(
-              leading: Icon(Icons.delete, color: Theme.of(ctx).colorScheme.error),
-              title: Text('Delete', style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
+              leading:
+                  Icon(Icons.delete, color: Theme.of(ctx).colorScheme.error),
+              title: Text('Delete',
+                  style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
               onTap: () {
                 state.deleteTask(task.id);
                 Navigator.pop(ctx);

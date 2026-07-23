@@ -4,31 +4,98 @@ import 'package:path/path.dart' as p;
 import '../../core/theme/app_colors.dart';
 
 /// High-level classification of a file used to pick icons and accent colors.
-enum FileKind { folder, image, video, audio, document, archive, apk, code, other }
+enum FileKind {
+  folder,
+  image,
+  video,
+  audio,
+  document,
+  archive,
+  apk,
+  code,
+  other
+}
 
 /// Utility helpers for the file manager: sizing, naming, kind detection.
 class FileUtils {
   FileUtils._();
 
   static const Set<String> _image = {
-    'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'heic', 'svg', 'ico', 'tiff',
+    'jpg',
+    'jpeg',
+    'png',
+    'gif',
+    'webp',
+    'bmp',
+    'heic',
+    'svg',
+    'ico',
+    'tiff',
   };
   static const Set<String> _video = {
-    'mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm', '3gp', 'm4v',
+    'mp4',
+    'mkv',
+    'avi',
+    'mov',
+    'wmv',
+    'flv',
+    'webm',
+    '3gp',
+    'm4v',
   };
   static const Set<String> _audio = {
-    'mp3', 'wav', 'aac', 'flac', 'ogg', 'm4a', 'wma', 'opus',
+    'mp3',
+    'wav',
+    'aac',
+    'flac',
+    'ogg',
+    'm4a',
+    'wma',
+    'opus',
   };
   static const Set<String> _doc = {
-    'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'rtf', 'odt',
-    'csv', 'epub', 'md',
+    'pdf',
+    'doc',
+    'docx',
+    'xls',
+    'xlsx',
+    'ppt',
+    'pptx',
+    'txt',
+    'rtf',
+    'odt',
+    'csv',
+    'epub',
+    'md',
   };
   static const Set<String> _archive = {
-    'zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz', 'iso',
+    'zip',
+    'rar',
+    '7z',
+    'tar',
+    'gz',
+    'bz2',
+    'xz',
+    'iso',
   };
   static const Set<String> _code = {
-    'dart', 'java', 'kt', 'js', 'ts', 'py', 'c', 'cpp', 'h', 'html', 'css',
-    'json', 'xml', 'yaml', 'yml', 'sh', 'gradle',
+    'dart',
+    'java',
+    'kt',
+    'js',
+    'ts',
+    'py',
+    'c',
+    'cpp',
+    'h',
+    'html',
+    'css',
+    'json',
+    'xml',
+    'yaml',
+    'yml',
+    'sh',
+    'gradle',
   };
 
   static String extension(String path) {

@@ -21,23 +21,35 @@ enum ExpenseCategory {
 extension IncomeCategoryExt on IncomeCategory {
   String get label {
     switch (this) {
-      case IncomeCategory.salary: return 'Salary';
-      case IncomeCategory.allowance: return 'Allowance';
-      case IncomeCategory.freelance: return 'Freelance';
-      case IncomeCategory.investment: return 'Investment';
-      case IncomeCategory.gift: return 'Gift';
-      case IncomeCategory.other: return 'Other';
+      case IncomeCategory.salary:
+        return 'Salary';
+      case IncomeCategory.allowance:
+        return 'Allowance';
+      case IncomeCategory.freelance:
+        return 'Freelance';
+      case IncomeCategory.investment:
+        return 'Investment';
+      case IncomeCategory.gift:
+        return 'Gift';
+      case IncomeCategory.other:
+        return 'Other';
     }
   }
 
   IconData get icon {
     switch (this) {
-      case IncomeCategory.salary: return Icons.work;
-      case IncomeCategory.allowance: return Icons.card_giftcard;
-      case IncomeCategory.freelance: return Icons.laptop;
-      case IncomeCategory.investment: return Icons.trending_up;
-      case IncomeCategory.gift: return Icons.redeem;
-      case IncomeCategory.other: return Icons.attach_money;
+      case IncomeCategory.salary:
+        return Icons.work;
+      case IncomeCategory.allowance:
+        return Icons.card_giftcard;
+      case IncomeCategory.freelance:
+        return Icons.laptop;
+      case IncomeCategory.investment:
+        return Icons.trending_up;
+      case IncomeCategory.gift:
+        return Icons.redeem;
+      case IncomeCategory.other:
+        return Icons.attach_money;
     }
   }
 
@@ -47,46 +59,76 @@ extension IncomeCategoryExt on IncomeCategory {
 extension ExpenseCategoryExt on ExpenseCategory {
   String get label {
     switch (this) {
-      case ExpenseCategory.food: return 'Food';
-      case ExpenseCategory.transport: return 'Transport';
-      case ExpenseCategory.shopping: return 'Shopping';
-      case ExpenseCategory.bills: return 'Bills';
-      case ExpenseCategory.education: return 'Education';
-      case ExpenseCategory.entertainment: return 'Entertainment';
-      case ExpenseCategory.health: return 'Health';
-      case ExpenseCategory.rent: return 'Rent';
-      case ExpenseCategory.savings: return 'Savings';
-      case ExpenseCategory.other: return 'Other';
+      case ExpenseCategory.food:
+        return 'Food';
+      case ExpenseCategory.transport:
+        return 'Transport';
+      case ExpenseCategory.shopping:
+        return 'Shopping';
+      case ExpenseCategory.bills:
+        return 'Bills';
+      case ExpenseCategory.education:
+        return 'Education';
+      case ExpenseCategory.entertainment:
+        return 'Entertainment';
+      case ExpenseCategory.health:
+        return 'Health';
+      case ExpenseCategory.rent:
+        return 'Rent';
+      case ExpenseCategory.savings:
+        return 'Savings';
+      case ExpenseCategory.other:
+        return 'Other';
     }
   }
 
   IconData get icon {
     switch (this) {
-      case ExpenseCategory.food: return Icons.restaurant;
-      case ExpenseCategory.transport: return Icons.directions_bus;
-      case ExpenseCategory.shopping: return Icons.shopping_bag;
-      case ExpenseCategory.bills: return Icons.receipt_long;
-      case ExpenseCategory.education: return Icons.school;
-      case ExpenseCategory.entertainment: return Icons.movie;
-      case ExpenseCategory.health: return Icons.medical_services;
-      case ExpenseCategory.rent: return Icons.home;
-      case ExpenseCategory.savings: return Icons.savings;
-      case ExpenseCategory.other: return Icons.category;
+      case ExpenseCategory.food:
+        return Icons.restaurant;
+      case ExpenseCategory.transport:
+        return Icons.directions_bus;
+      case ExpenseCategory.shopping:
+        return Icons.shopping_bag;
+      case ExpenseCategory.bills:
+        return Icons.receipt_long;
+      case ExpenseCategory.education:
+        return Icons.school;
+      case ExpenseCategory.entertainment:
+        return Icons.movie;
+      case ExpenseCategory.health:
+        return Icons.medical_services;
+      case ExpenseCategory.rent:
+        return Icons.home;
+      case ExpenseCategory.savings:
+        return Icons.savings;
+      case ExpenseCategory.other:
+        return Icons.category;
     }
   }
 
   Color get color {
     switch (this) {
-      case ExpenseCategory.food: return const Color(0xFFE8946F);
-      case ExpenseCategory.transport: return const Color(0xFF7B93B5);
-      case ExpenseCategory.shopping: return const Color(0xFFB58BB5);
-      case ExpenseCategory.bills: return const Color(0xFFD4675A);
-      case ExpenseCategory.education: return const Color(0xFF6B9080);
-      case ExpenseCategory.entertainment: return const Color(0xFFE8C56F);
-      case ExpenseCategory.health: return const Color(0xFF8FC0A0);
-      case ExpenseCategory.rent: return const Color(0xFFC4A895);
-      case ExpenseCategory.savings: return const Color(0xFF6B9080);
-      case ExpenseCategory.other: return const Color(0xFFB8AEA4);
+      case ExpenseCategory.food:
+        return const Color(0xFFE8946F);
+      case ExpenseCategory.transport:
+        return const Color(0xFF7B93B5);
+      case ExpenseCategory.shopping:
+        return const Color(0xFFB58BB5);
+      case ExpenseCategory.bills:
+        return const Color(0xFFD4675A);
+      case ExpenseCategory.education:
+        return const Color(0xFF6B9080);
+      case ExpenseCategory.entertainment:
+        return const Color(0xFFE8C56F);
+      case ExpenseCategory.health:
+        return const Color(0xFF8FC0A0);
+      case ExpenseCategory.rent:
+        return const Color(0xFFC4A895);
+      case ExpenseCategory.savings:
+        return const Color(0xFF6B9080);
+      case ExpenseCategory.other:
+        return const Color(0xFFB8AEA4);
     }
   }
 }
@@ -116,11 +158,11 @@ class FinanceEntry extends HiveObject {
 
   bool get isIncome => type == FinanceType.income;
 
-  IncomeCategory get incomeCategory =>
-      IncomeCategory.values[categoryIndex.clamp(0, IncomeCategory.values.length - 1)];
+  IncomeCategory get incomeCategory => IncomeCategory
+      .values[categoryIndex.clamp(0, IncomeCategory.values.length - 1)];
 
-  ExpenseCategory get expenseCategory =>
-      ExpenseCategory.values[categoryIndex.clamp(0, ExpenseCategory.values.length - 1)];
+  ExpenseCategory get expenseCategory => ExpenseCategory
+      .values[categoryIndex.clamp(0, ExpenseCategory.values.length - 1)];
 
   String get categoryLabel =>
       isIncome ? incomeCategory.label : expenseCategory.label;
@@ -158,14 +200,22 @@ class FinanceEntryAdapter extends TypeAdapter<FinanceEntry> {
   void write(BinaryWriter writer, FinanceEntry obj) {
     writer
       ..writeByte(8)
-      ..writeByte(0)..write(obj.id)
-      ..writeByte(1)..write(obj.title)
-      ..writeByte(2)..write(obj.amount)
-      ..writeByte(3)..write(obj.typeIndex)
-      ..writeByte(4)..write(obj.categoryIndex)
-      ..writeByte(5)..write(obj.date)
-      ..writeByte(6)..write(obj.note)
-      ..writeByte(7)..write(obj.createdAt);
+      ..writeByte(0)
+      ..write(obj.id)
+      ..writeByte(1)
+      ..write(obj.title)
+      ..writeByte(2)
+      ..write(obj.amount)
+      ..writeByte(3)
+      ..write(obj.typeIndex)
+      ..writeByte(4)
+      ..write(obj.categoryIndex)
+      ..writeByte(5)
+      ..write(obj.date)
+      ..writeByte(6)
+      ..write(obj.note)
+      ..writeByte(7)
+      ..write(obj.createdAt);
   }
 }
 
@@ -196,7 +246,9 @@ class FinanceBudgetAdapter extends TypeAdapter<FinanceBudget> {
     return FinanceBudget(
       monthlyBudget: fields[0] as double? ?? 0,
       savingsGoal: fields[1] as double? ?? 0,
-      categoryLimits: rawLimits?.map((k, v) => MapEntry(k.toString(), (v as num).toDouble())) ?? {},
+      categoryLimits: rawLimits
+              ?.map((k, v) => MapEntry(k.toString(), (v as num).toDouble())) ??
+          {},
     );
   }
 
@@ -204,8 +256,11 @@ class FinanceBudgetAdapter extends TypeAdapter<FinanceBudget> {
   void write(BinaryWriter writer, FinanceBudget obj) {
     writer
       ..writeByte(3)
-      ..writeByte(0)..write(obj.monthlyBudget)
-      ..writeByte(1)..write(obj.savingsGoal)
-      ..writeByte(2)..write(obj.categoryLimits);
+      ..writeByte(0)
+      ..write(obj.monthlyBudget)
+      ..writeByte(1)
+      ..write(obj.savingsGoal)
+      ..writeByte(2)
+      ..write(obj.categoryLimits);
   }
 }

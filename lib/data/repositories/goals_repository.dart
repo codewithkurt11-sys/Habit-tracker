@@ -8,11 +8,13 @@ class GoalsRepository {
   final _uuid = const Uuid();
 
   List<Goal> getAll({bool includeArchived = false}) {
-    final list = _box.values.where((g) => includeArchived || !g.archived).toList();
+    final list =
+        _box.values.where((g) => includeArchived || !g.archived).toList();
     list.sort((a, b) {
       if (a.completed && !b.completed) return 1;
       if (!a.completed && b.completed) return -1;
-      if (a.deadline != null && b.deadline != null) return a.deadline!.compareTo(b.deadline!);
+      if (a.deadline != null && b.deadline != null)
+        return a.deadline!.compareTo(b.deadline!);
       return b.createdAt.compareTo(a.createdAt);
     });
     return list;
@@ -42,15 +44,20 @@ class GoalsRepository {
     return goal;
   }
 
-  Future<void> update(Goal goal) async => _box.put(goal.id, goal);
+  Future<void> update(Goal goal) async {
+    goal.touch();
+    await _box.put(goal.id, goal);
+  }
 
   Future<void> delete(String id) async => _box.delete(id);
 
-  Future<void> addMilestone(Goal goal, String title, {DateTime? dueDate}) async {
+  Future<void> addMilestone(Goal goal, String title,
+      {DateTime? dueDate}) async {
     goal.milestoneIds.add(_uuid.v4());
     goal.milestoneTitles.add(title);
     goal.milestoneDone.add(false);
     goal.milestoneDates.add(dueDate);
+    goal.touch();
     await _box.put(goal.id, goal);
   }
 
@@ -58,9 +65,11 @@ class GoalsRepository {
     if (index < goal.milestoneDone.length) {
       goal.milestoneDone[index] = !goal.milestoneDone[index];
       // Check if all milestones done
-      if (goal.milestoneTitles.isNotEmpty && goal.milestoneDone.every((d) => d)) {
+      if (goal.milestoneTitles.isNotEmpty &&
+          goal.milestoneDone.every((d) => d)) {
         goal.completed = true;
       }
+      goal.touch();
       await _box.put(goal.id, goal);
     }
   }
@@ -68,11 +77,13 @@ class GoalsRepository {
   Future<void> updateProgress(Goal goal, double value) async {
     goal.currentValue = value.clamp(0, goal.targetValue);
     if (goal.currentValue >= goal.targetValue) goal.completed = true;
+    goal.touch();
     await _box.put(goal.id, goal);
   }
 
   Future<void> archive(Goal goal) async {
     goal.archived = true;
+    goal.touch();
     await _box.put(goal.id, goal);
   }
 }

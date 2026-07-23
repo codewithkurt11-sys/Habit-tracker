@@ -35,7 +35,8 @@ class ProfileScreen extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 48,
-                backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.15),
+                backgroundColor:
+                    theme.colorScheme.primary.withValues(alpha: 0.15),
                 child: Text(
                   name.isNotEmpty ? name[0].toUpperCase() : '?',
                   style: theme.textTheme.headlineMedium?.copyWith(
@@ -125,8 +126,10 @@ class ProfileScreen extends StatelessWidget {
         // Quotes count
         Card(
           child: ListTile(
-            leading: Icon(Icons.format_quote_outlined, color: theme.colorScheme.primary),
-            title: Text('Quotes in Collection', style: theme.textTheme.bodyLarge),
+            leading: Icon(Icons.format_quote_outlined,
+                color: theme.colorScheme.primary),
+            title:
+                Text('Quotes in Collection', style: theme.textTheme.bodyLarge),
             trailing: Text('$quotesCount', style: theme.textTheme.titleMedium),
           ),
         ),
@@ -203,8 +206,13 @@ class _StatCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(value, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                  Text(label, style: theme.textTheme.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text(value,
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.bold)),
+                  Text(label,
+                      style: theme.textTheme.bodySmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
                 ],
               ),
             ),

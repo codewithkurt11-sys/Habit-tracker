@@ -54,6 +54,7 @@ class HabitsRepository {
   }
 
   Future<void> update(Habit habit) async {
+    habit.touch();
     await _box.put(habit.id, habit);
   }
 
@@ -79,6 +80,7 @@ class HabitsRepository {
     } else {
       habit.completionLog.add(normalized);
     }
+    habit.touch();
     await _box.put(habit.id, habit);
   }
 }

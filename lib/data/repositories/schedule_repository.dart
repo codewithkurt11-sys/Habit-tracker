@@ -15,11 +15,12 @@ class ScheduleRepository {
 
   List<ScheduleItem> getForToday() {
     final today = DateTime.now();
-    return getAll().where((s) =>
-      s.dateTime.year == today.year &&
-      s.dateTime.month == today.month &&
-      s.dateTime.day == today.day
-    ).toList();
+    return getAll()
+        .where((s) =>
+            s.dateTime.year == today.year &&
+            s.dateTime.month == today.month &&
+            s.dateTime.day == today.day)
+        .toList();
   }
 
   Future<ScheduleItem> create({
@@ -32,11 +33,14 @@ class ScheduleRepository {
   }
 
   Future<void> toggle(ScheduleItem item) async {
-    final updated = item.copyWith(done: !item.done);
+    final updated = item.copyWith(done: !item.done, updatedAt: DateTime.now());
     await _box.put(item.id, updated);
   }
 
-  Future<void> update(ScheduleItem item) async => _box.put(item.id, item);
+  Future<void> update(ScheduleItem item) async {
+    item.touch();
+    await _box.put(item.id, item);
+  }
 
   Future<void> delete(String id) async => _box.delete(id);
 }

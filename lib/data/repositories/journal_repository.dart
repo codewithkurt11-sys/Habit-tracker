@@ -13,7 +13,8 @@ class JournalRepository {
     return list;
   }
 
-  List<JournalEntry> getFavorites() => getAll().where((e) => e.isFavorite).toList();
+  List<JournalEntry> getFavorites() =>
+      getAll().where((e) => e.isFavorite).toList();
 
   JournalEntry? getForDate(DateTime date) {
     final d = DateTime(date.year, date.month, date.day);
@@ -29,11 +30,12 @@ class JournalRepository {
 
   List<JournalEntry> search(String query) {
     final q = query.toLowerCase();
-    return getAll().where((e) =>
-      e.title.toLowerCase().contains(q) ||
-      e.body.toLowerCase().contains(q) ||
-      e.tags.any((t) => t.toLowerCase().contains(q))
-    ).toList();
+    return getAll()
+        .where((e) =>
+            e.title.toLowerCase().contains(q) ||
+            e.body.toLowerCase().contains(q) ||
+            e.tags.any((t) => t.toLowerCase().contains(q)))
+        .toList();
   }
 
   Map<int, int> getMoodDistribution() {

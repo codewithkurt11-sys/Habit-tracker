@@ -6,20 +6,27 @@ class ScheduleItem extends HiveObject {
   String title;
   DateTime dateTime;
   bool done;
+  DateTime updatedAt;
 
   ScheduleItem({
     required this.id,
     required this.title,
     required this.dateTime,
     this.done = false,
-  });
+    DateTime? updatedAt,
+  }) : updatedAt = updatedAt ?? DateTime.now();
 
-  ScheduleItem copyWith({String? title, DateTime? dateTime, bool? done}) {
+  /// Touch [updatedAt] to now. Called by repositories on every mutation.
+  void touch() => updatedAt = DateTime.now();
+
+  ScheduleItem copyWith(
+      {String? title, DateTime? dateTime, bool? done, DateTime? updatedAt}) {
     return ScheduleItem(
       id: id,
       title: title ?? this.title,
       dateTime: dateTime ?? this.dateTime,
       done: done ?? this.done,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 }
@@ -38,14 +45,16 @@ class ScheduleItemAdapter extends TypeAdapter<ScheduleItem> {
       id: fields[0] as String,
       title: fields[1] as String,
       dateTime: fields[2] as DateTime,
-      done: fields[3] as bool,
+      done: fields[3] as bool? ?? false,
+      // updatedAt (field 4) — backward compatible: fall back to dateTime
+      updatedAt: fields[4] as DateTime? ?? fields[2] as DateTime,
     );
   }
 
   @override
   void write(BinaryWriter writer, ScheduleItem obj) {
     writer
-      ..writeByte(4)
+      ..writeByte(5)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -53,6 +62,8 @@ class ScheduleItemAdapter extends TypeAdapter<ScheduleItem> {
       ..writeByte(2)
       ..write(obj.dateTime)
       ..writeByte(3)
-      ..write(obj.done);
+      ..write(obj.done)
+      ..writeByte(4)
+      ..write(obj.updatedAt);
   }
 }

@@ -19,28 +19,40 @@ enum TaskCategory {
 extension TaskPriorityExt on TaskPriority {
   String get label {
     switch (this) {
-      case TaskPriority.low: return 'Low';
-      case TaskPriority.medium: return 'Medium';
-      case TaskPriority.high: return 'High';
-      case TaskPriority.urgent: return 'Urgent';
+      case TaskPriority.low:
+        return 'Low';
+      case TaskPriority.medium:
+        return 'Medium';
+      case TaskPriority.high:
+        return 'High';
+      case TaskPriority.urgent:
+        return 'Urgent';
     }
   }
 
   Color get color {
     switch (this) {
-      case TaskPriority.low: return const Color(0xFF6B9080);
-      case TaskPriority.medium: return const Color(0xFFE8C56F);
-      case TaskPriority.high: return const Color(0xFFE8946F);
-      case TaskPriority.urgent: return const Color(0xFFD4675A);
+      case TaskPriority.low:
+        return const Color(0xFF6B9080);
+      case TaskPriority.medium:
+        return const Color(0xFFE8C56F);
+      case TaskPriority.high:
+        return const Color(0xFFE8946F);
+      case TaskPriority.urgent:
+        return const Color(0xFFD4675A);
     }
   }
 
   IconData get icon {
     switch (this) {
-      case TaskPriority.low: return Icons.arrow_downward;
-      case TaskPriority.medium: return Icons.remove;
-      case TaskPriority.high: return Icons.arrow_upward;
-      case TaskPriority.urgent: return Icons.priority_high;
+      case TaskPriority.low:
+        return Icons.arrow_downward;
+      case TaskPriority.medium:
+        return Icons.remove;
+      case TaskPriority.high:
+        return Icons.arrow_upward;
+      case TaskPriority.urgent:
+        return Icons.priority_high;
     }
   }
 }
@@ -48,27 +60,43 @@ extension TaskPriorityExt on TaskPriority {
 extension TaskCategoryExt on TaskCategory {
   String get label {
     switch (this) {
-      case TaskCategory.work: return 'Work';
-      case TaskCategory.personal: return 'Personal';
-      case TaskCategory.health: return 'Health';
-      case TaskCategory.finance: return 'Finance';
-      case TaskCategory.education: return 'Education';
-      case TaskCategory.home: return 'Home';
-      case TaskCategory.social: return 'Social';
-      case TaskCategory.other: return 'Other';
+      case TaskCategory.work:
+        return 'Work';
+      case TaskCategory.personal:
+        return 'Personal';
+      case TaskCategory.health:
+        return 'Health';
+      case TaskCategory.finance:
+        return 'Finance';
+      case TaskCategory.education:
+        return 'Education';
+      case TaskCategory.home:
+        return 'Home';
+      case TaskCategory.social:
+        return 'Social';
+      case TaskCategory.other:
+        return 'Other';
     }
   }
 
   IconData get icon {
     switch (this) {
-      case TaskCategory.work: return Icons.work_outline;
-      case TaskCategory.personal: return Icons.person_outline;
-      case TaskCategory.health: return Icons.favorite_outline;
-      case TaskCategory.finance: return Icons.account_balance_wallet_outlined;
-      case TaskCategory.education: return Icons.school_outlined;
-      case TaskCategory.home: return Icons.home_outlined;
-      case TaskCategory.social: return Icons.people_outline;
-      case TaskCategory.other: return Icons.category_outlined;
+      case TaskCategory.work:
+        return Icons.work_outline;
+      case TaskCategory.personal:
+        return Icons.person_outline;
+      case TaskCategory.health:
+        return Icons.favorite_outline;
+      case TaskCategory.finance:
+        return Icons.account_balance_wallet_outlined;
+      case TaskCategory.education:
+        return Icons.school_outlined;
+      case TaskCategory.home:
+        return Icons.home_outlined;
+      case TaskCategory.social:
+        return Icons.people_outline;
+      case TaskCategory.other:
+        return Icons.category_outlined;
     }
   }
 }
@@ -98,6 +126,7 @@ class Task extends HiveObject {
   DateTime createdAt;
   DateTime? completedAt;
   bool archived;
+  DateTime updatedAt;
 
   Task({
     required this.id,
@@ -116,10 +145,15 @@ class Task extends HiveObject {
     DateTime? createdAt,
     this.completedAt,
     this.archived = false,
+    DateTime? updatedAt,
   })  : tags = tags ?? [],
         subtaskTitles = subtaskTitles ?? [],
         subtaskDone = subtaskDone ?? [],
-        createdAt = createdAt ?? DateTime.now();
+        createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now();
+
+  /// Touch [updatedAt] to now. Called by repositories on every mutation.
+  void touch() => updatedAt = DateTime.now();
 
   double get progress {
     if (subtaskTitles.isEmpty) return status == TaskStatus.done ? 1.0 : 0.0;
@@ -144,11 +178,13 @@ class Task extends HiveObject {
 
   List<SubTask> get subtasks {
     final len = subtaskTitles.length;
-    return List.generate(len, (i) => SubTask(
-      id: i.toString(),
-      title: subtaskTitles[i],
-      done: i < subtaskDone.length ? subtaskDone[i] : false,
-    ));
+    return List.generate(
+        len,
+        (i) => SubTask(
+              id: i.toString(),
+              title: subtaskTitles[i],
+              done: i < subtaskDone.length ? subtaskDone[i] : false,
+            ));
   }
 }
 
@@ -179,28 +215,49 @@ class TaskAdapter extends TypeAdapter<Task> {
       createdAt: fields[13] as DateTime? ?? DateTime.now(),
       completedAt: fields[14] as DateTime?,
       archived: fields[15] as bool? ?? false,
+      // updatedAt (field 16) — backward compatible: fall back to createdAt
+      updatedAt:
+          fields[16] as DateTime? ?? fields[13] as DateTime? ?? DateTime.now(),
     );
   }
 
   @override
   void write(BinaryWriter writer, Task obj) {
     writer
+      ..writeByte(17)
+      ..writeByte(0)
+      ..write(obj.id)
+      ..writeByte(1)
+      ..write(obj.title)
+      ..writeByte(2)
+      ..write(obj.description)
+      ..writeByte(3)
+      ..write(obj.priority.index)
+      ..writeByte(4)
+      ..write(obj.status.index)
+      ..writeByte(5)
+      ..write(obj.category.index)
+      ..writeByte(6)
+      ..write(obj.dueDate)
+      ..writeByte(7)
+      ..write(obj.dueTime)
+      ..writeByte(8)
+      ..write(obj.tags)
+      ..writeByte(9)
+      ..write(obj.subtaskTitles)
+      ..writeByte(10)
+      ..write(obj.subtaskDone)
+      ..writeByte(11)
+      ..write(obj.isRecurring)
+      ..writeByte(12)
+      ..write(obj.recurringPattern)
+      ..writeByte(13)
+      ..write(obj.createdAt)
+      ..writeByte(14)
+      ..write(obj.completedAt)
+      ..writeByte(15)
+      ..write(obj.archived)
       ..writeByte(16)
-      ..writeByte(0)..write(obj.id)
-      ..writeByte(1)..write(obj.title)
-      ..writeByte(2)..write(obj.description)
-      ..writeByte(3)..write(obj.priority.index)
-      ..writeByte(4)..write(obj.status.index)
-      ..writeByte(5)..write(obj.category.index)
-      ..writeByte(6)..write(obj.dueDate)
-      ..writeByte(7)..write(obj.dueTime)
-      ..writeByte(8)..write(obj.tags)
-      ..writeByte(9)..write(obj.subtaskTitles)
-      ..writeByte(10)..write(obj.subtaskDone)
-      ..writeByte(11)..write(obj.isRecurring)
-      ..writeByte(12)..write(obj.recurringPattern)
-      ..writeByte(13)..write(obj.createdAt)
-      ..writeByte(14)..write(obj.completedAt)
-      ..writeByte(15)..write(obj.archived);
+      ..write(obj.updatedAt);
   }
 }

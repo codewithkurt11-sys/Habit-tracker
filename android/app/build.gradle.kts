@@ -13,11 +13,19 @@ val hasKeystore = keystoreProperties.getProperty("keyAlias") != null &&
         keystoreProperties.getProperty("storeFile") != null &&
         keystoreProperties.getProperty("storePassword") != null
 
+// Firebase Google Services: only apply the plugin if google-services.json
+// is present, so the build does not fail when Firebase is not yet configured.
+val hasGoogleServices = rootProject.file("app/google-services.json").exists()
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+if (hasGoogleServices) {
+    apply(plugin = "com.google.gms.google-services")
 }
 
 android {
@@ -40,6 +48,8 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // MultiDex may be needed with Firebase + Firestore dependencies.
+        multiDexEnabled = true
     }
 
     if (hasKeystore) {

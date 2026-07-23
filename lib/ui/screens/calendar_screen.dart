@@ -37,10 +37,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   decoration: BoxDecoration(
-                    color: !_showHeatmap ? theme.colorScheme.primary : theme.colorScheme.onSurface.withValues(alpha: 0.08),
+                    color: !_showHeatmap
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurface.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
                   ),
-                  child: Center(child: Text('Calendar', style: TextStyle(color: !_showHeatmap ? Colors.white : theme.colorScheme.onSurface, fontWeight: FontWeight.w600))),
+                  child: Center(
+                      child: Text('Calendar',
+                          style: TextStyle(
+                              color: !_showHeatmap
+                                  ? Colors.white
+                                  : theme.colorScheme.onSurface,
+                              fontWeight: FontWeight.w600))),
                 ),
               ),
             ),
@@ -51,10 +59,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   decoration: BoxDecoration(
-                    color: _showHeatmap ? theme.colorScheme.primary : theme.colorScheme.onSurface.withValues(alpha: 0.08),
+                    color: _showHeatmap
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurface.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
                   ),
-                  child: Center(child: Text('Heatmap', style: TextStyle(color: _showHeatmap ? Colors.white : theme.colorScheme.onSurface, fontWeight: FontWeight.w600))),
+                  child: Center(
+                      child: Text('Heatmap',
+                          style: TextStyle(
+                              color: _showHeatmap
+                                  ? Colors.white
+                                  : theme.colorScheme.onSurface,
+                              fontWeight: FontWeight.w600))),
                 ),
               ),
             ),
@@ -100,7 +116,8 @@ class _HeatmapView extends StatelessWidget {
       children: [
         Text('Activity Heatmap', style: theme.textTheme.titleMedium),
         const SizedBox(height: 4),
-        Text('Last 12 weeks of habit completions', style: theme.textTheme.bodySmall),
+        Text('Last 12 weeks of habit completions',
+            style: theme.textTheme.bodySmall),
         const SizedBox(height: AppSpacing.md),
         Card(
           child: Padding(
@@ -114,7 +131,11 @@ class _HeatmapView extends StatelessWidget {
                   Row(
                     children: [
                       const SizedBox(width: 24),
-                      ...monthLabels.map((label) => SizedBox(width: 14 * 7, child: Text(label, style: theme.textTheme.bodySmall?.copyWith(fontSize: 10)))),
+                      ...monthLabels.map((label) => SizedBox(
+                          width: 14 * 7,
+                          child: Text(label,
+                              style: theme.textTheme.bodySmall
+                                  ?.copyWith(fontSize: 10)))),
                     ],
                   ),
                   const SizedBox(height: 4),
@@ -125,7 +146,14 @@ class _HeatmapView extends StatelessWidget {
                       // Day labels
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: ['Mon', 'Wed', 'Fri'].map((d) => SizedBox(height: 14, width: 24, child: Text(d, style: theme.textTheme.bodySmall?.copyWith(fontSize: 9)))).toList(),
+                        children: ['Mon', 'Wed', 'Fri']
+                            .map((d) => SizedBox(
+                                height: 14,
+                                width: 24,
+                                child: Text(d,
+                                    style: theme.textTheme.bodySmall
+                                        ?.copyWith(fontSize: 9))))
+                            .toList(),
                       ),
                       // Weeks
                       Row(
@@ -137,9 +165,11 @@ class _HeatmapView extends StatelessWidget {
                                 return Padding(
                                   padding: const EdgeInsets.all(1),
                                   child: Tooltip(
-                                    message: '${cell.date.month}/${cell.date.day}: ${cell.completed}/${cell.due} done',
+                                    message:
+                                        '${cell.date.month}/${cell.date.day}: ${cell.completed}/${cell.due} done',
                                     child: Container(
-                                      width: 12, height: 12,
+                                      width: 12,
+                                      height: 12,
                                       decoration: BoxDecoration(
                                         color: _heatColor(cell.level, theme),
                                         borderRadius: BorderRadius.circular(3),
@@ -159,14 +189,27 @@ class _HeatmapView extends StatelessWidget {
                   // Legend
                   Row(
                     children: [
-                      Text('Less', style: theme.textTheme.bodySmall?.copyWith(fontSize: 10)),
+                      Text('Less',
+                          style: theme.textTheme.bodySmall
+                              ?.copyWith(fontSize: 10)),
                       const SizedBox(width: 4),
-                      ...List.generate(5, (i) => Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 1),
-                        child: Container(width: 12, height: 12, decoration: BoxDecoration(color: _heatColor(i, theme), borderRadius: BorderRadius.circular(3))),
-                      )),
+                      ...List.generate(
+                          5,
+                          (i) => Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 1),
+                                child: Container(
+                                    width: 12,
+                                    height: 12,
+                                    decoration: BoxDecoration(
+                                        color: _heatColor(i, theme),
+                                        borderRadius:
+                                            BorderRadius.circular(3))),
+                              )),
                       const SizedBox(width: 4),
-                      Text('More', style: theme.textTheme.bodySmall?.copyWith(fontSize: 10)),
+                      Text('More',
+                          style: theme.textTheme.bodySmall
+                              ?.copyWith(fontSize: 10)),
                     ],
                   ),
                 ],
@@ -199,7 +242,8 @@ class _HeatmapView extends StatelessWidget {
     // Collapse into week-start labels
     final weekLabels = <String>[];
     for (int i = 0; i < labels.length; i += 7) {
-      final slice = labels.sublist(i, i + 7 > labels.length ? labels.length : i + 7);
+      final slice =
+          labels.sublist(i, i + 7 > labels.length ? labels.length : i + 7);
       final found = slice.where((l) => l.isNotEmpty);
       weekLabels.add(found.isNotEmpty ? found.first : '');
     }
@@ -207,7 +251,20 @@ class _HeatmapView extends StatelessWidget {
   }
 
   String _monthAbbr(int month) {
-    const names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const names = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
     return names[month - 1];
   }
 
@@ -229,18 +286,33 @@ class _HeatmapStats extends StatelessWidget {
     final theme = Theme.of(context);
     final totalCompleted = cells.fold(0, (s, c) => s + c.completed);
     final activeDays = cells.where((c) => c.completed > 0).length;
-    final bestDay = cells.fold<HeatCell?>(null, (best, c) => best == null || c.completed > best.completed ? c : best);
+    final bestDay = cells.fold<HeatCell?>(null,
+        (best, c) => best == null || c.completed > best.completed ? c : best);
 
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.md),
         child: Row(
           children: [
-            Expanded(child: _StatItem(label: 'Total Done', value: '$totalCompleted')),
-            Container(width: 1, height: 32, color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
-            Expanded(child: _StatItem(label: 'Active Days', value: '$activeDays')),
-            Container(width: 1, height: 32, color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
-            Expanded(child: _StatItem(label: 'Best Day', value: bestDay != null && bestDay.completed > 0 ? '${bestDay.completed}' : '-')),
+            Expanded(
+                child:
+                    _StatItem(label: 'Total Done', value: '$totalCompleted')),
+            Container(
+                width: 1,
+                height: 32,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
+            Expanded(
+                child: _StatItem(label: 'Active Days', value: '$activeDays')),
+            Container(
+                width: 1,
+                height: 32,
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.1)),
+            Expanded(
+                child: _StatItem(
+                    label: 'Best Day',
+                    value: bestDay != null && bestDay.completed > 0
+                        ? '${bestDay.completed}'
+                        : '-')),
           ],
         ),
       ),
@@ -258,7 +330,9 @@ class _StatItem extends StatelessWidget {
     final theme = Theme.of(context);
     return Column(
       children: [
-        Text(value, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+        Text(value,
+            style: theme.textTheme.titleMedium
+                ?.copyWith(fontWeight: FontWeight.bold)),
         Text(label, style: theme.textTheme.bodySmall),
       ],
     );
@@ -272,7 +346,13 @@ class _MonthCalendarView extends StatelessWidget {
   final AppState state;
   final ValueChanged<DateTime> onDateSelected;
   final ValueChanged<DateTime> onMonthChanged;
-  const _MonthCalendarView({required this.viewMonth, required this.selectedDate, required this.habits, required this.state, required this.onDateSelected, required this.onMonthChanged});
+  const _MonthCalendarView(
+      {required this.viewMonth,
+      required this.selectedDate,
+      required this.habits,
+      required this.state,
+      required this.onDateSelected,
+      required this.onMonthChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -294,9 +374,21 @@ class _MonthCalendarView extends StatelessWidget {
       final completed = StatsEngine.habitsCompletedOnDay(habits, date);
       final due = StatsEngine.habitsDueOnDay(habits, date);
       final tasksForDay = state.tasksRepo.getForDate(date);
-      final journals = state.journalRepo.getAll().where((j) => j.date.year == date.year && j.date.month == date.month && j.date.day == date.day).toList();
+      final journals = state.journalRepo
+          .getAll()
+          .where((j) =>
+              j.date.year == date.year &&
+              j.date.month == date.month &&
+              j.date.day == date.day)
+          .toList();
       final notes = state.notesRepo.getForDate(date);
-      final schedules = state.scheduleRepo.getAll().where((s) => s.dateTime.year == date.year && s.dateTime.month == date.month && s.dateTime.day == date.day).toList();
+      final schedules = state.scheduleRepo
+          .getAll()
+          .where((s) =>
+              s.dateTime.year == date.year &&
+              s.dateTime.month == date.month &&
+              s.dateTime.day == date.day)
+          .toList();
       cells.add(_DayCell(
         date: date,
         completed: completed,
@@ -317,7 +409,8 @@ class _MonthCalendarView extends StatelessWidget {
           children: [
             IconButton(
               icon: const Icon(Icons.chevron_left),
-              onPressed: () => onMonthChanged(DateTime(viewMonth.year, viewMonth.month - 1, 1)),
+              onPressed: () => onMonthChanged(
+                  DateTime(viewMonth.year, viewMonth.month - 1, 1)),
             ),
             Expanded(
               child: Center(
@@ -329,16 +422,22 @@ class _MonthCalendarView extends StatelessWidget {
             ),
             IconButton(
               icon: const Icon(Icons.chevron_right),
-              onPressed: () => onMonthChanged(DateTime(viewMonth.year, viewMonth.month + 1, 1)),
+              onPressed: () => onMonthChanged(
+                  DateTime(viewMonth.year, viewMonth.month + 1, 1)),
             ),
           ],
         ),
         const SizedBox(height: AppSpacing.sm),
         // Weekday headers
         Row(
-          children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => Expanded(
-            child: Center(child: Text(d, style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, fontSize: 11))),
-          )).toList(),
+          children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+              .map((d) => Expanded(
+                    child: Center(
+                        child: Text(d,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                                fontWeight: FontWeight.bold, fontSize: 11))),
+                  ))
+              .toList(),
         ),
         const SizedBox(height: AppSpacing.xs),
         // Calendar grid
@@ -346,62 +445,96 @@ class _MonthCalendarView extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(AppSpacing.xs),
             child: Wrap(
-              children: cells.map((cell) => SizedBox(
-                width: (MediaQuery.of(context).size.width - AppSpacing.md * 2 - AppSpacing.xs * 2 - 8) / 7,
-                child: AspectRatio(
-                  aspectRatio: 1,
-                  child: cell.isEmpty
-                      ? const SizedBox.shrink()
-                      : GestureDetector(
-                          onTap: () => onDateSelected(cell.date!),
-                          child: Container(
-                            margin: const EdgeInsets.all(2),
-                            decoration: BoxDecoration(
-                              color: cell.isToday
-                                  ? theme.colorScheme.primary.withValues(alpha: 0.15)
-                                  : cell.date!.isAtSameMomentAs(DateTime(selectedDate.year, selectedDate.month, selectedDate.day))
-                                      ? theme.colorScheme.primary.withValues(alpha: 0.08)
-                                      : null,
-                              border: cell.isToday
-                                  ? Border.all(color: theme.colorScheme.primary, width: 2)
-                                  : null,
-                              borderRadius: BorderRadius.circular(AppSpacing.radiusSmall),
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  '${cell.date!.day}',
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    fontWeight: cell.isToday ? FontWeight.bold : FontWeight.normal,
-                                    color: cell.isToday ? theme.colorScheme.primary : null,
+              children: cells
+                  .map((cell) => SizedBox(
+                        width: (MediaQuery.of(context).size.width -
+                                AppSpacing.md * 2 -
+                                AppSpacing.xs * 2 -
+                                8) /
+                            7,
+                        child: AspectRatio(
+                          aspectRatio: 1,
+                          child: cell.isEmpty
+                              ? const SizedBox.shrink()
+                              : GestureDetector(
+                                  onTap: () => onDateSelected(cell.date!),
+                                  child: Container(
+                                    margin: const EdgeInsets.all(2),
+                                    decoration: BoxDecoration(
+                                      color: cell.isToday
+                                          ? theme.colorScheme.primary
+                                              .withValues(alpha: 0.15)
+                                          : cell.date!.isAtSameMomentAs(
+                                                  DateTime(
+                                                      selectedDate.year,
+                                                      selectedDate.month,
+                                                      selectedDate.day))
+                                              ? theme.colorScheme.primary
+                                                  .withValues(alpha: 0.08)
+                                              : null,
+                                      border: cell.isToday
+                                          ? Border.all(
+                                              color: theme.colorScheme.primary,
+                                              width: 2)
+                                          : null,
+                                      borderRadius: BorderRadius.circular(
+                                          AppSpacing.radiusSmall),
+                                    ),
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          '${cell.date!.day}',
+                                          style: theme.textTheme.bodyMedium
+                                              ?.copyWith(
+                                            fontWeight: cell.isToday
+                                                ? FontWeight.bold
+                                                : FontWeight.normal,
+                                            color: cell.isToday
+                                                ? theme.colorScheme.primary
+                                                : null,
+                                          ),
+                                        ),
+                                        if (cell.due > 0 ||
+                                            cell.taskCount > 0 ||
+                                            cell.hasJournal ||
+                                            cell.scheduleCount > 0) ...[
+                                          const SizedBox(height: 2),
+                                          Wrap(
+                                            spacing: 2,
+                                            runSpacing: 2,
+                                            children: [
+                                              if (cell.due > 0)
+                                                _Dot(
+                                                    color: cell.completed ==
+                                                            cell.due
+                                                        ? AppColors.lightSuccess
+                                                        : AppColors
+                                                            .categoryLifestyle),
+                                              if (cell.taskCount > 0)
+                                                const _Dot(
+                                                    color: AppColors
+                                                        .categoryOther),
+                                              if (cell.hasJournal)
+                                                const _Dot(
+                                                    color: Color(0xFF7B93B5)),
+                                              if (cell.scheduleCount > 0)
+                                                const _Dot(
+                                                    color: Color(0xFFB58BB5)),
+                                              if (cell.hasNote)
+                                                const _Dot(
+                                                    color: Color(0xFFE8C56F)),
+                                            ],
+                                          ),
+                                        ],
+                                      ],
+                                    ),
                                   ),
                                 ),
-                                if (cell.due > 0 || cell.taskCount > 0 || cell.hasJournal || cell.scheduleCount > 0) ...[
-                                  const SizedBox(height: 2),
-                                  Wrap(
-                                    spacing: 2,
-                                    runSpacing: 2,
-                                    children: [
-                                      if (cell.due > 0)
-                                        _Dot(color: cell.completed == cell.due ? AppColors.lightSuccess : AppColors.categoryLifestyle),
-                                      if (cell.taskCount > 0)
-                                        const _Dot(color: AppColors.categoryOther),
-                                      if (cell.hasJournal)
-                                        const _Dot(color: Color(0xFF7B93B5)),
-                                      if (cell.scheduleCount > 0)
-                                        const _Dot(color: Color(0xFFB58BB5)),
-                                      if (cell.hasNote)
-                                        const _Dot(color: Color(0xFFE8C56F)),
-                                    ],
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
                         ),
-                ),
-              )).toList(),
+                      ))
+                  .toList(),
             ),
           ),
         ),
@@ -413,7 +546,20 @@ class _MonthCalendarView extends StatelessWidget {
   }
 
   String _monthName(int month) {
-    const names = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const names = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December'
+    ];
     return names[month - 1];
   }
 }
@@ -424,7 +570,10 @@ class _Dot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle));
+    return Container(
+        width: 6,
+        height: 6,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle));
   }
 }
 
@@ -439,15 +588,34 @@ class _DayCell {
   final bool isToday;
   final bool isEmpty;
 
-  _DayCell({required this.date, required this.completed, required this.due, required this.taskCount, required this.hasJournal, required this.hasNote, required this.scheduleCount, required this.isToday}) : isEmpty = false;
-  _DayCell.empty() : date = null, completed = 0, due = 0, taskCount = 0, hasJournal = false, hasNote = false, scheduleCount = 0, isToday = false, isEmpty = true;
+  _DayCell(
+      {required this.date,
+      required this.completed,
+      required this.due,
+      required this.taskCount,
+      required this.hasJournal,
+      required this.hasNote,
+      required this.scheduleCount,
+      required this.isToday})
+      : isEmpty = false;
+  _DayCell.empty()
+      : date = null,
+        completed = 0,
+        due = 0,
+        taskCount = 0,
+        hasJournal = false,
+        hasNote = false,
+        scheduleCount = 0,
+        isToday = false,
+        isEmpty = true;
 }
 
 class _DateDetail extends StatelessWidget {
   final DateTime date;
   final AppState state;
   final List<Habit> habits;
-  const _DateDetail({required this.date, required this.state, required this.habits});
+  const _DateDetail(
+      {required this.date, required this.state, required this.habits});
 
   @override
   Widget build(BuildContext context) {
@@ -456,9 +624,21 @@ class _DateDetail extends StatelessWidget {
     final dueHabits = habits.where((h) => h.isDueOn(d)).toList();
     final completedHabits = dueHabits.where((h) => h.isCompletedOn(d)).toList();
     final tasks = state.tasksRepo.getForDate(d);
-    final journals = state.journalRepo.getAll().where((j) => j.date.year == d.year && j.date.month == d.month && j.date.day == d.day).toList();
+    final journals = state.journalRepo
+        .getAll()
+        .where((j) =>
+            j.date.year == d.year &&
+            j.date.month == d.month &&
+            j.date.day == d.day)
+        .toList();
     final notes = state.notesRepo.getForDate(d);
-    final schedules = state.scheduleRepo.getAll().where((s) => s.dateTime.year == d.year && s.dateTime.month == d.month && s.dateTime.day == d.day).toList();
+    final schedules = state.scheduleRepo
+        .getAll()
+        .where((s) =>
+            s.dateTime.year == d.year &&
+            s.dateTime.month == d.month &&
+            s.dateTime.day == d.day)
+        .toList();
 
     return Card(
       child: Padding(
@@ -466,25 +646,54 @@ class _DateDetail extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${d.month}/${d.day}/${d.year}', style: theme.textTheme.titleSmall),
+            Text('${d.month}/${d.day}/${d.year}',
+                style: theme.textTheme.titleSmall),
             const SizedBox(height: AppSpacing.sm),
             if (dueHabits.isNotEmpty) ...[
-              _DetailRow(icon: Icons.repeat_rounded, label: 'Habits', value: '${completedHabits.length}/${dueHabits.length} done', color: AppColors.categoryLifestyle),
+              _DetailRow(
+                  icon: Icons.repeat_rounded,
+                  label: 'Habits',
+                  value: '${completedHabits.length}/${dueHabits.length} done',
+                  color: AppColors.categoryLifestyle),
             ],
             if (tasks.isNotEmpty) ...[
-              _DetailRow(icon: Icons.check_circle_outline, label: 'Tasks', value: '${tasks.length} due', color: AppColors.categoryOther),
+              _DetailRow(
+                  icon: Icons.check_circle_outline,
+                  label: 'Tasks',
+                  value: '${tasks.length} due',
+                  color: AppColors.categoryOther),
             ],
             if (schedules.isNotEmpty) ...[
-              _DetailRow(icon: Icons.calendar_today, label: 'Schedule', value: '${schedules.length} items', color: const Color(0xFFB58BB5)),
+              _DetailRow(
+                  icon: Icons.calendar_today,
+                  label: 'Schedule',
+                  value: '${schedules.length} items',
+                  color: const Color(0xFFB58BB5)),
             ],
             if (journals.isNotEmpty) ...[
-              _DetailRow(icon: Icons.book, label: 'Journal', value: '${journals.length} entr${journals.length > 1 ? "ies" : "y"}', color: const Color(0xFF7B93B5)),
+              _DetailRow(
+                  icon: Icons.book,
+                  label: 'Journal',
+                  value:
+                      '${journals.length} entr${journals.length > 1 ? "ies" : "y"}',
+                  color: const Color(0xFF7B93B5)),
             ],
             if (notes.isNotEmpty) ...[
-              _DetailRow(icon: Icons.sticky_note_2, label: 'Notes', value: '${notes.length}', color: const Color(0xFFE8C56F)),
+              _DetailRow(
+                  icon: Icons.sticky_note_2,
+                  label: 'Notes',
+                  value: '${notes.length}',
+                  color: const Color(0xFFE8C56F)),
             ],
-            if (dueHabits.isEmpty && tasks.isEmpty && schedules.isEmpty && journals.isEmpty && notes.isEmpty)
-              Text('No activity on this day', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.4))),
+            if (dueHabits.isEmpty &&
+                tasks.isEmpty &&
+                schedules.isEmpty &&
+                journals.isEmpty &&
+                notes.isEmpty)
+              Text('No activity on this day',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.4))),
           ],
         ),
       ),
@@ -497,7 +706,11 @@ class _DetailRow extends StatelessWidget {
   final String label;
   final String value;
   final Color color;
-  const _DetailRow({required this.icon, required this.label, required this.value, required this.color});
+  const _DetailRow(
+      {required this.icon,
+      required this.label,
+      required this.value,
+      required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -509,7 +722,9 @@ class _DetailRow extends StatelessWidget {
           Icon(icon, size: 18, color: color),
           const SizedBox(width: 8),
           Expanded(child: Text(label, style: theme.textTheme.bodyMedium)),
-          Text(value, style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
+          Text(value,
+              style: theme.textTheme.bodySmall
+                  ?.copyWith(fontWeight: FontWeight.bold)),
         ],
       ),
     );

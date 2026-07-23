@@ -26,7 +26,8 @@ class NotesScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Notes', style: Theme.of(context).textTheme.headlineSmall),
+                    Text('Notes',
+                        style: Theme.of(context).textTheme.headlineSmall),
                     const SizedBox(height: 2),
                     Text('${notes.length} notes',
                         style: Theme.of(context).textTheme.bodySmall),
@@ -85,18 +86,22 @@ class _NoteTile extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: Text(note.title, style: theme.textTheme.titleSmall),
+                      child:
+                          Text(note.title, style: theme.textTheme.titleSmall),
                     ),
                     if (note.mood != null)
-                      Icon(note.mood!.icon, size: 18,
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                      Icon(note.mood!.icon,
+                          size: 18,
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.5)),
                   ],
                 ),
                 if (note.body.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(note.body,
                       style: theme.textTheme.bodyMedium,
-                      maxLines: 4, overflow: TextOverflow.ellipsis),
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis),
                 ],
                 const SizedBox(height: AppSpacing.xs),
                 Text(
@@ -181,13 +186,17 @@ class _AddNoteDialogState extends State<_AddNoteDialog> {
                       border: Border.all(
                         color: sel
                             ? theme.colorScheme.primary
-                            : theme.colorScheme.onSurface.withValues(alpha: 0.15),
+                            : theme.colorScheme.onSurface
+                                .withValues(alpha: 0.15),
                         width: sel ? 2 : 1,
                       ),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(Mood.values[i].icon, size: 20,
-                        color: sel ? theme.colorScheme.primary : theme.colorScheme.onSurface),
+                    child: Icon(Mood.values[i].icon,
+                        size: 20,
+                        color: sel
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.onSurface),
                   ),
                 );
               }),

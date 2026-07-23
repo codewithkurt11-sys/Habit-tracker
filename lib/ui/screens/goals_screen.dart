@@ -26,7 +26,8 @@ class GoalsScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Goals', style: Theme.of(context).textTheme.headlineSmall),
+                    Text('Goals',
+                        style: Theme.of(context).textTheme.headlineSmall),
                     const SizedBox(height: 2),
                     Text('${goals.length} active goals',
                         style: Theme.of(context).textTheme.bodySmall),
@@ -89,12 +90,17 @@ class _GoalTile extends StatelessWidget {
                     Icon(goal.category.icon, color: goal.color, size: 20),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(goal.title, style: theme.textTheme.titleSmall),
+                      child:
+                          Text(goal.title, style: theme.textTheme.titleSmall),
                     ),
                     if (goal.daysLeft >= 0)
                       PillChip(
-                        label: goal.daysLeft == 0 ? 'Today' : '${goal.daysLeft}d left',
-                        color: goal.daysLeft <= 3 ? theme.colorScheme.error : goal.color,
+                        label: goal.daysLeft == 0
+                            ? 'Today'
+                            : '${goal.daysLeft}d left',
+                        color: goal.daysLeft <= 3
+                            ? theme.colorScheme.error
+                            : goal.color,
                         icon: Icons.event_outlined,
                       ),
                   ],
@@ -103,7 +109,8 @@ class _GoalTile extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(goal.description,
                       style: theme.textTheme.bodySmall,
-                      maxLines: 2, overflow: TextOverflow.ellipsis),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis),
                 ],
                 const SizedBox(height: AppSpacing.sm),
                 // Progress bar
@@ -112,7 +119,8 @@ class _GoalTile extends StatelessWidget {
                   child: LinearProgressIndicator(
                     value: progress,
                     minHeight: 8,
-                    backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+                    backgroundColor:
+                        theme.colorScheme.onSurface.withValues(alpha: 0.08),
                     valueColor: AlwaysStoppedAnimation<Color>(goal.color),
                   ),
                 ),
@@ -120,8 +128,10 @@ class _GoalTile extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('${goal.currentValue.toStringAsFixed(0)} / ${goal.targetValue.toStringAsFixed(0)}',
-                        style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+                    Text(
+                        '${goal.currentValue.toStringAsFixed(0)} / ${goal.targetValue.toStringAsFixed(0)}',
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(fontWeight: FontWeight.w600)),
                     Text('${(progress * 100).toStringAsFixed(0)}%',
                         style: theme.textTheme.bodySmall?.copyWith(
                             color: goal.color, fontWeight: FontWeight.bold)),
@@ -133,22 +143,31 @@ class _GoalTile extends StatelessWidget {
                   ...milestones.map((m) => Padding(
                         padding: const EdgeInsets.only(bottom: 4),
                         child: InkWell(
-                          onTap: () => state.toggleGoalMilestone(goal.id, milestones.indexOf(m)),
+                          onTap: () => state.toggleGoalMilestone(
+                              goal.id, milestones.indexOf(m)),
                           child: Row(
                             children: [
                               Icon(
-                                m.completed ? Icons.check_circle : Icons.radio_button_unchecked,
+                                m.completed
+                                    ? Icons.check_circle
+                                    : Icons.radio_button_unchecked,
                                 size: 18,
-                                color: m.completed ? goal.color : theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                                color: m.completed
+                                    ? goal.color
+                                    : theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.3),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   m.title,
                                   style: theme.textTheme.bodySmall?.copyWith(
-                                    decoration: m.completed ? TextDecoration.lineThrough : null,
+                                    decoration: m.completed
+                                        ? TextDecoration.lineThrough
+                                        : null,
                                     color: m.completed
-                                        ? theme.colorScheme.onSurface.withValues(alpha: 0.4)
+                                        ? theme.colorScheme.onSurface
+                                            .withValues(alpha: 0.4)
                                         : null,
                                   ),
                                 ),
@@ -231,21 +250,29 @@ class _AddGoalDialogState extends State<_AddGoalDialog> {
                 return GestureDetector(
                   onTap: () => setState(() => _categoryIndex = i),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: sel ? c.color : ext.surfaceMuted,
-                      borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+                      borderRadius:
+                          BorderRadius.circular(AppSpacing.radiusPill),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(c.icon, size: 14,
-                            color: sel ? Colors.white : theme.colorScheme.onSurface),
+                        Icon(c.icon,
+                            size: 14,
+                            color: sel
+                                ? Colors.white
+                                : theme.colorScheme.onSurface),
                         const SizedBox(width: 4),
                         Text(c.label,
                             style: TextStyle(
-                              color: sel ? Colors.white : theme.colorScheme.onSurface,
-                              fontWeight: FontWeight.w600, fontSize: 12,
+                              color: sel
+                                  ? Colors.white
+                                  : theme.colorScheme.onSurface,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
                             )),
                       ],
                     ),
@@ -259,7 +286,8 @@ class _AddGoalDialogState extends State<_AddGoalDialog> {
               decoration: const InputDecoration(
                 labelText: 'Target value',
               ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
             ),
             const SizedBox(height: AppSpacing.md),
             Row(
@@ -271,7 +299,8 @@ class _AddGoalDialogState extends State<_AddGoalDialog> {
                       context: context,
                       initialDate: DateTime.now().add(const Duration(days: 30)),
                       firstDate: DateTime.now(),
-                      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+                      lastDate:
+                          DateTime.now().add(const Duration(days: 365 * 5)),
                     );
                     if (d != null) setState(() => _deadline = d);
                   },
@@ -307,7 +336,8 @@ class _AddGoalDialogState extends State<_AddGoalDialog> {
                   categoryIndex: _categoryIndex,
                   deadline: _deadline,
                   targetValue: target,
-                  colorValue: GoalCategory.values[_categoryIndex].color.toARGB32(),
+                  colorValue:
+                      GoalCategory.values[_categoryIndex].color.toARGB32(),
                 );
             Navigator.pop(context);
           },
