@@ -386,13 +386,13 @@ class _MonthCalendarView extends StatelessWidget {
                                       if (cell.due > 0)
                                         _Dot(color: cell.completed == cell.due ? AppColors.lightSuccess : AppColors.categoryLifestyle),
                                       if (cell.taskCount > 0)
-                                        _Dot(color: AppColors.categoryOther),
+                                        const _Dot(color: AppColors.categoryOther),
                                       if (cell.hasJournal)
-                                        _Dot(color: const Color(0xFF7B93B5)),
+                                        const _Dot(color: Color(0xFF7B93B5)),
                                       if (cell.scheduleCount > 0)
-                                        _Dot(color: const Color(0xFFB58BB5)),
+                                        const _Dot(color: Color(0xFFB58BB5)),
                                       if (cell.hasNote)
-                                        _Dot(color: const Color(0xFFE8C56F)),
+                                        const _Dot(color: Color(0xFFE8C56F)),
                                     ],
                                   ),
                                 ],

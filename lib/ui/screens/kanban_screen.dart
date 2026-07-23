@@ -19,7 +19,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
   final _titleController = TextEditingController();
   final _descController = TextEditingController();
   TaskPriority _priority = TaskPriority.medium;
-  TaskCategory _category = TaskCategory.personal;
+  final TaskCategory _category = TaskCategory.personal;
 
   @override
   void dispose() {

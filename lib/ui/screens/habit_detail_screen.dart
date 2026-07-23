@@ -137,7 +137,7 @@ class HabitDetailScreen extends StatelessWidget {
           ],
 
           // 30-day mini heatmap
-          _SectionLabel('Last 30 Days'),
+          const _SectionLabel('Last 30 Days'),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(AppSpacing.md),
@@ -170,7 +170,7 @@ class HabitDetailScreen extends StatelessWidget {
 
           // Recent completions
           if (recent.isNotEmpty) ...[
-            _SectionLabel('Recent Completions'),
+            const _SectionLabel('Recent Completions'),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(AppSpacing.md),

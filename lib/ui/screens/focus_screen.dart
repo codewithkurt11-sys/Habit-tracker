@@ -244,6 +244,7 @@ class _FocusTimerDialogState extends State<_FocusTimerDialog> {
   int _remainingSeconds = 25 * 60;
   Timer? _timer;
   bool _running = false;
+  bool _saving = false;
   final _taskController = TextEditingController();
 
   @override
@@ -255,14 +256,17 @@ class _FocusTimerDialogState extends State<_FocusTimerDialog> {
 
   void _start() {
     setState(() => _running = true);
-    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
-      setState(() {
-        if (_remainingSeconds > 0) {
-          _remainingSeconds--;
-        } else {
-          _stop(completed: true);
-        }
-      });
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_remainingSeconds <= 1) {
+        timer.cancel();
+        setState(() {
+          _remainingSeconds = 0;
+          _running = false;
+        });
+        _stop(completed: true);
+        return;
+      }
+      setState(() => _remainingSeconds--);
     });
   }
 
@@ -271,20 +275,26 @@ class _FocusTimerDialogState extends State<_FocusTimerDialog> {
     setState(() => _running = false);
   }
 
-  void _stop({bool completed = false}) {
+  Future<void> _stop({bool completed = false}) async {
+    if (_saving) return;
     _timer?.cancel();
-    setState(() => _running = false);
+    setState(() {
+      _running = false;
+      _saving = true;
+    });
+
     final elapsed = _durationSeconds - _remainingSeconds;
     if (elapsed > 0) {
-      context.read<AppState>().saveFocusSession(
+      final taskTitle = _taskController.text.trim();
+      await context.read<AppState>().saveFocusSession(
             typeIndex: _typeIndex,
             durationSeconds: _durationSeconds,
             completedSeconds: elapsed,
-            taskTitle: _taskController.text.trim().isEmpty
-                ? null
-                : _taskController.text.trim(),
+            taskTitle: taskTitle.isEmpty ? null : taskTitle,
           );
     }
+    if (!mounted) return;
+
     if (completed) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -375,7 +385,7 @@ class _FocusTimerDialogState extends State<_FocusTimerDialog> {
               children: [
                 if (!_running)
                   ElevatedButton.icon(
-                    onPressed: _start,
+                    onPressed: _saving ? null : _start,
                     icon: const Icon(Icons.play_arrow),
                     label: const Text('Start'),
                   )
@@ -386,7 +396,7 @@ class _FocusTimerDialogState extends State<_FocusTimerDialog> {
                     label: const Text('Pause'),
                   ),
                 TextButton.icon(
-                  onPressed: () => _stop(),
+                  onPressed: _saving ? null : _stop,
                   icon: const Icon(Icons.stop),
                   label: const Text('Stop & Save'),
                 ),
@@ -397,10 +407,12 @@ class _FocusTimerDialogState extends State<_FocusTimerDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () {
-            _timer?.cancel();
-            Navigator.pop(context);
-          },
+          onPressed: _saving
+              ? null
+              : () {
+                  _timer?.cancel();
+                  Navigator.pop(context);
+                },
           child: const Text('Close'),
         ),
       ],

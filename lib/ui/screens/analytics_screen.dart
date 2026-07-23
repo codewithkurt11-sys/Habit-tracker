@@ -64,13 +64,13 @@ class AnalyticsScreen extends StatelessWidget {
 
                   // Insights cards
                   if (insights.isNotEmpty) ...[
-                    _SectionLabel('Insights'),
+                    const _SectionLabel('Insights'),
                     ...insights.map((ins) => _InsightCard(insight: ins)),
                     const SizedBox(height: AppSpacing.md),
                   ],
 
                   // Weekly habit completion chart
-                  _SectionLabel('Habit Completion Trends'),
+                  const _SectionLabel('Habit Completion Trends'),
                   _BarChartCard(
                     title: 'Weekly Completions (12 weeks)',
                     data: weeklyData,
@@ -85,23 +85,23 @@ class AnalyticsScreen extends StatelessWidget {
                     data: dailyData,
                     color: ext.categoryWorkout,
                     unit: '',
-                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    labels: const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
                   ),
                   const SizedBox(height: AppSpacing.md),
 
                   // Focus chart
-                  _SectionLabel('Focus Analytics'),
+                  const _SectionLabel('Focus Analytics'),
                   _BarChartCard(
                     title: 'Focus Minutes (this week)',
                     data: focusDaily,
                     color: ext.success,
                     unit: 'm',
-                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    labels: const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
                   ),
                   const SizedBox(height: AppSpacing.md),
 
                   // Finance overview
-                  _SectionLabel('Finance Overview'),
+                  const _SectionLabel('Finance Overview'),
                   _FinanceOverviewCard(
                     income: monthIncome,
                     expenses: monthExpense,
@@ -112,12 +112,12 @@ class AnalyticsScreen extends StatelessWidget {
                   const SizedBox(height: AppSpacing.md),
 
                   // Goals progress
-                  _SectionLabel('Goals Progress'),
+                  const _SectionLabel('Goals Progress'),
                   _GoalsProgressCard(goals: goals),
                   const SizedBox(height: AppSpacing.md),
 
                   // Heatmap link
-                  _SectionLabel('Activity Calendar'),
+                  const _SectionLabel('Activity Calendar'),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                     child: Card(
@@ -230,7 +230,7 @@ class _KeyMetricsRow extends StatelessWidget {
           Expanded(child: _MetricCard(
             icon: Icons.timer_outlined,
             label: 'Focus',
-            value: '${(totalFocus / 60).toStringAsFixed(1)}',
+            value: (totalFocus / 60).toStringAsFixed(1),
             sub: 'hrs',
             color: ext.success,
           )),

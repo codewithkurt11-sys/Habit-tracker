@@ -120,7 +120,7 @@ class DashboardScreen extends StatelessWidget {
 
                   // Top insight
                   if (insights.isNotEmpty) ...[
-                    _SectionHeader(title: 'Insight', count: ''),
+                    const _SectionHeader(title: 'Insight', count: ''),
                     _InsightBanner(insight: insights.first),
                     const SizedBox(height: AppSpacing.md),
                   ],
