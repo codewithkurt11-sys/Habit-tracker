@@ -48,20 +48,18 @@ class FileManagerService {
 
   Future<bool> ensurePermission() async {
     if (!Platform.isAndroid) return true;
-    if (await Permission.manageExternalStorage.isGranted) return true;
-
-    final broadAccess = await Permission.manageExternalStorage.request();
-    if (broadAccess.isGranted) return true;
-
     if (await Permission.storage.isGranted) return true;
-    final legacyAccess = await Permission.storage.request();
-    return legacyAccess.isGranted;
+
+    // Shared-storage access is only requestable on legacy Android versions.
+    // App-specific storage remains available when this request is denied.
+    await Permission.storage.request();
+    return true;
   }
 
   Future<bool> hasPermission() async {
     if (!Platform.isAndroid) return true;
-    return await Permission.manageExternalStorage.isGranted ||
-        await Permission.storage.isGranted;
+    return await Permission.storage.isGranted ||
+        await getExternalStorageDirectory() != null;
   }
 
   Future<bool> openPermissionSettings() => openAppSettings();
@@ -69,33 +67,36 @@ class FileManagerService {
   Future<List<StorageRoot>> storageRoots() async {
     final roots = <StorageRoot>[];
     if (Platform.isAndroid) {
-      const primary = '/storage/emulated/0';
-      if (await Directory(primary).exists()) {
-        roots.add(const StorageRoot(
-          label: 'Internal Storage',
-          path: primary,
-          isPrimary: true,
-        ));
-      }
+      final canBrowseSharedStorage = await Permission.storage.isGranted;
+      if (canBrowseSharedStorage) {
+        const primary = '/storage/emulated/0';
+        if (await Directory(primary).exists()) {
+          roots.add(const StorageRoot(
+            label: 'Internal Storage',
+            path: primary,
+            isPrimary: true,
+          ));
+        }
 
-      try {
-        final storageDir = Directory('/storage');
-        if (await storageDir.exists()) {
-          await for (final entity in storageDir.list(followLinks: false)) {
-            final name = p.basename(entity.path);
-            if (entity is Directory &&
-                name != 'emulated' &&
-                name != 'self' &&
-                name.contains('-')) {
-              roots.add(StorageRoot(
-                label: 'SD Card ($name)',
-                path: entity.path,
-              ));
+        try {
+          final storageDir = Directory('/storage');
+          if (await storageDir.exists()) {
+            await for (final entity in storageDir.list(followLinks: false)) {
+              final name = p.basename(entity.path);
+              if (entity is Directory &&
+                  name != 'emulated' &&
+                  name != 'self' &&
+                  name.contains('-')) {
+                roots.add(StorageRoot(
+                  label: 'SD Card ($name)',
+                  path: entity.path,
+                ));
+              }
             }
           }
+        } on FileSystemException {
+          // Some manufacturers block listing /storage.
         }
-      } on FileSystemException {
-        // Some manufacturers block listing /storage. App storage remains usable.
       }
 
       try {
@@ -308,7 +309,12 @@ class FileManagerService {
             }
           } on FileSystemException {
             await _copyEntity(sourcePath, target, sourceType);
-            await _deletePath(sourcePath, sourceType);
+            try {
+              await _deletePath(sourcePath, sourceType);
+            } on FileSystemException {
+              await _deletePath(target, sourceType);
+              rethrow;
+            }
           }
         } else {
           await _copyEntity(sourcePath, target, sourceType);

@@ -75,17 +75,20 @@ class AppState extends ChangeNotifier {
   }) async {
     _busy = true;
     notifyListeners();
-    await habitsRepo.create(
-      name: name,
-      category: _habitCategory(categoryIndex),
-      frequency: _habitFrequency(frequencyIndex),
-      customDays: customDays,
-      iconIndex: iconIndex,
-      colorValue: colorValue,
-      targetStreak: targetStreak,
-    );
-    _busy = false;
-    notifyListeners();
+    try {
+      await habitsRepo.create(
+        name: name,
+        category: _habitCategory(categoryIndex),
+        frequency: _habitFrequency(frequencyIndex),
+        customDays: customDays,
+        iconIndex: iconIndex,
+        colorValue: colorValue,
+        targetStreak: targetStreak,
+      );
+    } finally {
+      _busy = false;
+      notifyListeners();
+    }
   }
 
   Future<void> toggleHabit(String id, {DateTime? date}) async {
@@ -116,16 +119,19 @@ class AppState extends ChangeNotifier {
   }) async {
     _busy = true;
     notifyListeners();
-    await tasksRepo.create(
-      title: title,
-      description: description,
-      priority: _taskPriority(priorityIndex),
-      category: _taskCategory(categoryIndex),
-      dueDate: dueDate,
-      subtaskTitles: subtaskTitles,
-    );
-    _busy = false;
-    notifyListeners();
+    try {
+      await tasksRepo.create(
+        title: title,
+        description: description,
+        priority: _taskPriority(priorityIndex),
+        category: _taskCategory(categoryIndex),
+        dueDate: dueDate,
+        subtaskTitles: subtaskTitles,
+      );
+    } finally {
+      _busy = false;
+      notifyListeners();
+    }
   }
 
   Future<void> toggleTaskDone(String id) async {
@@ -165,16 +171,19 @@ class AppState extends ChangeNotifier {
   }) async {
     _busy = true;
     notifyListeners();
-    await goalsRepo.create(
-      title: title,
-      description: description,
-      categoryIndex: categoryIndex,
-      deadline: deadline,
-      targetValue: targetValue,
-      colorValue: colorValue,
-    );
-    _busy = false;
-    notifyListeners();
+    try {
+      await goalsRepo.create(
+        title: title,
+        description: description,
+        categoryIndex: categoryIndex,
+        deadline: deadline,
+        targetValue: targetValue,
+        colorValue: colorValue,
+      );
+    } finally {
+      _busy = false;
+      notifyListeners();
+    }
   }
 
   Future<void> updateGoalProgress(String id, double value) async {
@@ -213,15 +222,18 @@ class AppState extends ChangeNotifier {
   }) async {
     _busy = true;
     notifyListeners();
-    await journalRepo.create(
-      title: title,
-      body: body,
-      moodIndex: moodIndex,
-      date: date,
-      tags: tags,
-    );
-    _busy = false;
-    notifyListeners();
+    try {
+      await journalRepo.create(
+        title: title,
+        body: body,
+        moodIndex: moodIndex,
+        date: date,
+        tags: tags,
+      );
+    } finally {
+      _busy = false;
+      notifyListeners();
+    }
   }
 
   Future<void> deleteJournal(String id) async {
@@ -244,13 +256,16 @@ class AppState extends ChangeNotifier {
   }) async {
     _busy = true;
     notifyListeners();
-    await notesRepo.create(
-      title: title,
-      body: body,
-      moodIndex: moodIndex,
-    );
-    _busy = false;
-    notifyListeners();
+    try {
+      await notesRepo.create(
+        title: title,
+        body: body,
+        moodIndex: moodIndex,
+      );
+    } finally {
+      _busy = false;
+      notifyListeners();
+    }
   }
 
   Future<void> deleteNote(String id) async {
@@ -269,16 +284,19 @@ class AppState extends ChangeNotifier {
   }) async {
     _busy = true;
     notifyListeners();
-    await financeRepo.create(
-      title: title,
-      amount: amount,
-      typeIndex: typeIndex,
-      categoryIndex: categoryIndex,
-      date: date,
-      note: note,
-    );
-    _busy = false;
-    notifyListeners();
+    try {
+      await financeRepo.create(
+        title: title,
+        amount: amount,
+        typeIndex: typeIndex,
+        categoryIndex: categoryIndex,
+        date: date,
+        note: note,
+      );
+    } finally {
+      _busy = false;
+      notifyListeners();
+    }
   }
 
   Future<void> deleteFinance(String id) async {
@@ -314,9 +332,12 @@ class AppState extends ChangeNotifier {
   }) async {
     _busy = true;
     notifyListeners();
-    await scheduleRepo.create(title: title, dateTime: dateTime);
-    _busy = false;
-    notifyListeners();
+    try {
+      await scheduleRepo.create(title: title, dateTime: dateTime);
+    } finally {
+      _busy = false;
+      notifyListeners();
+    }
   }
 
   Future<void> toggleSchedule(String id) async {
