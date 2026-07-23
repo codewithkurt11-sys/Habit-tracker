@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_spacing.dart';
-import '../../core/theme/app_theme.dart';
 
 /// A clean empty-state widget with icon, title, and subtitle.
 class EmptyState extends StatelessWidget {
@@ -28,14 +27,16 @@ class EmptyState extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 64,
+            Icon(icon,
+                size: 64,
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.2)),
             const SizedBox(height: AppSpacing.lg),
-            Text(title, style: theme.textTheme.titleMedium,
+            Text(title,
+                style: theme.textTheme.titleMedium,
                 textAlign: TextAlign.center),
             const SizedBox(height: AppSpacing.xs),
-            Text(subtitle, style: theme.textTheme.bodyMedium,
-                textAlign: TextAlign.center),
+            Text(subtitle,
+                style: theme.textTheme.bodyMedium, textAlign: TextAlign.center),
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: AppSpacing.lg),
               ElevatedButton(
@@ -103,8 +104,6 @@ class SoftCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final ext = theme.extension<AppThemeExtension>()!;
     return Card(
       child: InkWell(
         onTap: onTap,
@@ -149,8 +148,10 @@ class PillChip extends StatelessWidget {
             const SizedBox(width: 4),
           ],
           Text(label,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: c, fontWeight: FontWeight.w600)),
+              style: Theme.of(context)
+                  .textTheme
+                  .labelSmall
+                  ?.copyWith(color: c, fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -182,8 +183,7 @@ class ScreenTitleBar extends StatelessWidget {
         children: [
           IconButton(
             icon: Icon(menuIcon),
-            onPressed: onMenuTap ??
-                () => Scaffold.of(context).openDrawer(),
+            onPressed: onMenuTap ?? () => Scaffold.of(context).openDrawer(),
             tooltip: 'More',
           ),
           const SizedBox(width: AppSpacing.xs),

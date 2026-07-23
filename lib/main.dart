@@ -27,7 +27,7 @@ class HabitTrackerApp extends StatelessWidget {
             debugShowCheckedModeBanner: false,
             theme: AppTheme.light(),
             darkTheme: AppTheme.dark(),
-            themeMode: state.isDark ? ThemeMode.dark : ThemeMode.light,
+            themeMode: ThemeMode.values[state.settings.themeMode.index],
             home: state.onboardingComplete
                 ? const AppShell()
                 : const OnboardingScreen(),

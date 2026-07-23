@@ -15,7 +15,6 @@ class QuotesScreen extends StatelessWidget {
     final state = context.watch<AppState>();
     final quotes = state.quotesRepo.getAll();
     final dailyQuote = state.quotesRepo.quoteForDate(DateTime.now());
-    // ignore: unnecessary_null_comparison
 
     return Column(
       children: [
@@ -28,7 +27,8 @@ class QuotesScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Quotes', style: Theme.of(context).textTheme.headlineSmall),
+                    Text('Quotes',
+                        style: Theme.of(context).textTheme.headlineSmall),
                     const SizedBox(height: 2),
                     Text('${quotes.length} quotes in collection',
                         style: Theme.of(context).textTheme.bodySmall),
@@ -38,7 +38,7 @@ class QuotesScreen extends StatelessWidget {
             ],
           ),
         ),
-        if (dailyQuote != null) _DailyQuoteCard(quote: dailyQuote),
+        _DailyQuoteCard(quote: dailyQuote),
         const SizedBox(height: AppSpacing.sm),
         Expanded(
           child: quotes.isEmpty
@@ -82,11 +82,13 @@ class _DailyQuoteCard extends StatelessWidget {
             padding: const EdgeInsets.all(AppSpacing.lg),
             child: Column(
               children: [
-                Icon(Icons.format_quote, color: theme.colorScheme.primary, size: 32),
+                Icon(Icons.format_quote,
+                    color: theme.colorScheme.primary, size: 32),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
                   quote.text,
-                  style: theme.textTheme.titleMedium?.copyWith(fontStyle: FontStyle.italic),
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontStyle: FontStyle.italic),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: AppSpacing.sm),
@@ -124,9 +126,7 @@ class _QuoteTile extends StatelessWidget {
         color: theme.colorScheme.error,
         child: const Icon(Icons.delete, color: Colors.white),
       ),
-      onDismissed: quote.isCustom
-          ? (_) => state.deleteQuote(quote.id)
-          : null,
+      onDismissed: quote.isCustom ? (_) => state.deleteQuote(quote.id) : null,
       child: Padding(
         padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.md, vertical: AppSpacing.xs + 2),
@@ -138,7 +138,8 @@ class _QuoteTile extends StatelessWidget {
               children: [
                 Text(
                   '"${quote.text}"',
-                  style: theme.textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic),
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(fontStyle: FontStyle.italic),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Row(
@@ -224,7 +225,9 @@ class _AddQuoteDialogState extends State<_AddQuoteDialog> {
             final text = _textController.text.trim();
             final author = _authorController.text.trim();
             if (text.isEmpty) return;
-            context.read<AppState>().addCustomQuote(text, author.isEmpty ? 'Unknown' : author);
+            context
+                .read<AppState>()
+                .addCustomQuote(text, author.isEmpty ? 'Unknown' : author);
             Navigator.pop(context);
           },
           child: const Text('Add'),

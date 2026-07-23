@@ -26,7 +26,7 @@ class FocusScreen extends StatelessWidget {
           children: [
             ScreenTitleBar(
               title: 'Focus',
-              subtitle: '${pomodorosToday} pomodoros today',
+              subtitle: '$pomodorosToday pomodoros today',
               onMenuTap: () => Scaffold.of(context).openDrawer(),
             ),
             _FocusStats(
@@ -137,9 +137,12 @@ class _StatCard extends StatelessWidget {
           children: [
             Icon(icon, color: color, size: 22),
             const SizedBox(height: 6),
-            Text(value, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+            Text(value,
+                style: theme.textTheme.titleSmall
+                    ?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 2),
-            Text(label, style: theme.textTheme.bodySmall, textAlign: TextAlign.center),
+            Text(label,
+                style: theme.textTheme.bodySmall, textAlign: TextAlign.center),
           ],
         ),
       ),
@@ -180,13 +183,20 @@ class _SessionTile extends StatelessWidget {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: (session.completed ? const Color(0xFF6B9080) : const Color(0xFFB8AEA4))
+                    color: (session.completed
+                            ? const Color(0xFF6B9080)
+                            : const Color(0xFFB8AEA4))
                         .withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
+                    borderRadius:
+                        BorderRadius.circular(AppSpacing.radiusMedium),
                   ),
                   child: Icon(
-                    session.completed ? Icons.check_circle : Icons.timer_outlined,
-                    color: session.completed ? const Color(0xFF6B9080) : const Color(0xFFB8AEA4),
+                    session.completed
+                        ? Icons.check_circle
+                        : Icons.timer_outlined,
+                    color: session.completed
+                        ? const Color(0xFF6B9080)
+                        : const Color(0xFFB8AEA4),
                     size: 22,
                   ),
                 ),
@@ -195,7 +205,8 @@ class _SessionTile extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(session.type.label, style: theme.textTheme.titleSmall),
+                      Text(session.type.label,
+                          style: theme.textTheme.titleSmall),
                       const SizedBox(height: 2),
                       Text(
                         '${session.startedAt.month}/${session.startedAt.day} '
@@ -208,7 +219,8 @@ class _SessionTile extends StatelessWidget {
                 ),
                 Text(
                   '$minutes:${seconds.toString().padLeft(2, '0')}',
-                  style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                  style: theme.textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.bold),
                 ),
               ],
             ),
@@ -268,14 +280,17 @@ class _FocusTimerDialogState extends State<_FocusTimerDialog> {
             typeIndex: _typeIndex,
             durationSeconds: _durationSeconds,
             completedSeconds: elapsed,
-            taskTitle: _taskController.text.trim().isEmpty ? null : _taskController.text.trim(),
+            taskTitle: _taskController.text.trim().isEmpty
+                ? null
+                : _taskController.text.trim(),
           );
     }
     if (completed) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('${FocusType.values[_typeIndex].label} complete!'),
-          backgroundColor: Theme.of(context).extension<AppThemeExtension>()!.success,
+          backgroundColor:
+              Theme.of(context).extension<AppThemeExtension>()!.success,
         ),
       );
     }
@@ -316,15 +331,19 @@ class _FocusTimerDialogState extends State<_FocusTimerDialog> {
                 return GestureDetector(
                   onTap: () => _selectType(i),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: sel ? theme.colorScheme.primary : ext.surfaceMuted,
-                      borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+                      borderRadius:
+                          BorderRadius.circular(AppSpacing.radiusPill),
                     ),
                     child: Text(FocusType.values[i].label,
                         style: TextStyle(
-                          color: sel ? Colors.white : theme.colorScheme.onSurface,
-                          fontWeight: FontWeight.w600, fontSize: 12,
+                          color:
+                              sel ? Colors.white : theme.colorScheme.onSurface,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
                         )),
                   ),
                 );

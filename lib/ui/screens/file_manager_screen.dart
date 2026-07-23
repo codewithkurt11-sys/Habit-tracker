@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
+import 'package:share_plus/share_plus.dart';
 
 import '../../data/file_manager/file_manager_service.dart';
 import '../../data/file_manager/file_utils.dart';
@@ -26,11 +27,27 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
   final List<String> _breadcrumb = [];
   FileSortBy _sortBy = FileSortBy.name;
   bool _ascending = true;
+  bool _showHidden = false;
+  final _searchController = TextEditingController();
+
+  List<FileSystemEntity> get _visibleEntries {
+    final query = _searchController.text.trim().toLowerCase();
+    if (query.isEmpty) return _entries;
+    return _entries
+        .where((entry) => p.basename(entry.path).toLowerCase().contains(query))
+        .toList();
+  }
 
   @override
   void initState() {
     super.initState();
     _initPermission();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _initPermission() async {
@@ -77,6 +94,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
         path,
         sortBy: _sortBy,
         ascending: _ascending,
+        showHidden: _showHidden,
       );
       if (!mounted) return;
       setState(() {
@@ -139,6 +157,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
     if (!_permissionGranted) {
       return _PermissionView(
         onRetry: _initPermission,
+        onOpenSettings: _service.openPermissionSettings,
       );
     }
 
@@ -171,31 +190,44 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
     return Column(
       children: [
         _buildBreadcrumbBar(),
+        _buildSearchBar(),
         if (_error != null)
           Container(
             padding: const EdgeInsets.all(AppSpacing.md),
             color: theme.colorScheme.error.withValues(alpha: 0.1),
-            child: Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
+            child:
+                Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
           ),
         Expanded(
-          child: _entries.isEmpty
-              ? const EmptyState(
-                  icon: Icons.folder_open,
-                  title: 'Empty folder',
-                  subtitle: 'This folder has no files',
+          child: _visibleEntries.isEmpty
+              ? EmptyState(
+                  icon: _searchController.text.isEmpty
+                      ? Icons.folder_open
+                      : Icons.search_off,
+                  title: _searchController.text.isEmpty
+                      ? 'Empty folder'
+                      : 'No matching files',
+                  subtitle: _searchController.text.isEmpty
+                      ? 'This folder has no files'
+                      : 'Try a different search term',
                 )
               : ListView.builder(
                   padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
-                  itemCount: _entries.length,
-                  itemBuilder: (_, i) => _FileEntityTile(
-                    entity: _entries[i],
-                    onTap: () {
-                      if (_entries[i] is Directory) {
-                        _navigateTo(_entries[i].path);
-                      }
-                    },
-                    onLongPress: () => _showEntityOptions(_entries[i]),
-                  ),
+                  itemCount: _visibleEntries.length,
+                  itemBuilder: (_, i) {
+                    final entity = _visibleEntries[i];
+                    return _FileEntityTile(
+                      entity: entity,
+                      onTap: () {
+                        if (entity is Directory) {
+                          _navigateTo(entity.path);
+                        } else {
+                          _showEntityOptions(entity);
+                        }
+                      },
+                      onLongPress: () => _showEntityOptions(entity),
+                    );
+                  },
                 ),
         ),
         // Bottom action bar
@@ -233,7 +265,8 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
   Widget _buildBreadcrumbBar() {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
       child: Row(
         children: [
           IconButton(
@@ -251,8 +284,10 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
                 children: [
                   for (int i = 0; i < _breadcrumb.length; i++) ...[
                     if (i > 0)
-                      Icon(Icons.chevron_right, size: 16,
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.3)),
+                      Icon(Icons.chevron_right,
+                          size: 16,
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.3)),
                     GestureDetector(
                       onTap: () {
                         // Navigate to this breadcrumb level
@@ -291,15 +326,47 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
     );
   }
 
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        0,
+        AppSpacing.md,
+        AppSpacing.sm,
+      ),
+      child: TextField(
+        controller: _searchController,
+        onChanged: (_) => setState(() {}),
+        decoration: InputDecoration(
+          hintText: 'Search this folder',
+          prefixIcon: const Icon(Icons.search, size: 20),
+          suffixIcon: _searchController.text.isEmpty
+              ? null
+              : IconButton(
+                  icon: const Icon(Icons.clear, size: 20),
+                  tooltip: 'Clear search',
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() {});
+                  },
+                ),
+          isDense: true,
+        ),
+      ),
+    );
+  }
+
   Widget _buildActionBar() {
     final theme = Theme.of(context);
     final hasClipboard = _service.clipboard != null;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md, vertical: AppSpacing.sm),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         border: Border(
-          top: BorderSide(color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
+          top: BorderSide(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.08)),
         ),
       ),
       child: Row(
@@ -307,13 +374,27 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
         children: [
           IconButton(
             icon: const Icon(Icons.create_new_folder_outlined),
-            onPressed: _currentPath == null ? null : () => _showCreateFolderDialog(),
+            onPressed:
+                _currentPath == null ? null : () => _showCreateFolderDialog(),
             tooltip: 'New Folder',
           ),
           IconButton(
-            icon: Icon(Icons.content_paste, color: hasClipboard ? theme.colorScheme.primary : null),
-            onPressed: hasClipboard && _currentPath != null ? () => _pasteItems() : null,
+            icon: Icon(Icons.content_paste,
+                color: hasClipboard ? theme.colorScheme.primary : null),
+            onPressed: hasClipboard && _currentPath != null
+                ? () => _pasteItems()
+                : null,
             tooltip: 'Paste',
+          ),
+          IconButton(
+            icon: Icon(
+              _showHidden ? Icons.visibility : Icons.visibility_off_outlined,
+            ),
+            onPressed: () {
+              setState(() => _showHidden = !_showHidden);
+              if (_currentPath != null) _navigateTo(_currentPath!);
+            },
+            tooltip: _showHidden ? 'Hide hidden files' : 'Show hidden files',
           ),
           IconButton(
             icon: Icon(_ascending ? Icons.arrow_upward : Icons.arrow_downward),
@@ -372,7 +453,8 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
               } catch (e) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Failed: $e'),
+                    SnackBar(
+                        content: Text('Failed: $e'),
                         backgroundColor: Theme.of(context).colorScheme.error),
                   );
                 }
@@ -394,31 +476,58 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
+              leading:
+                  Icon(Icons.info_outline, color: theme.colorScheme.primary),
+              title: const Text('Details'),
+              onTap: () {
+                Navigator.pop(context);
+                _showDetails(entity);
+              },
+            ),
+            if (entity is File)
+              ListTile(
+                leading: Icon(Icons.share_outlined,
+                    color: theme.colorScheme.primary),
+                title: const Text('Share'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _shareFile(entity);
+                },
+              ),
+            ListTile(
               leading: Icon(Icons.copy, color: theme.colorScheme.primary),
               title: const Text('Copy'),
               onTap: () {
-                _service.clipboard = FileClipboard(paths: [entity.path], isCut: false);
+                _service.clipboard =
+                    FileClipboard(paths: [entity.path], isCut: false);
                 Navigator.pop(context);
                 setState(() {});
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Copied to clipboard'), duration: Duration(seconds: 1)),
+                  const SnackBar(
+                      content: Text('Copied to clipboard'),
+                      duration: Duration(seconds: 1)),
                 );
               },
             ),
             ListTile(
-              leading: Icon(Icons.content_cut, color: theme.colorScheme.primary),
+              leading:
+                  Icon(Icons.content_cut, color: theme.colorScheme.primary),
               title: const Text('Cut'),
               onTap: () {
-                _service.clipboard = FileClipboard(paths: [entity.path], isCut: true);
+                _service.clipboard =
+                    FileClipboard(paths: [entity.path], isCut: true);
                 Navigator.pop(context);
                 setState(() {});
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Cut to clipboard'), duration: Duration(seconds: 1)),
+                  const SnackBar(
+                      content: Text('Cut to clipboard'),
+                      duration: Duration(seconds: 1)),
                 );
               },
             ),
             ListTile(
-              leading: Icon(Icons.drive_file_rename_outline, color: theme.colorScheme.primary),
+              leading: Icon(Icons.drive_file_rename_outline,
+                  color: theme.colorScheme.primary),
               title: const Text('Rename'),
               onTap: () {
                 Navigator.pop(context);
@@ -426,7 +535,8 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
               },
             ),
             ListTile(
-              leading: Icon(Icons.delete_outline, color: theme.colorScheme.error),
+              leading:
+                  Icon(Icons.delete_outline, color: theme.colorScheme.error),
               title: const Text('Delete'),
               onTap: () {
                 Navigator.pop(context);
@@ -437,6 +547,61 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _shareFile(File file) async {
+    try {
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        subject: p.basename(file.path),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Unable to share file: $error'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
+      );
+    }
+  }
+
+  Future<void> _showDetails(FileSystemEntity entity) async {
+    final name = p.basename(entity.path);
+    try {
+      final stat = await entity.stat();
+      var size = stat.size;
+      var itemSummary = entity is Directory ? 'Folder' : 'File';
+      if (entity is Directory) {
+        final stats = await _service.folderStats(entity.path);
+        size = stats.size;
+        itemSummary = '${stats.files} files, ${stats.folders} folders';
+      }
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(name),
+          content: SelectableText(
+            'Type: $itemSummary\n'
+            'Size: ${FileUtils.formatSize(size)}\n'
+            'Modified: ${FileUtils.formatDate(stat.modified)}\n'
+            'Path: ${entity.path}',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to read details: $error')),
+      );
+    }
   }
 
   void _showRenameDialog(FileSystemEntity entity) {
@@ -466,7 +631,8 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
               } catch (e) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Rename failed: $e'),
+                    SnackBar(
+                        content: Text('Rename failed: $e'),
                         backgroundColor: Theme.of(context).colorScheme.error),
                   );
                 }
@@ -503,7 +669,8 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
               } catch (e) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Delete failed: $e'),
+                    SnackBar(
+                        content: Text('Delete failed: $e'),
                         backgroundColor: Theme.of(context).colorScheme.error),
                   );
                 }
@@ -519,18 +686,27 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
   Future<void> _pasteItems() async {
     if (_currentPath == null) return;
     try {
-      final count = await _service.paste(_currentPath!);
+      final result = await _service.paste(_currentPath!);
       await _refresh();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$count item(s) pasted'), duration: const Duration(seconds: 1)),
-        );
-      }
+      if (!mounted) return;
+      final message = result.hasErrors
+          ? '${result.completed} completed. ${result.errors.join('; ')}'
+          : result.skipped > 0
+              ? '${result.completed} completed, ${result.skipped} skipped'
+              : '${result.completed} item(s) pasted';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor:
+              result.hasErrors ? Theme.of(context).colorScheme.error : null,
+        ),
+      );
       setState(() {});
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Paste failed: $e'),
+          SnackBar(
+              content: Text('Paste failed: $e'),
               backgroundColor: Theme.of(context).colorScheme.error),
         );
       }
@@ -540,7 +716,12 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
 
 class _PermissionView extends StatelessWidget {
   final VoidCallback onRetry;
-  const _PermissionView({required this.onRetry});
+  final Future<bool> Function() onOpenSettings;
+
+  const _PermissionView({
+    required this.onRetry,
+    required this.onOpenSettings,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -550,8 +731,12 @@ class _PermissionView extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.folder_off_outlined, size: 64,
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3)),
+            Icon(Icons.folder_off_outlined,
+                size: 64,
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.3)),
             const SizedBox(height: AppSpacing.lg),
             const Text('Storage Permission Required',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
@@ -565,6 +750,10 @@ class _PermissionView extends StatelessWidget {
               onPressed: onRetry,
               icon: const Icon(Icons.refresh),
               label: const Text('Grant Permission'),
+            ),
+            TextButton(
+              onPressed: onOpenSettings,
+              child: const Text('Open App Settings'),
             ),
           ],
         ),
@@ -597,7 +786,11 @@ class _StorageRootTile extends StatelessWidget {
                   color: AppColors.fileFolder.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
                 ),
-                child: Icon(Icons.folder_rounded, color: AppColors.fileFolder, size: 24),
+                child: const Icon(
+                  Icons.folder_rounded,
+                  color: AppColors.fileFolder,
+                  size: 24,
+                ),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
@@ -606,8 +799,10 @@ class _StorageRootTile extends StatelessWidget {
                   children: [
                     Text(root.label, style: theme.textTheme.titleSmall),
                     const SizedBox(height: 2),
-                    Text(root.path, style: theme.textTheme.bodySmall,
-                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                    Text(root.path,
+                        style: theme.textTheme.bodySmall,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
                   ],
                 ),
               ),
@@ -661,7 +856,8 @@ class _FileEntityTile extends StatelessWidget {
           onLongPress: onLongPress,
           borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm + 2),
+            padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md, vertical: AppSpacing.sm + 2),
             child: Row(
               children: [
                 Container(
@@ -679,8 +875,10 @@ class _FileEntityTile extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(name, style: theme.textTheme.bodyLarge,
-                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                      Text(name,
+                          style: theme.textTheme.bodyLarge,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 2),
                       Text(subtitle, style: theme.textTheme.bodySmall),
                     ],
@@ -688,7 +886,8 @@ class _FileEntityTile extends StatelessWidget {
                 ),
                 if (isDir)
                   Icon(Icons.chevron_right,
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.3)),
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.3)),
               ],
             ),
           ),
