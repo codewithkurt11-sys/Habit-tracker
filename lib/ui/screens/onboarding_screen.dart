@@ -120,12 +120,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Widget _buildFeaturesPage(ThemeData theme) {
     final features = [
-      (Icons.repeat_rounded, 'Habits', 'Track daily habits and build streaks'),
-      (Icons.check_circle_outline, 'Tasks', 'Manage tasks with priorities'),
-      (Icons.track_changes, 'Goals', 'Set goals with milestones'),
-      (Icons.book_outlined, 'Journal', 'Reflect on your day'),
-      (Icons.account_balance_wallet_outlined, 'Finance', 'Track income & expenses'),
-      (Icons.timer_outlined, 'Focus', 'Stay focused with a timer'),
+      (Icons.dashboard_outlined, 'Dashboard', 'Daily overview with quick actions'),
+      (Icons.repeat_rounded, 'Habits', 'Track habits with streaks & heatmap'),
+      (Icons.check_circle_outline, 'Tasks', 'Manage tasks & Kanban board'),
+      (Icons.analytics_outlined, 'Analytics', 'Insights, trends & statistics'),
+      (Icons.calendar_month_outlined, 'Calendar', 'Monthly view & activity heatmap'),
+      (Icons.account_balance_wallet_outlined, 'Finance', 'Budget, savings & categories'),
     ];
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,

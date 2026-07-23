@@ -7,6 +7,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
+import 'habit_detail_screen.dart';
 
 class HabitsScreen extends StatelessWidget {
   const HabitsScreen({super.key});
@@ -79,6 +80,9 @@ class _HabitTile extends StatelessWidget {
       child: Card(
         child: InkWell(
           onTap: () => state.toggleHabit(habit.id),
+          onLongPress: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => HabitDetailScreen(habitId: habit.id)),
+          ),
           borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
           child: Padding(
             padding: const EdgeInsets.all(AppSpacing.md),

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
 import '../../logic/app_state.dart';
+import '../../logic/stats_engine.dart';
 import '../../data/models/finance_entry.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
@@ -22,6 +23,9 @@ class FinanceScreen extends StatelessWidget {
     final expenses = state.financeRepo.getTotalExpenses(year: now.year, month: now.month);
     final balance = income - expenses;
     final monthName = DateFormat.MMMM().format(now);
+    final budget = state.financeRepo.budget;
+    final categoryBreakdown = StatsEngine.expenseByCategory(
+        state.financeRepo.getAll(), now.year, now.month);
 
     return Scaffold(
       body: SafeArea(
@@ -36,8 +40,21 @@ class FinanceScreen extends StatelessWidget {
               income: income,
               expenses: expenses,
               balance: balance,
+              budget: budget.monthlyBudget,
+              savingsGoal: budget.savingsGoal,
             ),
             const SizedBox(height: AppSpacing.sm),
+            // Budget + Category breakdown
+            if (budget.monthlyBudget > 0 || categoryBreakdown.isNotEmpty)
+              _BudgetOverviewCard(
+                expenses: expenses,
+                budget: budget.monthlyBudget,
+                savingsGoal: budget.savingsGoal,
+                income: income,
+                categoryBreakdown: categoryBreakdown,
+              ),
+            if (budget.monthlyBudget > 0 || categoryBreakdown.isNotEmpty)
+              const SizedBox(height: AppSpacing.sm),
             Expanded(
               child: entries.isEmpty
                   ? const EmptyState(
@@ -70,11 +87,15 @@ class _SummaryCard extends StatelessWidget {
   final double income;
   final double expenses;
   final double balance;
+  final double budget;
+  final double savingsGoal;
 
   const _SummaryCard({
     required this.income,
     required this.expenses,
     required this.balance,
+    required this.budget,
+    required this.savingsGoal,
   });
 
   @override
@@ -121,6 +142,129 @@ class _SummaryCard extends StatelessWidget {
                   ),
                 ],
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BudgetOverviewCard extends StatelessWidget {
+  final double expenses;
+  final double budget;
+  final double savingsGoal;
+  final double income;
+  final Map<String, double> categoryBreakdown;
+  const _BudgetOverviewCard({
+    required this.expenses,
+    required this.budget,
+    required this.savingsGoal,
+    required this.income,
+    required this.categoryBreakdown,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final ext = theme.extension<AppThemeExtension>()!;
+    final fmt = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+    final budgetPct = budget > 0 ? (expenses / budget).clamp(0.0, 1.0) : 0.0;
+    final savings = income - expenses;
+    final savingsPct = savingsGoal > 0 ? (savings / savingsGoal).clamp(0.0, 1.0) : 0.0;
+    final overBudget = budget > 0 && expenses > budget;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Budget
+              if (budget > 0) ...[
+                Row(
+                  children: [
+                    Icon(Icons.account_balance, size: 18, color: overBudget ? theme.colorScheme.error : ext.success),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text('Monthly Budget', style: theme.textTheme.titleSmall)),
+                    Text(
+                      '${fmt.format(expenses)} / ${fmt.format(budget)}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: overBudget ? theme.colorScheme.error : null,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+                  child: LinearProgressIndicator(
+                    value: budgetPct,
+                    minHeight: 8,
+                    backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+                    valueColor: AlwaysStoppedAnimation<Color>(overBudget ? theme.colorScheme.error : ext.success),
+                  ),
+                ),
+                if (overBudget)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text('Over budget by ${fmt.format(expenses - budget)}', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.error)),
+                  ),
+                const SizedBox(height: AppSpacing.md),
+              ],
+              // Savings goal
+              if (savingsGoal > 0) ...[
+                Row(
+                  children: [
+                    Icon(Icons.savings, size: 18, color: theme.colorScheme.primary),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text('Savings Goal', style: theme.textTheme.titleSmall)),
+                    Text('${fmt.format(savings)} / ${fmt.format(savingsGoal)}', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+                  child: LinearProgressIndicator(
+                    value: savingsPct,
+                    minHeight: 8,
+                    backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+                    valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+              ],
+              // Category breakdown
+              if (categoryBreakdown.isNotEmpty) ...[
+                Text('Spending by Category', style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: AppSpacing.xs),
+                ...categoryBreakdown.entries.take(5).map((e) {
+                  final pct = expenses > 0 ? (e.value / expenses * 100) : 0.0;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Row(
+                      children: [
+                        SizedBox(width: 80, child: Text(e.key, style: theme.textTheme.bodySmall)),
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: pct / 100,
+                              minHeight: 6,
+                              backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+                              valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.error.withValues(alpha: 0.6)),
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 50, child: Text('\$${e.value.toStringAsFixed(0)}', style: theme.textTheme.bodySmall, textAlign: TextAlign.right)),
+                      ],
+                    ),
+                  );
+                }),
+              ],
             ],
           ),
         ),

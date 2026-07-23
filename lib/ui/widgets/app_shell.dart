@@ -4,9 +4,10 @@ import 'package:provider/provider.dart';
 import '../../logic/app_state.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
+import '../screens/dashboard_screen.dart';
 import '../screens/habits_screen.dart';
 import '../screens/tasks_screen.dart';
-import '../screens/journal_screen.dart';
+import '../screens/analytics_screen.dart';
 import '../screens/finance_screen.dart';
 import '../screens/focus_screen.dart';
 import '../screens/notes_screen.dart';
@@ -17,6 +18,9 @@ import '../screens/file_manager_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/export_screen.dart';
+import '../screens/kanban_screen.dart';
+import '../screens/calendar_screen.dart';
+import '../screens/search_screen.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -30,18 +34,18 @@ class _AppShellState extends State<AppShell> {
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   final _bottomScreens = <Widget>[
+    const DashboardScreen(),
     const HabitsScreen(),
     const TasksScreen(),
-    const JournalScreen(),
     const FinanceScreen(),
     const FocusScreen(),
   ];
 
-  final _bottomLabels = ['Habits', 'Tasks', 'Journal', 'Finance', 'Focus'];
+  final _bottomLabels = ['Home', 'Habits', 'Tasks', 'Finance', 'Focus'];
   final _bottomIcons = [
+    Icons.dashboard_outlined,
     Icons.repeat_rounded,
     Icons.check_circle_outline,
-    Icons.book_outlined,
     Icons.account_balance_wallet_outlined,
     Icons.timer_outlined,
   ];
@@ -57,12 +61,18 @@ class _AppShellState extends State<AppShell> {
       case 3:
         return const ScheduleScreen();
       case 4:
-        return const FileManagerScreen();
+        return const KanbanScreen();
       case 5:
-        return const ProfileScreen();
+        return const AnalyticsScreen();
       case 6:
-        return const SettingsScreen();
+        return const CalendarScreen();
       case 7:
+        return const FileManagerScreen();
+      case 8:
+        return const ProfileScreen();
+      case 9:
+        return const SettingsScreen();
+      case 10:
         return const ExportScreen();
       default:
         return const SizedBox.shrink();
@@ -75,10 +85,13 @@ class _AppShellState extends State<AppShell> {
       'Goals',
       'Quotes',
       'Schedule',
+      'Kanban Board',
+      'Analytics',
+      'Calendar',
       'File Manager',
       'Profile',
       'Settings',
-      'Export Data',
+      'Backup & Export',
     ];
     return labels[index];
   }
@@ -89,6 +102,9 @@ class _AppShellState extends State<AppShell> {
       Icons.track_changes_outlined,
       Icons.format_quote_outlined,
       Icons.calendar_today_outlined,
+      Icons.view_kanban_outlined,
+      Icons.analytics_outlined,
+      Icons.calendar_month_outlined,
       Icons.folder_outlined,
       Icons.person_outline,
       Icons.settings_outlined,
@@ -108,6 +124,14 @@ class _AppShellState extends State<AppShell> {
               icon: const Icon(Icons.arrow_back),
               onPressed: () => Navigator.of(ctx).pop(),
             ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.search),
+                onPressed: () => Navigator.of(ctx).push(
+                  MaterialPageRoute(builder: (_) => const Scaffold(body: SearchScreen())),
+                ),
+              ),
+            ],
           ),
           body: _sidebarScreen(index),
           floatingActionButton: _sidebarFab(ctx, index),
@@ -136,6 +160,11 @@ class _AppShellState extends State<AppShell> {
       case 3: // Schedule
         return FloatingActionButton(
           onPressed: () => showAddScheduleDialog(context),
+          child: const Icon(Icons.add),
+        );
+      case 4: // Kanban
+        return FloatingActionButton(
+          onPressed: () {},
           child: const Icon(Icons.add),
         );
       default:
@@ -178,7 +207,7 @@ class _AppShellState extends State<AppShell> {
             const SizedBox(height: AppSpacing.sm),
             Text(name, style: theme.textTheme.titleLarge),
             const SizedBox(height: 2),
-            Text('Habit Tracker', style: theme.textTheme.bodySmall),
+            Text('Productivity OS', style: theme.textTheme.bodySmall),
           ],
         ),
       ),
@@ -212,7 +241,7 @@ class _AppShellState extends State<AppShell> {
               child: ListView(
                 padding: EdgeInsets.zero,
                 children: [
-                  for (int i = 0; i < 8; i++) _buildSidebarItem(context, i),
+                  for (int i = 0; i < 11; i++) _buildSidebarItem(context, i),
                 ],
               ),
             ),
@@ -221,7 +250,7 @@ class _AppShellState extends State<AppShell> {
               leading: Icon(Icons.info_outline,
                   color: Theme.of(context).colorScheme.onSurface
                       .withValues(alpha: 0.5)),
-              title: Text('Version 1.0.0',
+              title: Text('Version 2.0.0',
                   style: Theme.of(context).textTheme.bodySmall),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
