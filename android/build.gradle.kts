@@ -22,18 +22,3 @@ subprojects {
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
-
-// Firebase Google Services classpath — only added if google-services.json
-// is present, so builds without Firebase configured still work.
-val hasGoogleServices = rootProject.file("app/google-services.json").exists()
-if (hasGoogleServices) {
-    buildscript {
-        repositories {
-            google()
-            mavenCentral()
-        }
-        dependencies {
-            classpath("com.google.gms:google-services:4.4.2")
-        }
-    }
-}

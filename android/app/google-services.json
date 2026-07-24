@@ -1,0 +1,121 @@
+{
+  "project_info": {
+    "project_number": "687760012800",
+    "project_id": "habit-tracker-37dc1",
+    "storage_bucket": "habit-tracker-37dc1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:687760012800:android:0d1c6f01fa97343a474ae5",
+        "android_client_info": {
+          "package_name": "com.example.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "687760012800-njf7ak1fsip6mruit05i7pqb0r9jjdd9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB0ar7s2C_KAppz-dskZJR5rEvx3Y1vv9o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "687760012800-njf7ak1fsip6mruit05i7pqb0r9jjdd9.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:687760012800:android:a329b3816f336738474ae5",
+        "android_client_info": {
+          "package_name": "com.myapp.mobile"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "687760012800-njf7ak1fsip6mruit05i7pqb0r9jjdd9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB0ar7s2C_KAppz-dskZJR5rEvx3Y1vv9o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "687760012800-njf7ak1fsip6mruit05i7pqb0r9jjdd9.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:687760012800:android:8fbe9d46ed567d2b474ae5",
+        "android_client_info": {
+          "package_name": "com.yourself.habits"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "687760012800-5a0cjb56g5gvqmllp1jtoc6kesvh9ovk.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.yourself.habits",
+            "certificate_hash": "7303beee63240d09dba343e5d485a3d1c32c604b"
+          }
+        },
+        {
+          "client_id": "687760012800-6dfckqnu08i1ak13ivcg6m52bqid3jkf.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.yourself.habits",
+            "certificate_hash": "a2844391d86da93606a9d970af9007f2e59853f8"
+          }
+        },
+        {
+          "client_id": "687760012800-mekak3e4kms84h666t5audmkdtk8bkna.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.yourself.habits",
+            "certificate_hash": "0d09ba9b9caab3ff86d33fefcd0633ffad8983af"
+          }
+        },
+        {
+          "client_id": "687760012800-njf7ak1fsip6mruit05i7pqb0r9jjdd9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB0ar7s2C_KAppz-dskZJR5rEvx3Y1vv9o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "687760012800-njf7ak1fsip6mruit05i7pqb0r9jjdd9.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

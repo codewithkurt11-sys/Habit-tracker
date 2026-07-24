@@ -53,8 +53,16 @@ android {
         multiDexEnabled = true
     }
 
-    if (hasKeystore) {
-        signingConfigs {
+    signingConfigs {
+        getByName("debug") {
+            // Dedicated CI/debug key with a Firebase-registered SHA fingerprint.
+            // Production releases continue to use the private release keystore.
+            storeFile = rootProject.file("ci-signing.jks")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+        if (hasKeystore) {
             create("release") {
                 keyAlias = keystoreProperties.getProperty("keyAlias")
                 keyPassword = keystoreProperties.getProperty("keyPassword")
