@@ -39,6 +39,12 @@ class AppState extends ChangeNotifier {
   final friendsRepo = FriendsRepository();
   final notificationService = NotificationService();
 
+  AppState() {
+    authService.addListener(_onAuthServiceChanged);
+  }
+
+  void _onAuthServiceChanged() => notifyListeners();
+
   bool _busy = false;
   bool get busy => _busy;
 
@@ -97,6 +103,15 @@ class AppState extends ChangeNotifier {
 
   // ---------- theme ----------
   UserSettings get settings => settingsRepo.current;
+
+  @override
+  void dispose() {
+    authService.removeListener(_onAuthServiceChanged);
+    syncService.removeListener(_onSyncServiceChanged);
+    authService.dispose();
+    syncService.dispose();
+    super.dispose();
+  }
 
   bool get isDark {
     switch (settings.themeMode) {

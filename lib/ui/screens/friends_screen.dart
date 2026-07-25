@@ -160,14 +160,8 @@ class FriendsScreen extends StatelessWidget {
 
   Future<FriendProfile> _fetchProfile(
       FriendsRepository repo, String uid) async {
-    // Simple in-memory cache could be added; for now fetch directly.
-    try {
-      final users = await repo.searchByUsername('');
-      return users.firstWhere((p) => p.uid == uid,
-          orElse: () => FriendProfile(uid: uid, displayName: 'User'));
-    } catch (_) {
-      return FriendProfile(uid: uid, displayName: 'User');
-    }
+    return await repo.getProfile(uid) ??
+        FriendProfile(uid: uid, displayName: 'User');
   }
 }
 

@@ -13,19 +13,12 @@ val hasKeystore = keystoreProperties.getProperty("keyAlias") != null &&
         keystoreProperties.getProperty("storeFile") != null &&
         keystoreProperties.getProperty("storePassword") != null
 
-// Firebase Google Services: only apply the plugin if google-services.json
-// is present, so the build does not fail when Firebase is not yet configured.
-val hasGoogleServices = rootProject.file("app/google-services.json").exists()
-
 plugins {
     id("com.android.application")
     id("kotlin-android")
+    id("com.google.gms.google-services")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
-}
-
-if (hasGoogleServices) {
-    apply(plugin = "com.google.gms.google-services")
 }
 
 android {
@@ -35,12 +28,12 @@ android {
 
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
     defaultConfig {
@@ -74,7 +67,8 @@ android {
 
     buildTypes {
         release {
-            // Use release signing if keystore is available, otherwise fall back to debug signing.
+            // Local production builds use key.properties. CI/test releases use the
+            // Firebase-registered CI certificate so Google Sign-In remains testable.
             signingConfig = if (hasKeystore) {
                 signingConfigs.getByName("release")
             } else {

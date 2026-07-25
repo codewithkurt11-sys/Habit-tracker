@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -69,15 +71,35 @@ class FriendsRepository {
     }
   }
 
+  /// Fetch a single signed-in-visible profile by UID.
+  Future<FriendProfile?> getProfile(String uid) async {
+    if (_uid == null || uid.isEmpty) return null;
+    try {
+      final doc = await _db.collection('users').doc(uid).get();
+      if (!doc.exists) return null;
+      final data = doc.data()!;
+      return FriendProfile(
+        uid: doc.id,
+        displayName: (data['displayName'] as String?) ?? 'User',
+        photoUrl: data['photoUrl'] as String?,
+        username: data['username'] as String?,
+      );
+    } catch (e) {
+      if (kDebugMode) debugPrint('FriendsRepository.getProfile error: $e');
+      return null;
+    }
+  }
+
   // ===================== Friend requests =====================
 
   /// Send a friend request to [toUid].
   Future<bool> sendRequest(String toUid) async {
-    if (_uid == null) return false;
+    final me = _uid;
+    if (me == null || toUid.isEmpty || toUid == me) return false;
     try {
-      final reqId = '${_uid}_$toUid';
+      final reqId = '${me}_$toUid';
       await _db.collection('friendRequests').doc(reqId).set({
-        'fromUid': _uid,
+        'fromUid': me,
         'toUid': toUid,
         'status': 'pending',
         'createdAt': FieldValue.serverTimestamp(),
@@ -164,50 +186,52 @@ class FriendsRepository {
   Stream<List<FriendProfile>> friendsStream() {
     final me = _uid;
     if (me == null) return const Stream.empty();
-    final q1 =
-        _db.collection('friendships').where('uid1', isEqualTo: me).snapshots();
-    final q2 =
-        _db.collection('friendships').where('uid2', isEqualTo: me).snapshots();
-    return q1.asyncExpand((s1) async* {
-      await for (final s2 in q2) {
-        final friendUids = <String>{};
-        for (final doc in s1.docs) {
-          final d = doc.data();
-          if (d['status'] == 'accepted') {
-            final other = d['uid1'] == me ? d['uid2'] : d['uid1'];
-            friendUids.add(other as String);
-          }
-        }
-        for (final doc in s2.docs) {
-          final d = doc.data();
-          if (d['status'] == 'accepted') {
-            final other = d['uid1'] == me ? d['uid2'] : d['uid1'];
-            friendUids.add(other as String);
-          }
-        }
-        if (friendUids.isEmpty) {
-          yield [];
-          continue;
-        }
-        // Fetch user profiles for friend UIDs.
-        final profiles = <FriendProfile>[];
-        for (final uid in friendUids) {
-          try {
-            final userDoc = await _db.collection('users').doc(uid).get();
-            if (userDoc.exists) {
-              final d = userDoc.data()!;
-              profiles.add(FriendProfile(
-                uid: uid,
-                displayName: (d['displayName'] as String?) ?? 'User',
-                photoUrl: d['photoUrl'] as String?,
-                username: d['username'] as String?,
-              ));
-            }
-          } catch (_) {}
-        }
-        yield profiles;
+
+    final controller = StreamController<List<FriendProfile>>();
+    QuerySnapshot<Map<String, dynamic>>? first;
+    QuerySnapshot<Map<String, dynamic>>? second;
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? firstSub;
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? secondSub;
+
+    Future<void> emit() async {
+      if (first == null || second == null || controller.isClosed) return;
+      final friendUids = <String>{};
+      for (final doc in [...first!.docs, ...second!.docs]) {
+        final data = doc.data();
+        if (data['status'] != 'accepted') continue;
+        final other = data['uid1'] == me ? data['uid2'] : data['uid1'];
+        if (other is String && other.isNotEmpty) friendUids.add(other);
       }
-    });
+      final profiles = await Future.wait(friendUids.map(getProfile));
+      if (!controller.isClosed) {
+        controller.add(profiles.whereType<FriendProfile>().toList());
+      }
+    }
+
+    controller.onListen = () {
+      firstSub = _db
+          .collection('friendships')
+          .where('uid1', isEqualTo: me)
+          .snapshots()
+          .listen((snapshot) {
+        first = snapshot;
+        emit();
+      }, onError: controller.addError);
+      secondSub = _db
+          .collection('friendships')
+          .where('uid2', isEqualTo: me)
+          .snapshots()
+          .listen((snapshot) {
+        second = snapshot;
+        emit();
+      }, onError: controller.addError);
+    };
+    controller.onCancel = () async {
+      await firstSub?.cancel();
+      await secondSub?.cancel();
+      await controller.close();
+    };
+    return controller.stream;
   }
 
   // ===================== Friend's data (read-only streams) =====================

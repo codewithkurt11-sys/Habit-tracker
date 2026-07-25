@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart';
 
 import 'core/theme/app_theme.dart';
 import 'data/hive_boxes.dart';
@@ -14,16 +13,12 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await HiveInitializer.init();
 
-  // Firebase init MUST be wrapped in try/catch — a missing/broken config
-  // must degrade to offline-only, never crash app startup.
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    if (kDebugMode) debugPrint('Firebase initialized successfully.');
-  } catch (e) {
-    if (kDebugMode) debugPrint('Firebase init failed — offline-only mode: $e');
-  }
+  // Firebase must be initialized before services access Auth or Firestore.
+  // A configuration error is intentionally surfaced instead of creating
+  // partially initialized service singletons.
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   runApp(const HabitTrackerApp());
 }

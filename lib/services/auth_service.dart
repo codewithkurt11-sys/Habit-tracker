@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 /// Result of an auth operation.
 enum AuthResult { success, cancelled, error, offline }
@@ -14,9 +15,16 @@ enum AuthResult { success, cancelled, error, offline }
 /// Every public method catches its own errors and never throws into UI code;
 /// expose failures via [lastError].
 class AuthService extends ChangeNotifier {
+  static const _webClientId =
+      '687760012800-njf7ak1fsip6mruit05i7pqb0r9jjdd9.apps.googleusercontent.com';
+
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: const ['email', 'profile'],
+    clientId: kIsWeb ? _webClientId : null,
+    serverClientId: kIsWeb ? null : _webClientId,
+  );
 
   User? get currentUser => _auth.currentUser;
   String? get uid => _auth.currentUser?.uid;
@@ -31,10 +39,11 @@ class AuthService extends ChangeNotifier {
   String? get username => _username;
 
   StreamSubscription<DocumentSnapshot>? _userDocSub;
+  StreamSubscription<User?>? _authSub;
 
   AuthService() {
     // Listen to auth state changes so the UI rebuilds on sign-in/out.
-    _auth.authStateChanges().listen(_onAuthChanged);
+    _authSub = _auth.authStateChanges().listen(_onAuthChanged);
   }
 
   void _onAuthChanged(User? user) {
@@ -93,9 +102,31 @@ class AuthService extends ChangeNotifier {
       );
       await _auth.signInWithCredential(credential);
       return AuthResult.success;
+    } on PlatformException catch (e) {
+      if (e.code == 'sign_in_failed' && e.message?.contains('10') == true) {
+        lastError =
+            'Google Sign-In is not authorized for this app certificate. '
+            'Add this build\'s SHA-1 and SHA-256 to the com.yourself.habits '
+            'Android app in Firebase, then download google-services.json again.';
+      } else if (e.code == 'network_error') {
+        lastError = 'Google Sign-In needs an internet connection.';
+      } else {
+        lastError = 'Google Sign-In failed (${e.code}). Please try again.';
+      }
+      if (kDebugMode) debugPrint('AuthService Google platform error: $e');
+      notifyListeners();
+      return AuthResult.error;
+    } on FirebaseAuthException catch (e) {
+      lastError = e.code == 'account-exists-with-different-credential'
+          ? 'An account already exists with this email using another sign-in method.'
+          : 'Firebase authentication failed (${e.code}). Please try again.';
+      if (kDebugMode) debugPrint('AuthService Firebase auth error: $e');
+      notifyListeners();
+      return AuthResult.error;
     } catch (e) {
-      lastError = 'Google sign-in failed: $e';
+      lastError = 'Google Sign-In failed. Please try again.';
       if (kDebugMode) debugPrint('AuthService signInWithGoogle error: $e');
+      notifyListeners();
       return AuthResult.error;
     }
   }
@@ -169,6 +200,7 @@ class AuthService extends ChangeNotifier {
   @override
   void dispose() {
     _userDocSub?.cancel();
+    _authSub?.cancel();
     super.dispose();
   }
 }

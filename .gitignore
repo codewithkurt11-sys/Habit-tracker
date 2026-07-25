@@ -39,6 +39,11 @@ app.*.symbols
 # Obfuscation related
 app.*.map.json
 
+# Private Android release signing material (CI debug key is intentionally tracked).
+/android/key.properties
+/android/release-key.jks
+*.keystore
+
 # Android Studio will place build artifacts here
 /android/app/debug
 /android/app/profile
