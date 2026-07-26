@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:developer' as developer;
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -11,16 +15,47 @@ import 'ui/widgets/app_shell.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await HiveInitializer.init();
 
-  // Firebase must be initialized before services access Auth or Firestore.
-  // A configuration error is intentionally surfaced instead of creating
-  // partially initialized service singletons.
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    developer.log(
+      'UNCAUGHT FLUTTER ERROR: ${details.exceptionAsString()}',
+      name: 'Yourself.Global',
+      error: details.exception,
+      stackTrace: details.stack,
+    );
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    developer.log(
+      'UNCAUGHT PLATFORM ERROR: $error',
+      name: 'Yourself.Global',
+      error: error,
+      stackTrace: stack,
+    );
+    return false;
+  };
 
-  runApp(const HabitTrackerApp());
+  await runZonedGuarded(() async {
+    await HiveInitializer.init();
+    developer.log('LOCAL INIT ✓ Hive initialized', name: 'Yourself.Startup');
+
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    developer.log(
+      'STEP 1 ✓ Firebase initialized: ${Firebase.app().options.projectId}',
+      name: 'Yourself.Auth',
+    );
+
+    runApp(const HabitTrackerApp());
+  }, (error, stack) {
+    developer.log(
+      'UNCAUGHT ZONE ERROR: $error',
+      name: 'Yourself.Global',
+      error: error,
+      stackTrace: stack,
+    );
+  });
 }
 
 class HabitTrackerApp extends StatelessWidget {

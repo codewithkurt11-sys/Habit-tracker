@@ -186,18 +186,14 @@ class _AccountCard extends StatelessWidget {
                 Text('Cloud Sync', style: theme.textTheme.titleMedium),
                 const Spacer(),
                 if (auth.isSignedIn)
-                  StreamBuilder(
-                    stream: Stream.periodic(const Duration(seconds: 0)),
-                    builder: (_, __) => Chip(
-                      label: Text(
-                          state.syncService.isOnline ? 'Online' : 'Offline',
-                          style: const TextStyle(fontSize: 11)),
-                      avatar: Icon(
-                        state.syncService.isOnline
-                            ? Icons.wifi
-                            : Icons.wifi_off,
-                        size: 16,
-                      ),
+                  Chip(
+                    label: Text(
+                      state.syncService.isOnline ? 'Online' : 'Offline',
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                    avatar: Icon(
+                      state.syncService.isOnline ? Icons.wifi : Icons.wifi_off,
+                      size: 16,
                     ),
                   ),
               ],
@@ -213,9 +209,19 @@ class _AccountCard extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: () => _signIn(context),
-                  icon: const Icon(Icons.login),
-                  label: const Text('Sign in with Google'),
+                  onPressed:
+                      auth.isAuthenticating ? null : () => _signIn(context),
+                  icon: auth.isAuthenticating
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.login),
+                  label: Text(
+                    auth.isAuthenticating
+                        ? 'Verifying secure sign-in…'
+                        : 'Sign in with Google',
+                  ),
                 ),
               ),
             ] else ...[
@@ -236,7 +242,7 @@ class _AccountCard extends StatelessWidget {
                     ? '@${auth.username}'
                     : 'No username claimed yet'),
                 trailing: TextButton(
-                  onPressed: () => auth.signOut(),
+                  onPressed: () => _signOut(context),
                   child: const Text('Sign out'),
                 ),
               ),
@@ -257,9 +263,23 @@ class _AccountCard extends StatelessWidget {
             ],
             if (auth.lastError != null) ...[
               const SizedBox(height: AppSpacing.sm),
-              Text(auth.lastError!,
-                  style:
-                      theme.textTheme.bodySmall?.copyWith(color: Colors.red)),
+              Material(
+                color: theme.colorScheme.errorContainer,
+                borderRadius: BorderRadius.circular(12),
+                child: ListTile(
+                  leading: Icon(
+                    Icons.error_outline,
+                    color: theme.colorScheme.onErrorContainer,
+                  ),
+                  title: const Text('The last cloud operation failed'),
+                  subtitle: const Text(
+                      'Open details to see the complete error and stack trace.'),
+                  trailing: TextButton(
+                    onPressed: () => _showDiagnostics(context, success: false),
+                    child: const Text('Details'),
+                  ),
+                ),
+              ),
             ],
           ],
         ),
@@ -269,17 +289,82 @@ class _AccountCard extends StatelessWidget {
 
   Future<void> _signIn(BuildContext context) async {
     final result = await auth.signInWithGoogle();
-    if (result == AuthResult.success && context.mounted) {
+    if (!context.mounted) return;
+
+    if (result == AuthResult.success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Signed in successfully!')),
+        SnackBar(
+          content:
+              const Text('Signed in. Your profile and cloud sync are ready.'),
+          behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(
+            label: 'Details',
+            onPressed: () => _showDiagnostics(context, success: true),
+          ),
+        ),
       );
-    } else if (result == AuthResult.error) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(auth.lastError ?? 'Sign-in failed.')),
-        );
-      }
+      return;
     }
+
+    // A cancelled picker is still explained; users are never returned to an
+    // unchanged screen with no feedback.
+    await _showDiagnostics(context, success: false);
+  }
+
+  Future<void> _signOut(BuildContext context) async {
+    try {
+      await auth.signOut();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Signed out. Local data remains on this device.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (_) {
+      if (context.mounted) await _showDiagnostics(context, success: false);
+    }
+  }
+
+  Future<void> _showDiagnostics(BuildContext context,
+      {required bool success}) async {
+    final report = auth.lastError ?? auth.diagnosticReport;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: Icon(
+          success ? Icons.verified_outlined : Icons.error_outline,
+          color: success
+              ? Theme.of(dialogContext).colorScheme.primary
+              : Theme.of(dialogContext).colorScheme.error,
+        ),
+        title: Text(
+            success ? 'Authentication verified' : 'Sign-in did not complete'),
+        content: SizedBox(
+          width: 520,
+          child: SingleChildScrollView(
+            child: SelectableText(
+              report.isEmpty ? 'No diagnostic event was recorded.' : report,
+              style: Theme.of(dialogContext).textTheme.bodySmall,
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Close'),
+          ),
+          if (!success)
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                _signIn(context);
+              },
+              child: const Text('Try again'),
+            ),
+        ],
+      ),
+    );
   }
 
   void _showClaimUsernameDialog(BuildContext context) {
