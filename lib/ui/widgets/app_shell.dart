@@ -21,7 +21,6 @@ import '../screens/export_screen.dart';
 import '../screens/kanban_screen.dart';
 import '../screens/calendar_screen.dart';
 import '../screens/search_screen.dart';
-import '../screens/friends_screen.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -72,10 +71,8 @@ class _AppShellState extends State<AppShell> {
       case 8:
         return const ProfileScreen();
       case 9:
-        return const FriendsScreen();
-      case 10:
         return const SettingsScreen();
-      case 11:
+      case 10:
         return const ExportScreen();
       default:
         return const SizedBox.shrink();
@@ -93,7 +90,6 @@ class _AppShellState extends State<AppShell> {
       'Calendar',
       'File Manager',
       'Profile',
-      'Friends',
       'Settings',
       'Backup & Export',
     ];
@@ -111,7 +107,6 @@ class _AppShellState extends State<AppShell> {
       Icons.calendar_month_outlined,
       Icons.folder_outlined,
       Icons.person_outline,
-      Icons.group_outlined,
       Icons.settings_outlined,
       Icons.download_outlined,
     ];
@@ -244,7 +239,7 @@ class _AppShellState extends State<AppShell> {
               child: ListView(
                 padding: EdgeInsets.zero,
                 children: [
-                  for (int i = 0; i < 12; i++) _buildSidebarItem(context, i),
+                  for (int i = 0; i < 11; i++) _buildSidebarItem(context, i),
                 ],
               ),
             ),

@@ -27,9 +27,11 @@ class StatsEngine {
 
   /// Completion rate for a single day (0.0–1.0). Returns 0 if no habits due.
   static double dayCompletionRate(List<Habit> habits, DateTime date) {
-    final due = habitsDueOnDay(habits, date);
-    if (due == 0) return 0;
-    return habitsCompletedOnDay(habits, date) / due;
+    final dueHabits = habits.where((habit) => habit.isDueOn(date)).toList();
+    if (dueHabits.isEmpty) return 0;
+    final completed =
+        dueHabits.where((habit) => habit.isCompletedOn(date)).length;
+    return completed / dueHabits.length;
   }
 
   /// Last [days] days of completion counts (oldest first).
@@ -38,7 +40,7 @@ class StatsEngine {
     final today = DateTime(now.year, now.month, now.day);
     final result = <int>[];
     for (int i = days - 1; i >= 0; i--) {
-      final date = today.subtract(Duration(days: i));
+      final date = DateTime(today.year, today.month, today.day - i);
       result.add(habitsCompletedOnDay(habits, date));
     }
     return result;
@@ -51,8 +53,11 @@ class StatsEngine {
     final today = DateTime(now.year, now.month, now.day);
     final result = <int>[];
     for (int w = weeks - 1; w >= 0; w--) {
-      final weekStart =
-          today.subtract(Duration(days: today.weekday - 1 + w * 7));
+      final weekStart = DateTime(
+        today.year,
+        today.month,
+        today.day - (today.weekday - 1 + w * 7),
+      );
       var count = 0;
       for (int d = 0; d < 7; d++) {
         final date = weekStart.add(Duration(days: d));
@@ -129,7 +134,7 @@ class StatsEngine {
     final today = DateTime(now.year, now.month, now.day);
     final result = <HeatCell>[];
     for (int i = days - 1; i >= 0; i--) {
-      final date = today.subtract(Duration(days: i));
+      final date = DateTime(today.year, today.month, today.day - i);
       result.add(HeatCell(
         date: date,
         level: heatLevel(habits, date),
@@ -178,17 +183,20 @@ class StatsEngine {
   // ─── Focus Statistics ───────────────────────────────────────────
 
   static int totalFocusMinutes(List<FocusSession> sessions) {
-    return sessions.fold(0, (sum, s) => sum + s.completedSeconds ~/ 60);
+    final seconds =
+        sessions.fold<int>(0, (sum, session) => sum + session.completedSeconds);
+    return seconds ~/ 60;
   }
 
   static int focusMinutesOnDay(List<FocusSession> sessions, DateTime date) {
     final d = DateTime(date.year, date.month, date.day);
-    return sessions
+    final seconds = sessions
         .where((s) =>
             s.startedAt.year == d.year &&
             s.startedAt.month == d.month &&
             s.startedAt.day == d.day)
-        .fold(0, (sum, s) => sum + s.completedSeconds ~/ 60);
+        .fold<int>(0, (sum, session) => sum + session.completedSeconds);
+    return seconds ~/ 60;
   }
 
   /// Daily focus minutes for the last [days] days (oldest first).
@@ -197,7 +205,7 @@ class StatsEngine {
     final today = DateTime(now.year, now.month, now.day);
     final result = <int>[];
     for (int i = days - 1; i >= 0; i--) {
-      final date = today.subtract(Duration(days: i));
+      final date = DateTime(today.year, today.month, today.day - i);
       result.add(focusMinutesOnDay(sessions, date));
     }
     return result;

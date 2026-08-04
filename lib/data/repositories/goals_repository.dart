@@ -63,23 +63,33 @@ class GoalsRepository {
   }
 
   Future<void> toggleMilestone(Goal goal, int index) async {
-    if (index < goal.milestoneDone.length) {
-      goal.milestoneDone[index] = !goal.milestoneDone[index];
-      // Check if all milestones done
-      if (goal.milestoneTitles.isNotEmpty &&
-          goal.milestoneDone.every((d) => d)) {
-        goal.completed = true;
-      }
-      goal.touch();
-      await _box.put(goal.id, goal);
-    }
+    if (index < 0 || index >= goal.milestoneDone.length) return;
+
+    goal.milestoneDone[index] = !goal.milestoneDone[index];
+    goal.completed = _hasReachedTarget(goal) || _allMilestonesDone(goal);
+    goal.touch();
+    await _box.put(goal.id, goal);
   }
 
   Future<void> updateProgress(Goal goal, double value) async {
-    goal.currentValue = value.clamp(0, goal.targetValue);
-    if (goal.currentValue >= goal.targetValue) goal.completed = true;
+    final safeTarget = goal.targetValue < 0 ? 0.0 : goal.targetValue;
+    goal.currentValue = value.clamp(0.0, safeTarget).toDouble();
+    goal.completed = _hasReachedTarget(goal) || _allMilestonesDone(goal);
     goal.touch();
     await _box.put(goal.id, goal);
+  }
+
+  bool _hasReachedTarget(Goal goal) =>
+      goal.targetValue > 0 && goal.currentValue >= goal.targetValue;
+
+  bool _allMilestonesDone(Goal goal) {
+    if (goal.milestoneTitles.isEmpty ||
+        goal.milestoneDone.length < goal.milestoneTitles.length) {
+      return false;
+    }
+    return goal.milestoneDone
+        .take(goal.milestoneTitles.length)
+        .every((done) => done);
   }
 
   Future<void> archive(Goal goal) async {

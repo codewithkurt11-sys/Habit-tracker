@@ -95,15 +95,21 @@ class TasksRepository {
   }
 
   Future<void> toggleSubtask(Task task, int index) async {
-    if (index < task.subtaskDone.length) {
-      task.subtaskDone[index] = !task.subtaskDone[index];
-      if (task.subtaskDone.every((d) => d)) {
-        task.status = TaskStatus.done;
-        task.completedAt = DateTime.now();
-      }
-      task.touch();
-      await _box.put(task.id, task);
+    if (index < 0 || index >= task.subtaskDone.length) return;
+
+    task.subtaskDone[index] = !task.subtaskDone[index];
+    final allDone = task.subtaskDone.isNotEmpty &&
+        task.subtaskDone.length >= task.subtaskTitles.length &&
+        task.subtaskDone.take(task.subtaskTitles.length).every((done) => done);
+    if (allDone) {
+      task.status = TaskStatus.done;
+      task.completedAt ??= DateTime.now();
+    } else if (task.status == TaskStatus.done) {
+      task.status = TaskStatus.todo;
+      task.completedAt = null;
     }
+    task.touch();
+    await _box.put(task.id, task);
   }
 
   Future<void> archive(Task task) async {

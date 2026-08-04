@@ -28,11 +28,13 @@ class HabitsScreen extends StatelessWidget {
             ),
             Expanded(
               child: habits.isEmpty
-                  ? const EmptyState(
+                  ? EmptyState(
                       icon: Icons.repeat_rounded,
                       title: 'No habits for today',
-                      subtitle: 'Create your first habit to start tracking',
+                      subtitle:
+                          'Create a habit or enjoy a clear schedule today.',
                       actionLabel: 'Add Habit',
+                      onAction: () => _showAddHabitDialog(context),
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.only(bottom: AppSpacing.xxl),

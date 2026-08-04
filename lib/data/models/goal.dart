@@ -151,7 +151,10 @@ class Goal extends HiveObject {
 
   int get daysLeft {
     if (deadline == null) return -1;
-    return deadline!.difference(DateTime.now()).inDays;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dueDay = DateTime(deadline!.year, deadline!.month, deadline!.day);
+    return dueDay.difference(today).inDays;
   }
 }
 

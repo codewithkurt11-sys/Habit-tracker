@@ -39,10 +39,12 @@ class GoalsScreen extends StatelessWidget {
         ),
         Expanded(
           child: goals.isEmpty
-              ? const EmptyState(
+              ? EmptyState(
                   icon: Icons.track_changes_outlined,
                   title: 'No goals yet',
-                  subtitle: 'Set a goal and track your progress',
+                  subtitle: 'Set a goal and track your progress.',
+                  actionLabel: 'Add Goal',
+                  onAction: () => showAddGoalDialog(context),
                 )
               : ListView.builder(
                   padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
@@ -74,6 +76,11 @@ class _GoalTile extends StatelessWidget {
         padding: const EdgeInsets.only(right: AppSpacing.lg),
         color: theme.colorScheme.error,
         child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      confirmDismiss: (_) => showDeleteConfirmation(
+        context,
+        itemName: 'goal',
+        message: 'Delete "${goal.title}" and its milestones?',
       ),
       onDismissed: (_) => state.deleteGoal(goal.id),
       child: Padding(

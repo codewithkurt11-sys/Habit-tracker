@@ -1,6 +1,38 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_spacing.dart';
 
+Future<bool> showDeleteConfirmation(
+  BuildContext context, {
+  required String itemName,
+  String? message,
+}) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text('Delete $itemName?'),
+      content: Text(
+        message ??
+            'This will permanently remove the $itemName from this device.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: Theme.of(dialogContext).colorScheme.error,
+            foregroundColor: Theme.of(dialogContext).colorScheme.onError,
+          ),
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: const Text('Delete'),
+        ),
+      ],
+    ),
+  );
+  return confirmed ?? false;
+}
+
 /// A clean empty-state widget with icon, title, and subtitle.
 class EmptyState extends StatelessWidget {
   final IconData icon;

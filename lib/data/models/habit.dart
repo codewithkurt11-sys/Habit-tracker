@@ -142,7 +142,7 @@ class Habit extends HiveObject {
 
     // Today is still in progress, so an incomplete today does not break a streak.
     if (isDueOn(cursor) && !isCompletedOn(cursor)) {
-      cursor = cursor.subtract(const Duration(days: 1));
+      cursor = DateTime(cursor.year, cursor.month, cursor.day - 1);
     }
 
     while (!cursor.isBefore(firstDay)) {
@@ -150,7 +150,7 @@ class Habit extends HiveObject {
         if (!isCompletedOn(cursor)) break;
         streak++;
       }
-      cursor = cursor.subtract(const Duration(days: 1));
+      cursor = DateTime(cursor.year, cursor.month, cursor.day - 1);
     }
     return streak;
   }
@@ -180,7 +180,7 @@ class Habit extends HiveObject {
           current = 0;
         }
       }
-      cursor = cursor.add(const Duration(days: 1));
+      cursor = DateTime(cursor.year, cursor.month, cursor.day + 1);
     }
     return best;
   }
@@ -192,7 +192,8 @@ class Habit extends HiveObject {
       value.year,
       value.month,
       value.day,
-    ).subtract(const Duration(days: 1));
+    );
+    cursor = DateTime(cursor.year, cursor.month, cursor.day - 1);
     final firstDay = DateTime(createdAt.year, createdAt.month, createdAt.day);
     var misses = 0;
 
@@ -201,7 +202,7 @@ class Habit extends HiveObject {
         if (isCompletedOn(cursor)) break;
         misses++;
       }
-      cursor = cursor.subtract(const Duration(days: 1));
+      cursor = DateTime(cursor.year, cursor.month, cursor.day - 1);
     }
     return misses;
   }
@@ -211,7 +212,7 @@ class Habit extends HiveObject {
     if (days <= 0) return 0;
     final value = asOf ?? DateTime.now();
     final end = DateTime(value.year, value.month, value.day);
-    final windowStart = end.subtract(Duration(days: days - 1));
+    final windowStart = DateTime(end.year, end.month, end.day - (days - 1));
     final createdDay = DateTime(createdAt.year, createdAt.month, createdAt.day);
     var cursor = windowStart.isAfter(createdDay) ? windowStart : createdDay;
     var dueDays = 0;
@@ -221,7 +222,7 @@ class Habit extends HiveObject {
         dueDays++;
         if (isCompletedOn(cursor)) completedDays++;
       }
-      cursor = cursor.add(const Duration(days: 1));
+      cursor = DateTime(cursor.year, cursor.month, cursor.day + 1);
     }
     return dueDays == 0 ? 0 : completedDays / dueDays;
   }

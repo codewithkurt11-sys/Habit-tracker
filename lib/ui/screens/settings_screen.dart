@@ -5,7 +5,6 @@ import '../../logic/app_state.dart';
 import '../../data/models/user_settings.dart';
 import '../../core/theme/app_spacing.dart';
 import 'export_screen.dart';
-import 'friends_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -99,7 +98,7 @@ class SettingsScreen extends StatelessWidget {
                 leading:
                     Icon(Icons.code_outlined, color: theme.colorScheme.primary),
                 title: const Text('Built with Flutter'),
-                subtitle: const Text('Local-first, privacy-focused'),
+                subtitle: const Text('Offline-only and privacy-focused'),
               ),
               const Divider(height: 1),
               ListTile(
@@ -141,32 +140,6 @@ class SettingsScreen extends StatelessWidget {
         ),
 
         const SizedBox(height: AppSpacing.xl),
-
-        // Cloud / Account section
-        const _SectionLabel('Cloud & Friends'),
-        Card(
-          child: Column(
-            children: [
-              ListTile(
-                leading: Icon(Icons.cloud_outlined,
-                    color: theme.colorScheme.primary),
-                title: const Text('Cloud Sync & Friends'),
-                subtitle: const Text('Sign in, claim username, find friends'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => Scaffold(
-                        appBar: AppBar(title: const Text('Friends')),
-                        body: const FriendsScreen(),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
 
         const SizedBox(height: AppSpacing.xxl),
         Center(

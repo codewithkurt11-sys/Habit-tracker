@@ -12,9 +12,6 @@ import '../data/repositories/focus_repository.dart';
 import '../data/repositories/schedule_repository.dart';
 import '../data/repositories/quotes_repository.dart';
 import '../data/repositories/settings_repository.dart';
-import '../services/auth_service.dart';
-import '../services/sync_service.dart';
-import '../services/friends_repository.dart';
 import '../services/notification_service.dart';
 
 /// Central app state exposed via [Provider].
@@ -33,32 +30,10 @@ class AppState extends ChangeNotifier {
   final quotesRepo = QuotesRepository();
   final settingsRepo = SettingsRepository();
 
-  // Cloud sync layer (optional). Always present but no-op when signed out.
-  final authService = AuthService();
-  final syncService = SyncService();
-  final friendsRepo = FriendsRepository();
   final notificationService = NotificationService();
-
-  AppState() {
-    authService.addListener(_onAuthServiceChanged);
-  }
-
-  void _onAuthServiceChanged() => notifyListeners();
 
   bool _busy = false;
   bool get busy => _busy;
-
-  // ---------- cloud sync wiring ----------
-  /// Whether the cloud layer is available (signed in + online).
-  bool get cloudAvailable => authService.isSignedIn && syncService.isOnline;
-
-  /// Listen to SyncService notifyListeners (offline->online / sign-in) and
-  /// trigger reconciliation. Call once after construction (in main.dart).
-  void initSync() {
-    syncService.addListener(_onSyncServiceChanged);
-    // Also trigger an initial reconcile if already signed in + online.
-    if (syncService.shouldReconcile) _reconcileWithCloud();
-  }
 
   void initNotifications() {
     notificationService.refreshAll(
@@ -70,48 +45,8 @@ class AppState extends ChangeNotifier {
   Future<bool> requestNotificationPermission() =>
       notificationService.requestPermission();
 
-  void _onSyncServiceChanged() {
-    if (syncService.shouldReconcile) {
-      _reconcileWithCloud();
-    }
-  }
-
-  /// Full reconciliation: push all local records, pull cloud-only / newer.
-  Future<void> _reconcileWithCloud() async {
-    await syncService.reconcile(
-      localHabits: habitsRepo.getAll(),
-      localTasks: tasksRepo.getAll(includeArchived: true),
-      localGoals: goalsRepo.getAll(includeArchived: true),
-      localSchedule: scheduleRepo.getAll(),
-      onHabitFromCloud: (h) => habitsRepo.update(h),
-      onTaskFromCloud: (t) => tasksRepo.update(t),
-      onGoalFromCloud: (g) => goalsRepo.update(g),
-      onScheduleFromCloud: (s) => scheduleRepo.update(s),
-    );
-    notifyListeners();
-  }
-
-  /// Fire-and-forget push of a single record after a local mutation.
-  void _pushRecord(String type, String id, Map<String, dynamic> data) {
-    // no-op when signed out / offline
-    syncService.pushRecord(type, id, data);
-  }
-
-  void _pushDelete(String type, String id) {
-    syncService.pushDelete(type, id);
-  }
-
   // ---------- theme ----------
   UserSettings get settings => settingsRepo.current;
-
-  @override
-  void dispose() {
-    authService.removeListener(_onAuthServiceChanged);
-    syncService.removeListener(_onSyncServiceChanged);
-    authService.dispose();
-    syncService.dispose();
-    super.dispose();
-  }
 
   bool get isDark {
     switch (settings.themeMode) {
@@ -154,7 +89,7 @@ class AppState extends ChangeNotifier {
     _busy = true;
     notifyListeners();
     try {
-      final habit = await habitsRepo.create(
+      await habitsRepo.create(
         name: name,
         category: _habitCategory(categoryIndex),
         frequency: _habitFrequency(frequencyIndex),
@@ -163,7 +98,6 @@ class AppState extends ChangeNotifier {
         colorValue: colorValue,
         targetStreak: targetStreak,
       );
-      _pushRecord('habits', habit.id, syncService.habitToMap(habit));
     } finally {
       _busy = false;
       notifyListeners();
@@ -174,19 +108,16 @@ class AppState extends ChangeNotifier {
     final h = habitsRepo.getById(id);
     if (h == null) return;
     await habitsRepo.toggleCompletion(h, date: date);
-    _pushRecord('habits', h.id, syncService.habitToMap(h));
     notifyListeners();
   }
 
   Future<void> deleteHabit(String id) async {
     await habitsRepo.delete(id);
-    _pushDelete('habits', id);
     notifyListeners();
   }
 
   Future<void> updateHabit(Habit habit) async {
     await habitsRepo.update(habit);
-    _pushRecord('habits', habit.id, syncService.habitToMap(habit));
     notifyListeners();
   }
 
@@ -210,7 +141,6 @@ class AppState extends ChangeNotifier {
         dueDate: dueDate,
         subtaskTitles: subtaskTitles,
       );
-      _pushRecord('tasks', task.id, syncService.taskToMap(task));
       await notificationService.scheduleTask(task);
     } finally {
       _busy = false;
@@ -221,7 +151,7 @@ class AppState extends ChangeNotifier {
   Future<void> toggleTaskDone(String id) async {
     final t = tasksRepo.getById(id);
     if (t == null) return;
-    if (t.status.name == 'done') {
+    if (t.status == TaskStatus.done) {
       t.status = _taskStatus(0); // back to todo
       t.completedAt = null;
     } else {
@@ -230,7 +160,6 @@ class AppState extends ChangeNotifier {
     }
     t.touch();
     await tasksRepo.update(t);
-    _pushRecord('tasks', t.id, syncService.taskToMap(t));
     await notificationService.scheduleTask(t);
     notifyListeners();
   }
@@ -239,14 +168,12 @@ class AppState extends ChangeNotifier {
     final t = tasksRepo.getById(taskId);
     if (t == null) return;
     await tasksRepo.toggleSubtask(t, index);
-    _pushRecord('tasks', t.id, syncService.taskToMap(t));
     notifyListeners();
   }
 
   Future<void> deleteTask(String id) async {
     await tasksRepo.delete(id);
     await notificationService.cancelTask(id);
-    _pushDelete('tasks', id);
     notifyListeners();
   }
 
@@ -262,7 +189,7 @@ class AppState extends ChangeNotifier {
     _busy = true;
     notifyListeners();
     try {
-      final goal = await goalsRepo.create(
+      await goalsRepo.create(
         title: title,
         description: description,
         categoryIndex: categoryIndex,
@@ -270,7 +197,6 @@ class AppState extends ChangeNotifier {
         targetValue: targetValue,
         colorValue: colorValue,
       );
-      _pushRecord('goals', goal.id, syncService.goalToMap(goal));
     } finally {
       _busy = false;
       notifyListeners();
@@ -284,7 +210,6 @@ class AppState extends ChangeNotifier {
         .firstOrNull;
     if (g == null) return;
     await goalsRepo.updateProgress(g, value);
-    _pushRecord('goals', g.id, syncService.goalToMap(g));
     notifyListeners();
   }
 
@@ -295,7 +220,6 @@ class AppState extends ChangeNotifier {
         .firstOrNull;
     if (g == null) return;
     await goalsRepo.toggleMilestone(g, index);
-    _pushRecord('goals', g.id, syncService.goalToMap(g));
     notifyListeners();
   }
 
@@ -307,13 +231,11 @@ class AppState extends ChangeNotifier {
         .firstOrNull;
     if (g == null) return;
     await goalsRepo.addMilestone(g, title, dueDate: dueDate);
-    _pushRecord('goals', g.id, syncService.goalToMap(g));
     notifyListeners();
   }
 
   Future<void> deleteGoal(String id) async {
     await goalsRepo.delete(id);
-    _pushDelete('goals', id);
     notifyListeners();
   }
 
@@ -439,7 +361,6 @@ class AppState extends ChangeNotifier {
     notifyListeners();
     try {
       final item = await scheduleRepo.create(title: title, dateTime: dateTime);
-      _pushRecord('schedule', item.id, syncService.scheduleToMap(item));
       await notificationService.scheduleItem(item);
     } finally {
       _busy = false;
@@ -453,7 +374,6 @@ class AppState extends ChangeNotifier {
     await scheduleRepo.toggle(s);
     final updated = scheduleRepo.getAll().where((x) => x.id == id).firstOrNull;
     if (updated != null) {
-      _pushRecord('schedule', id, syncService.scheduleToMap(updated));
       await notificationService.scheduleItem(updated);
     }
     notifyListeners();
@@ -462,7 +382,6 @@ class AppState extends ChangeNotifier {
   Future<void> deleteSchedule(String id) async {
     await scheduleRepo.delete(id);
     await notificationService.cancelSchedule(id);
-    _pushDelete('schedule', id);
     notifyListeners();
   }
 

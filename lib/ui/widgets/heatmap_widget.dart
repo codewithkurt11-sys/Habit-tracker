@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:flutter/material.dart';
 
 import '../../data/models/habit.dart';
@@ -6,8 +5,8 @@ import '../../data/models/task.dart';
 import '../../data/models/goal.dart';
 import '../../data/models/schedule_item.dart';
 
-/// Pure computed view over Habit/Task/Schedule data (local or a friend's
-/// streamed data). Computes a `Map<DateTime, int>` activity count per day.
+/// Pure computed view over local Habit/Task/Schedule data.
+/// Computes a `Map<DateTime, int>` activity count per day.
 ///
 /// Activity rule (locked in during design):
 /// - Habit: +1 per day present in `completionLog`
@@ -46,54 +45,13 @@ class HeatmapEngine {
     // Goals excluded by design.
     return map;
   }
-
-  /// Compute the activity map from raw cloud data (for friend's data).
-  static Map<DateTime, int> computeFromCloud({
-    List<Map<String, dynamic>> habits = const [],
-    List<Map<String, dynamic>> tasks = const [],
-    List<Map<String, dynamic>> goals = const [],
-    List<Map<String, dynamic>> schedule = const [],
-  }) {
-    final map = <DateTime, int>{};
-    void bump(DateTime day) {
-      final key = _dayKey(day);
-      map[key] = (map[key] ?? 0) + 1;
-    }
-
-    for (final h in habits) {
-      final log = (h['completionLog'] as List?) ?? [];
-      for (final s in log) {
-        final d = s is Timestamp ? s.toDate() : DateTime.tryParse(s.toString());
-        if (d != null) bump(d);
-      }
-    }
-    for (final t in tasks) {
-      final ca = t['completedAt'];
-      if (ca != null) {
-        final d =
-            ca is Timestamp ? ca.toDate() : DateTime.tryParse(ca.toString());
-        if (d != null) bump(d);
-      }
-    }
-    for (final s in schedule) {
-      final done = s['done'] as bool? ?? false;
-      if (done) {
-        final dt = s['dateTime'];
-        final d =
-            dt is Timestamp ? dt.toDate() : DateTime.tryParse(dt.toString());
-        if (d != null) bump(d);
-      }
-    }
-    return map;
-  }
 }
 
 /// GitHub-style heatmap widget. One column per week, row per weekday
 /// (Sun top, Sat bottom), ~53 weeks, horizontally scrollable, color
 /// intensity bucketed into ~4 levels.
 ///
-/// Accepts a plain `Map<DateTime, int>` and has zero knowledge of where the
-/// data came from — serves both "my activity" and "friend's activity".
+/// Accepts a plain `Map<DateTime, int>` built from on-device data.
 class HeatmapWidget extends StatelessWidget {
   final Map<DateTime, int> activity;
   final Color baseColor;
@@ -114,7 +72,7 @@ class HeatmapWidget extends StatelessWidget {
     final weekday = d.weekday; // 1=Mon..7=Sun
     // Days since Sunday: Mon=1,Tue=2,...,Sat=6,Sun=0
     final daysSinceSunday = weekday == 7 ? 0 : weekday;
-    return d.subtract(Duration(days: daysSinceSunday));
+    return DateTime(d.year, d.month, d.day - daysSinceSunday);
   }
 
   @override
@@ -128,8 +86,11 @@ class HeatmapWidget extends StatelessWidget {
 
     // Show ~53 weeks (about a year) ending at the current week.
     const numWeeks = 53;
-    final firstWeekSunday =
-        thisWeekSunday.subtract(const Duration(days: 7 * (numWeeks - 1)));
+    final firstWeekSunday = DateTime(
+      thisWeekSunday.year,
+      thisWeekSunday.month,
+      thisWeekSunday.day - 7 * (numWeeks - 1),
+    );
 
     // Build a 7-row x numWeeks-column grid of counts.
     // cell[col][row] = activity count for that day.
@@ -139,9 +100,17 @@ class HeatmapWidget extends StatelessWidget {
         numWeeks, (_) => List<DateTime?>.filled(7, null));
 
     for (var col = 0; col < numWeeks; col++) {
-      final weekSunday = firstWeekSunday.add(Duration(days: 7 * col));
+      final weekSunday = DateTime(
+        firstWeekSunday.year,
+        firstWeekSunday.month,
+        firstWeekSunday.day + 7 * col,
+      );
       for (var row = 0; row < 7; row++) {
-        final day = weekSunday.add(Duration(days: row));
+        final day = DateTime(
+          weekSunday.year,
+          weekSunday.month,
+          weekSunday.day + row,
+        );
         cellDates[col][row] = day;
         final key = DateTime(day.year, day.month, day.day);
         if (key.isAfter(todayKey)) continue; // don't show future days

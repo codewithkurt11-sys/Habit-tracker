@@ -1,24 +1,36 @@
 # Yourself
 
-A local-first habit, task, schedule, focus, and personal organization app with optional cloud sync and friend visibility.
+Yourself is a fully local-first, offline-only habit tracker and personal productivity app. Habits, tasks, goals, schedules, journal entries, notes, finance records, focus sessions, settings, and statistics are stored only on-device in Hive.
 
-## Firebase indexes
+## Privacy and storage
 
-The incoming friend-request query requires the composite index in `firestore.indexes.json`. Deploy it before using cloud friend requests:
+- No account or sign-in is required.
+- No cloud services, social features, analytics, or network synchronization are used.
+- The Android app does not request internet access.
+- Data can be backed up manually with the in-app JSON export tools.
+
+## Development
 
 ```bash
-firebase deploy --only firestore:indexes
+flutter pub get
+flutter analyze
+flutter test
+flutter run
 ```
 
-## Getting Started
+## Changelog
 
-This project is a starting point for a Flutter application.
+### Offline-only refactor and quality pass
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- Removed all former online services, account access, connectivity monitoring, synchronization, and social functionality.
+- Removed remote-service configuration, service Gradle setup, the custom CI signing key, and Android internet permissions.
+- Restored Hive as the sole source of truth for every retained feature.
+- Fixed task subtask completion so reopening a subtask also reopens the task and clears its completion timestamp.
+- Fixed goal completion state when progress is reduced or a milestone is reopened; completion now reflects either the target or all milestones.
+- Fixed goal deadline day counts by comparing normalized local calendar dates.
+- Made habit, statistics, and heatmap date traversal calendar-based to avoid daylight-saving and midnight boundary errors.
+- Fixed daily habit completion rates so only habits due on that day contribute to the rate.
+- Fixed focus totals so leftover seconds across sessions are accumulated before converting to minutes.
+- Added confirmations before deleting tasks and goals, including from the Kanban board.
+- Added working actions and clearer copy to empty states for habits, tasks, and goals.
+- Removed Friends navigation and account/cloud settings while preserving the existing theme and visual identity.

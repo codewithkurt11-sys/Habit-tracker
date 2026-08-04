@@ -26,11 +26,15 @@ class TasksScreen extends StatelessWidget {
             ),
             Expanded(
               child: tasks.isEmpty
-                  ? const EmptyState(
+                  ? EmptyState(
                       icon: Icons.check_circle_outline,
                       title: 'No active tasks',
-                      subtitle: 'Add a task to stay organized',
+                      subtitle: 'Add a task to stay organized.',
                       actionLabel: 'Add Task',
+                      onAction: () => showDialog(
+                        context: context,
+                        builder: (_) => const _AddTaskDialog(),
+                      ),
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
@@ -70,6 +74,11 @@ class _TaskTile extends StatelessWidget {
         padding: const EdgeInsets.only(right: AppSpacing.lg),
         color: theme.colorScheme.error,
         child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      confirmDismiss: (_) => showDeleteConfirmation(
+        context,
+        itemName: 'task',
+        message: 'Delete "${task.title}"? This action cannot be undone.',
       ),
       onDismissed: (_) => state.deleteTask(task.id),
       child: Padding(

@@ -371,9 +371,15 @@ class _KanbanCard extends StatelessWidget {
                   Icon(Icons.delete, color: Theme.of(ctx).colorScheme.error),
               title: Text('Delete',
                   style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
-              onTap: () {
-                state.deleteTask(task.id);
+              onTap: () async {
                 Navigator.pop(ctx);
+                final confirmed = await showDeleteConfirmation(
+                  context,
+                  itemName: 'task',
+                  message:
+                      'Delete "${task.title}"? This action cannot be undone.',
+                );
+                if (confirmed) await state.deleteTask(task.id);
               },
             ),
           ],

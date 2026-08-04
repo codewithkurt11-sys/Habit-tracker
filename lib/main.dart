@@ -4,11 +4,9 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_core/firebase_core.dart';
 
 import 'core/theme/app_theme.dart';
 import 'data/hive_boxes.dart';
-import 'firebase_options.dart';
 import 'logic/app_state.dart';
 import 'ui/screens/onboarding_screen.dart';
 import 'ui/widgets/app_shell.dart';
@@ -37,16 +35,7 @@ Future<void> main() async {
 
   await runZonedGuarded(() async {
     await HiveInitializer.init();
-    developer.log('LOCAL INIT ✓ Hive initialized', name: 'Yourself.Startup');
-
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    developer.log(
-      'STEP 1 ✓ Firebase initialized: ${Firebase.app().options.projectId}',
-      name: 'Yourself.Auth',
-    );
-
+    developer.log('LOCAL INIT: Hive initialized', name: 'Yourself.Startup');
     runApp(const HabitTrackerApp());
   }, (error, stack) {
     developer.log(
@@ -67,7 +56,6 @@ class HabitTrackerApp extends StatelessWidget {
       create: (context) {
         final state = AppState();
         state.seedQuotes();
-        state.initSync();
         state.initNotifications();
         return state;
       },
