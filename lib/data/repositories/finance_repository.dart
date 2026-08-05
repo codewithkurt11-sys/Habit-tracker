@@ -5,93 +5,98 @@ import '../models/finance_entry.dart';
 
 class FinanceRepository {
   Box<FinanceEntry> get _box => Hive.box<FinanceEntry>(HiveBoxes.finance);
-  Box<FinanceBudget> get _budgetBox =>
-      Hive.box<FinanceBudget>(HiveBoxes.financeBudget);
-  static const _budgetKey = 'budget';
   final _uuid = const Uuid();
 
   List<FinanceEntry> getAll() {
     final list = _box.values.toList();
-    list.sort((a, b) => b.date.compareTo(a.date));
+    list.sort((a, b) => a.createdAt.compareTo(b.createdAt));
     return list;
   }
 
-  List<FinanceEntry> getForMonth(int year, int month) => getAll()
-      .where((e) => e.date.year == year && e.date.month == month)
-      .toList();
-
-  List<FinanceEntry> getIncome() => getAll().where((e) => e.isIncome).toList();
-
-  List<FinanceEntry> getExpenses() =>
-      getAll().where((e) => !e.isIncome).toList();
-
-  double getTotalIncome({int? year, int? month}) {
-    var entries = getIncome();
-    if (year != null) {
-      entries = entries.where((e) => e.date.year == year).toList();
+  FinanceEntry? getById(String id) {
+    try {
+      return _box.values.firstWhere((f) => f.id == id);
+    } catch (_) {
+      return null;
     }
-    if (month != null) {
-      entries = entries.where((e) => e.date.month == month).toList();
-    }
-    return entries.fold(0, (sum, e) => sum + e.amount);
   }
 
-  double getTotalExpenses({int? year, int? month}) {
-    var entries = getExpenses();
-    if (year != null) {
-      entries = entries.where((e) => e.date.year == year).toList();
-    }
-    if (month != null) {
-      entries = entries.where((e) => e.date.month == month).toList();
-    }
-    return entries.fold(0, (sum, e) => sum + e.amount);
-  }
-
-  double getBalance({int? year, int? month}) =>
-      getTotalIncome(year: year, month: month) -
-      getTotalExpenses(year: year, month: month);
-
-  /// Expense breakdown by category for a given month
-  Map<String, double> getCategoryBreakdown(int year, int month) {
-    final map = <String, double>{};
-    for (final e in getForMonth(year, month)) {
-      if (!e.isIncome) {
-        map[e.categoryLabel] = (map[e.categoryLabel] ?? 0) + e.amount;
-      }
-    }
-    return map;
-  }
-
-  FinanceBudget get budget {
-    return _budgetBox.get(_budgetKey) ?? FinanceBudget();
-  }
-
-  Future<void> saveBudget(FinanceBudget b) async {
-    await _budgetBox.put(_budgetKey, b);
+  /// Get finance targets due today (not yet confirmed today).
+  List<FinanceEntry> getDueToday() {
+    final now = DateTime.now();
+    return getAll().where((f) {
+      final created = DateTime(f.createdAt.year, f.createdAt.month, f.createdAt.day);
+      final today = DateTime(now.year, now.month, now.day);
+      final elapsed = today.difference(created).inDays + 1;
+      return elapsed <= f.targetDays && !f.isConfirmedOn(today);
+    }).toList();
   }
 
   Future<FinanceEntry> create({
     required String title,
-    required double amount,
-    required int typeIndex,
-    required int categoryIndex,
-    required DateTime date,
-    String note = '',
+    String description = '',
+    required double targetAmount,
+    required int targetDays,
+    String? linkedGoalId,
   }) async {
     final entry = FinanceEntry(
       id: _uuid.v4(),
       title: title,
-      amount: amount,
-      typeIndex: typeIndex,
-      categoryIndex: categoryIndex,
-      date: date,
-      note: note,
+      description: description,
+      targetAmount: targetAmount,
+      targetDays: targetDays,
+      linkedGoalId: linkedGoalId,
     );
     await _box.put(entry.id, entry);
     return entry;
   }
 
-  Future<void> update(FinanceEntry entry) async => _box.put(entry.id, entry);
+  Future<void> update(FinanceEntry entry) async {
+    entry.touch();
+    await _box.put(entry.id, entry);
+  }
 
   Future<void> delete(String id) async => _box.delete(id);
+
+  /// Confirm today's contribution (tap-to-confirm pattern).
+  Future<void> confirmToday(FinanceEntry entry) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    // Check if already confirmed today
+    final existing = entry.contributionLog.any((c) =>
+        c.confirmed &&
+        c.date.year == today.year &&
+        c.date.month == today.month &&
+        c.date.day == today.day);
+    if (!existing) {
+      entry.contributionLog.add(ContributionEntry(
+        date: today,
+        amount: entry.dailyAmount,
+        confirmed: true,
+      ));
+      entry.touch();
+      await _box.put(entry.id, entry);
+    }
+  }
+
+  /// Unconfirm today's contribution (undo).
+  Future<void> unconfirmToday(FinanceEntry entry) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    entry.contributionLog.removeWhere((c) =>
+        c.confirmed &&
+        c.date.year == today.year &&
+        c.date.month == today.month &&
+        c.date.day == today.day);
+    entry.touch();
+    await _box.put(entry.id, entry);
+  }
+
+  /// Recalculate remaining days after missed day.
+  Future<void> recalculate(FinanceEntry entry) async {
+    // No-op on the model itself — remaining days are computed dynamically
+    // This is here for future extension (e.g., extending targetDays)
+    entry.touch();
+    await _box.put(entry.id, entry);
+  }
 }

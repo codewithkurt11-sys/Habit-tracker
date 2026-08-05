@@ -9,7 +9,7 @@ class HabitsRepository {
 
   List<Habit> getAll() {
     final list = _box.values.toList();
-    list.sort((a, b) => a.name.compareTo(b.name));
+    list.sort((a, b) => a.title.compareTo(b.title));
     return list;
   }
 
@@ -31,20 +31,24 @@ class HabitsRepository {
   }
 
   Future<Habit> create({
-    required String name,
-    required HabitCategory category,
+    required String title,
+    String description = '',
+    String? linkedGoalId,
     required HabitFrequency frequency,
     List<int>? customDays,
-    int iconIndex = 15,
+    DateTime? reminderTime,
+    int iconIndex = 0,
     int? colorValue,
     int targetStreak = 0,
   }) async {
     final habit = Habit(
       id: _uuid.v4(),
-      name: name,
-      category: category,
+      title: title,
+      description: description,
+      linkedGoalId: linkedGoalId,
       frequency: frequency,
       customDays: customDays,
+      reminderTime: reminderTime,
       iconIndex: iconIndex,
       colorValue: colorValue,
       targetStreak: targetStreak,
@@ -79,7 +83,33 @@ class HabitsRepository {
       );
     } else {
       habit.completionLog.add(normalized);
+      // Remove skip if it was skipped
+      habit.skipLog.removeWhere(
+        (d) =>
+            d.year == normalized.year &&
+            d.month == normalized.month &&
+            d.day == normalized.day,
+      );
     }
+    habit.touch();
+    await _box.put(habit.id, habit);
+  }
+
+  Future<void> skipDay(Habit habit, {DateTime? date}) async {
+    final target = date ?? DateTime.now();
+    final normalized = DateTime(target.year, target.month, target.day);
+    if (!habit.isDueOn(normalized)) return;
+
+    if (!habit.isSkippedOn(normalized)) {
+      habit.skipLog.add(normalized);
+    }
+    // Remove completion if it was completed
+    habit.completionLog.removeWhere(
+      (d) =>
+          d.year == normalized.year &&
+          d.month == normalized.month &&
+          d.day == normalized.day,
+    );
     habit.touch();
     await _box.put(habit.id, habit);
   }

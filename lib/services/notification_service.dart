@@ -3,10 +3,10 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
-import '../data/models/schedule_item.dart';
 import '../data/models/task.dart';
 
-/// Schedules local reminders for incomplete tasks and schedule items.
+/// Schedules local reminders for tasks.
+/// v2.0.0: Removed schedule item support (not part of v2.0.0 spec).
 class NotificationService {
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
@@ -14,8 +14,8 @@ class NotificationService {
 
   static const _channel = AndroidNotificationDetails(
     'reminders',
-    'Task and schedule reminders',
-    channelDescription: 'Reminders for upcoming tasks and schedule items',
+    'Task reminders',
+    channelDescription: 'Reminders for upcoming tasks',
     importance: Importance.high,
     priority: Priority.high,
   );
@@ -45,16 +45,10 @@ class NotificationService {
     return androidGranted ?? iosGranted ?? true;
   }
 
-  Future<void> refreshAll({
-    required List<Task> tasks,
-    required List<ScheduleItem> schedule,
-  }) async {
+  Future<void> refreshAll({required List<Task> tasks}) async {
     await initialize();
     for (final task in tasks) {
       await scheduleTask(task);
-    }
-    for (final item in schedule) {
-      await scheduleItem(item);
     }
   }
 
@@ -87,25 +81,7 @@ class NotificationService {
     );
   }
 
-  Future<void> scheduleItem(ScheduleItem item) async {
-    await initialize();
-    final notificationId = _id('schedule:${item.id}');
-    if (item.done) {
-      await _plugin.cancel(notificationId);
-      return;
-    }
-    await _schedule(
-      id: notificationId,
-      title: 'Upcoming reminder',
-      body: item.title,
-      dateTime: item.dateTime,
-      payload: 'schedule:${item.id}',
-    );
-  }
-
   Future<void> cancelTask(String id) => _plugin.cancel(_id('task:$id'));
-
-  Future<void> cancelSchedule(String id) => _plugin.cancel(_id('schedule:$id'));
 
   Future<void> _schedule({
     required int id,
@@ -119,8 +95,6 @@ class NotificationService {
       return;
     }
     try {
-      // Convert the device-local instant to UTC. Android still fires at the
-      // correct instant, without requiring a separate timezone plugin.
       final when = tz.TZDateTime.from(dateTime.toUtc(), tz.UTC);
       await _plugin.zonedSchedule(
         id,

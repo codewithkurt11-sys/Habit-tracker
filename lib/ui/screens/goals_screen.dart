@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../logic/app_state.dart';
-import '../../data/models/goal.dart';
 import '../../core/theme/app_spacing.dart';
-import '../../core/theme/app_theme.dart';
+import '../../data/models/goal.dart';
+import '../../data/models/habit.dart';
+import '../../data/models/task.dart';
+import '../../data/models/finance_entry.dart';
 import '../widgets/shared_widgets.dart';
 
 class GoalsScreen extends StatelessWidget {
@@ -13,352 +15,385 @@ class GoalsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final goals = state.goalsRepo.getActive();
+    final goals = state.goals;
 
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md, AppSpacing.md, AppSpacing.md, AppSpacing.sm),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Goals',
-                        style: Theme.of(context).textTheme.headlineSmall),
-                    const SizedBox(height: 2),
-                    Text('${goals.length} active goals',
-                        style: Theme.of(context).textTheme.bodySmall),
-                  ],
-                ),
-              ),
-            ],
-          ),
+    return SafeArea(
+      child: Scaffold(
+        floatingActionButton: FloatingActionButton(
+          onPressed: () => _showAddGoalDialog(context),
+          child: const Icon(Icons.add),
         ),
-        Expanded(
-          child: goals.isEmpty
-              ? EmptyState(
+        body: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: ScreenTitleBar(
+                title: 'Goals',
+                subtitle: '${state.activeGoals.length} active • ${state.goalsAchieved} achieved',
+              ),
+            ),
+            if (goals.isEmpty)
+              const SliverToBoxAdapter(
+                child: EmptyState(
                   icon: Icons.track_changes_outlined,
                   title: 'No goals yet',
-                  subtitle: 'Set a goal and track your progress.',
-                  actionLabel: 'Add Goal',
-                  onAction: () => showAddGoalDialog(context),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
-                  itemCount: goals.length,
-                  itemBuilder: (_, i) => _GoalTile(goal: goals[i]),
+                  subtitle: 'Set a goal and link habits, tasks, and savings',
                 ),
+              )
+            else
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => _GoalCard(goal: goals[index]),
+                  childCount: goals.length,
+                ),
+              ),
+            const SliverToBoxAdapter(child: SizedBox(height: 80)),
+          ],
         ),
-      ],
+      ),
+    );
+  }
+
+  void _showAddGoalDialog(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => const _AddGoalSheet(),
     );
   }
 }
 
-class _GoalTile extends StatelessWidget {
+class _GoalCard extends StatelessWidget {
   final Goal goal;
-  const _GoalTile({required this.goal});
+  const _GoalCard({required this.goal});
 
   @override
   Widget build(BuildContext context) {
     final state = context.read<AppState>();
     final theme = Theme.of(context);
-    final progress = goal.progressFraction;
-    final milestones = goal.milestones;
+    final progress = state.computeGoalProgress(goal);
 
-    return Dismissible(
-      key: ValueKey(goal.id),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: AppSpacing.lg),
-        color: theme.colorScheme.error,
-        child: const Icon(Icons.delete, color: Colors.white),
-      ),
-      confirmDismiss: (_) => showDeleteConfirmation(
-        context,
-        itemName: 'goal',
-        message: 'Delete "${goal.title}" and its milestones?',
-      ),
-      onDismissed: (_) => state.deleteGoal(goal.id),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md, vertical: AppSpacing.xs + 2),
-        child: Card(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+      child: SoftCard(
+        onTap: () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => GoalDetailScreen(goalId: goal.id))),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Row(
-                  children: [
-                    Icon(goal.category.icon, color: goal.color, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child:
-                          Text(goal.title, style: theme.textTheme.titleSmall),
-                    ),
-                    if (goal.daysLeft >= 0)
-                      PillChip(
-                        label: goal.daysLeft == 0
-                            ? 'Today'
-                            : '${goal.daysLeft}d left',
-                        color: goal.daysLeft <= 3
-                            ? theme.colorScheme.error
-                            : goal.color,
-                        icon: Icons.event_outlined,
-                      ),
-                  ],
-                ),
-                if (goal.description.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(goal.description,
-                      style: theme.textTheme.bodySmall,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis),
-                ],
-                const SizedBox(height: AppSpacing.sm),
-                // Progress bar
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 8,
-                    backgroundColor:
-                        theme.colorScheme.onSurface.withValues(alpha: 0.08),
-                    valueColor: AlwaysStoppedAnimation<Color>(goal.color),
+                CircularFillIcon(progress: progress / 100, icon: goal.category.icon, color: goal.color),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(goal.title, style: theme.textTheme.titleMedium),
+                      Text(goal.category.label, style: theme.textTheme.bodySmall),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 6),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                        '${goal.currentValue.toStringAsFixed(0)} / ${goal.targetValue.toStringAsFixed(0)}',
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(fontWeight: FontWeight.w600)),
-                    Text('${(progress * 100).toStringAsFixed(0)}%',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                            color: goal.color, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-                // Milestones
-                if (milestones.isNotEmpty) ...[
-                  const SizedBox(height: AppSpacing.sm),
-                  ...milestones.map((m) => Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: InkWell(
-                          onTap: () => state.toggleGoalMilestone(
-                              goal.id, milestones.indexOf(m)),
-                          child: Row(
-                            children: [
-                              Icon(
-                                m.completed
-                                    ? Icons.check_circle
-                                    : Icons.radio_button_unchecked,
-                                size: 18,
-                                color: m.completed
-                                    ? goal.color
-                                    : theme.colorScheme.onSurface
-                                        .withValues(alpha: 0.3),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  m.title,
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    decoration: m.completed
-                                        ? TextDecoration.lineThrough
-                                        : null,
-                                    color: m.completed
-                                        ? theme.colorScheme.onSurface
-                                            .withValues(alpha: 0.4)
-                                        : null,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )),
-                ],
+                if (goal.completed)
+                  Icon(Icons.check_circle, color: goal.color)
+                else if (goal.targetDate != null)
+                  Text('${goal.daysLeft}d', style: theme.textTheme.bodySmall),
               ],
             ),
-          ),
+            const SizedBox(height: AppSpacing.sm),
+            LinearProgressIndicator(
+              value: progress / 100,
+              backgroundColor: goal.color.withValues(alpha: 0.15),
+              valueColor: AlwaysStoppedAnimation(goal.color),
+              minHeight: 6,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Row(
+              children: [
+                Text('${progress.round()}%', style: TextStyle(color: goal.color, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                if (goal.linkedHabitIds.isNotEmpty)
+                  Padding(padding: const EdgeInsets.only(right: 4),
+                    child: PillChip(label: '${goal.linkedHabitIds.length} habits', color: goal.color)),
+                if (goal.linkedTaskIds.isNotEmpty)
+                  Padding(padding: const EdgeInsets.only(right: 4),
+                    child: PillChip(label: '${goal.linkedTaskIds.length} tasks', color: goal.color)),
+                if (goal.linkedFinanceId != null)
+                  PillChip(label: 'finance', color: goal.color),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _AddGoalDialog extends StatefulWidget {
-  const _AddGoalDialog();
+class GoalDetailScreen extends StatelessWidget {
+  final String goalId;
+  const GoalDetailScreen({super.key, required this.goalId});
 
   @override
-  State<_AddGoalDialog> createState() => _AddGoalDialogState();
+  Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    final goal = state.goalsRepo.getById(goalId);
+
+    if (goal == null) {
+      return Scaffold(appBar: AppBar(), body: const Center(child: Text('Goal not found')));
+    }
+
+    final theme = Theme.of(context);
+    final progress = state.computeGoalProgress(goal);
+    final linkedHabits = goal.linkedHabitIds
+        .map((id) => state.habitsRepo.getById(id))
+        .whereType<Habit>()
+        .toList();
+    final linkedTasks = goal.linkedTaskIds
+        .map((id) => state.tasksRepo.getById(id))
+        .whereType<Task>()
+        .toList();
+    final linkedFinance = goal.linkedFinanceId != null
+        ? state.financeRepo.getById(goal.linkedFinanceId!)
+        : null;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(goal.title),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            onPressed: () async {
+              if (await showDeleteConfirmation(context, itemName: 'goal')) {
+                await state.deleteGoal(goal.id);
+                if (context.mounted) Navigator.pop(context);
+              }
+            },
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Aggregate progress
+            Row(
+              children: [
+                CircularFillIcon(progress: progress / 100, icon: goal.category.icon, color: goal.color, size: 64),
+                const SizedBox(width: AppSpacing.lg),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('${progress.round()}%', style: theme.textTheme.displayMedium?.copyWith(color: goal.color)),
+                    Text('Overall progress', style: theme.textTheme.bodyMedium),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            if (goal.description.isNotEmpty) ...[
+              Text('Description', style: theme.textTheme.titleSmall),
+              Text(goal.description, style: theme.textTheme.bodyMedium),
+              const SizedBox(height: AppSpacing.lg),
+            ],
+            if (goal.targetDate != null) ...[
+              Text('Target date: ${goal.targetDate!.year}-${goal.targetDate!.month}-${goal.targetDate!.day}',
+                  style: theme.textTheme.bodyMedium),
+              Text('${goal.daysLeft} days remaining', style: theme.textTheme.bodySmall),
+              const SizedBox(height: AppSpacing.lg),
+            ],
+            // Linked habits
+            if (linkedHabits.isNotEmpty) ...[
+              Text('Linked Habits', style: theme.textTheme.titleMedium),
+              const SizedBox(height: AppSpacing.sm),
+              ...linkedHabits.map((h) => _LinkedItem(
+                title: h.title,
+                progress: h.completionRate(days: 30),
+                color: h.customColor ?? goal.color,
+                icon: h.icon,
+                progressText: '${h.currentStreak()} day streak',
+              )),
+              const SizedBox(height: AppSpacing.lg),
+            ],
+            // Linked tasks
+            if (linkedTasks.isNotEmpty) ...[
+              Text('Linked Tasks', style: theme.textTheme.titleMedium),
+              const SizedBox(height: AppSpacing.sm),
+              ...linkedTasks.map((t) => _LinkedItem(
+                title: t.title,
+                progress: t.progress,
+                color: t.priority.color,
+                icon: Icons.check_circle_outline,
+                progressText: t.isDone ? 'Done' : 'Pending',
+              )),
+              const SizedBox(height: AppSpacing.lg),
+            ],
+            // Linked finance
+            if (linkedFinance != null) ...[
+              Text('Linked Savings', style: theme.textTheme.titleMedium),
+              const SizedBox(height: AppSpacing.sm),
+              _LinkedItem(
+                title: linkedFinance.title,
+                progress: linkedFinance.progressFraction,
+                color: const Color(0xFF6B9080),
+                icon: Icons.savings,
+                progressText:
+                    '${state.settings.currencySymbol}${linkedFinance.totalContributed.toStringAsFixed(0)} / '
+                    '${state.settings.currencySymbol}${linkedFinance.targetAmount.toStringAsFixed(0)}',
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 }
 
-class _AddGoalDialogState extends State<_AddGoalDialog> {
+class _LinkedItem extends StatelessWidget {
+  final String title;
+  final double progress; // 0.0 to 1.0
+  final Color color;
+  final IconData icon;
+  final String progressText;
+
+  const _LinkedItem({
+    required this.title,
+    required this.progress,
+    required this.color,
+    required this.icon,
+    required this.progressText,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+      child: SoftCard(
+        child: Row(
+          children: [
+            CircularFillIcon(progress: progress, icon: icon, color: color, size: 36),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: theme.textTheme.titleSmall),
+                  Text(progressText, style: theme.textTheme.bodySmall),
+                  const SizedBox(height: 4),
+                  LinearProgressIndicator(
+                    value: progress,
+                    backgroundColor: color.withValues(alpha: 0.15),
+                    valueColor: AlwaysStoppedAnimation(color),
+                    minHeight: 3,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AddGoalSheet extends StatefulWidget {
+  const _AddGoalSheet();
+
+  @override
+  State<_AddGoalSheet> createState() => _AddGoalSheetState();
+}
+
+class _AddGoalSheetState extends State<_AddGoalSheet> {
   final _titleController = TextEditingController();
   final _descController = TextEditingController();
-  final _targetController = TextEditingController(text: '100');
   int _categoryIndex = 6;
-  DateTime? _deadline;
+  DateTime? _targetDate;
 
   @override
   void dispose() {
     _titleController.dispose();
     _descController.dispose();
-    _targetController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final ext = theme.extension<AppThemeExtension>()!;
-    return AlertDialog(
-      title: const Text('New Goal'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _titleController,
-              decoration: const InputDecoration(
-                labelText: 'Goal title',
-                hintText: 'e.g. Read 24 books this year',
-              ),
-              autofocus: true,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            TextField(
-              controller: _descController,
-              decoration: const InputDecoration(
-                labelText: 'Description (optional)',
-              ),
-              maxLines: 2,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            // Category
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text('Category', style: theme.textTheme.labelLarge),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: List.generate(GoalCategory.values.length, (i) {
-                final sel = i == _categoryIndex;
-                final c = GoalCategory.values[i];
-                return GestureDetector(
-                  onTap: () => setState(() => _categoryIndex = i),
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: sel ? c.color : ext.surfaceMuted,
-                      borderRadius:
-                          BorderRadius.circular(AppSpacing.radiusPill),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(c.icon,
-                            size: 14,
-                            color: sel
-                                ? Colors.white
-                                : theme.colorScheme.onSurface),
-                        const SizedBox(width: 4),
-                        Text(c.label,
-                            style: TextStyle(
-                              color: sel
-                                  ? Colors.white
-                                  : theme.colorScheme.onSurface,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 12,
-                            )),
-                      ],
-                    ),
-                  ),
-                );
-              }),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            TextField(
-              controller: _targetController,
-              decoration: const InputDecoration(
-                labelText: 'Target value',
-              ),
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Row(
-              children: [
-                Text('Deadline: ', style: theme.textTheme.labelLarge),
-                TextButton(
-                  onPressed: () async {
-                    final d = await showDatePicker(
-                      context: context,
-                      initialDate: DateTime.now().add(const Duration(days: 30)),
-                      firstDate: DateTime.now(),
-                      lastDate:
-                          DateTime.now().add(const Duration(days: 365 * 5)),
-                    );
-                    if (d != null) setState(() => _deadline = d);
-                  },
-                  child: Text(_deadline == null
-                      ? 'Select date'
-                      : '${_deadline!.month}/${_deadline!.day}/${_deadline!.year}'),
-                ),
-                if (_deadline != null)
-                  IconButton(
-                    icon: const Icon(Icons.clear, size: 18),
-                    onPressed: () => setState(() => _deadline = null),
-                    constraints: const BoxConstraints(),
-                    padding: EdgeInsets.zero,
-                  ),
-              ],
-            ),
-          ],
-        ),
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.lg, AppSpacing.lg, AppSpacing.lg,
+        MediaQuery.of(context).viewInsets.bottom + AppSpacing.lg,
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            final title = _titleController.text.trim();
-            final target = double.tryParse(_targetController.text.trim());
-            if (title.isEmpty || target == null || target <= 0) return;
-            context.read<AppState>().addGoal(
-                  title: title,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('New Goal', style: theme.textTheme.headlineMedium),
+          const SizedBox(height: AppSpacing.md),
+          TextField(
+            controller: _titleController,
+            decoration: const InputDecoration(labelText: 'Goal title'),
+            autofocus: true,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          TextField(
+            controller: _descController,
+            decoration: const InputDecoration(labelText: 'Description'),
+            maxLines: 2,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text('Category', style: theme.textTheme.titleSmall),
+          Wrap(
+            spacing: 8,
+            children: List.generate(GoalCategory.values.length, (i) {
+              return ChoiceChip(
+                label: Text(GoalCategory.values[i].label),
+                selected: _categoryIndex == i,
+                onSelected: (s) => setState(() => _categoryIndex = i),
+              );
+            }),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            children: [
+              Text('Target date', style: theme.textTheme.titleSmall),
+              const Spacer(),
+              TextButton(
+                onPressed: () async {
+                  final date = await showDatePicker(
+                    context: context,
+                    initialDate: DateTime.now().add(const Duration(days: 30)),
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+                  );
+                  if (date != null) setState(() => _targetDate = date);
+                },
+                child: Text(_targetDate != null
+                    ? '${_targetDate!.year}-${_targetDate!.month}-${_targetDate!.day}'
+                    : 'None'),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: () {
+                if (_titleController.text.trim().isEmpty) return;
+                context.read<AppState>().addGoal(
+                  title: _titleController.text.trim(),
                   description: _descController.text.trim(),
                   categoryIndex: _categoryIndex,
-                  deadline: _deadline,
-                  targetValue: target,
-                  colorValue:
-                      GoalCategory.values[_categoryIndex].color.toARGB32(),
+                  targetDate: _targetDate,
+                  colorValue: GoalCategory.values[_categoryIndex].color.value,
                 );
-            Navigator.pop(context);
-          },
-          child: const Text('Add'),
-        ),
-      ],
+                Navigator.pop(context);
+              },
+              child: const Text('Create Goal'),
+            ),
+          ),
+        ],
+      ),
     );
   }
-}
-
-/// Global FAB action — call from the parent Scaffold.
-void showAddGoalDialog(BuildContext context) {
-  showDialog(
-    context: context,
-    builder: (_) => const _AddGoalDialog(),
-  );
 }
