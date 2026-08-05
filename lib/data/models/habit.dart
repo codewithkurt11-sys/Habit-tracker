@@ -1,24 +1,82 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 
+enum HabitCategory { workout, lifestyle, other }
+
 enum HabitFrequency { daily, weekly, custom }
+
+/// Available habit icons (codepoint-based so they serialize as ints).
+enum HabitIcon {
+  fitness,
+  book,
+  water,
+  meditation,
+  sleep,
+  food,
+  walk,
+  study,
+  music,
+  art,
+  code,
+  health,
+  money,
+  social,
+  nature,
+  custom,
+}
+
+extension HabitIconData on HabitIcon {
+  IconData get data {
+    switch (this) {
+      case HabitIcon.fitness:
+        return Icons.fitness_center;
+      case HabitIcon.book:
+        return Icons.menu_book;
+      case HabitIcon.water:
+        return Icons.water_drop;
+      case HabitIcon.meditation:
+        return Icons.self_improvement;
+      case HabitIcon.sleep:
+        return Icons.bedtime;
+      case HabitIcon.food:
+        return Icons.restaurant;
+      case HabitIcon.walk:
+        return Icons.directions_walk;
+      case HabitIcon.study:
+        return Icons.school;
+      case HabitIcon.music:
+        return Icons.music_note;
+      case HabitIcon.art:
+        return Icons.palette;
+      case HabitIcon.code:
+        return Icons.code;
+      case HabitIcon.health:
+        return Icons.favorite;
+      case HabitIcon.money:
+        return Icons.savings;
+      case HabitIcon.social:
+        return Icons.people;
+      case HabitIcon.nature:
+        return Icons.park;
+      case HabitIcon.custom:
+        return Icons.star;
+    }
+  }
+}
 
 /// A recurring habit the user is tracking.
 ///
-/// v2.0.0: Added [description], [linkedGoalId], [reminderTime], [skipLog].
 /// [completionLog] stores completed dates normalized to midnight.
-/// [skipLog] stores excused/skipped dates (doesn't break streak).
 /// [customDays] holds ISO weekday numbers (1 = Monday .. 7 = Sunday).
+/// [colorValue] is a custom ARGB color; null falls back to category color.
+/// [targetStreak] is an optional goal streak the user aims for.
 class Habit extends HiveObject {
   String id;
-  String title;
-  String description;
-  String? linkedGoalId;
+  String name;
+  HabitCategory category;
   HabitFrequency frequency;
   List<int> customDays;
-  DateTime? reminderTime; // Time-of-day for reminders
   List<DateTime> completionLog;
-  List<DateTime> skipLog; // excused days — don't break streak
   DateTime createdAt;
   int iconIndex;
   int? colorValue;
@@ -27,50 +85,28 @@ class Habit extends HiveObject {
 
   Habit({
     required this.id,
-    required this.title,
-    this.description = '',
-    this.linkedGoalId,
+    required this.name,
+    required this.category,
     required this.frequency,
     List<int>? customDays,
-    this.reminderTime,
     List<DateTime>? completionLog,
-    List<DateTime>? skipLog,
     DateTime? createdAt,
-    this.iconIndex = 0,
+    this.iconIndex = 15, // HabitIcon.custom
     this.colorValue,
     this.targetStreak = 0,
     DateTime? updatedAt,
   })  : customDays = customDays ?? [],
         completionLog = completionLog ?? [],
-        skipLog = skipLog ?? [],
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
 
+  /// Touch [updatedAt] to now. Called by repositories on every mutation.
   void touch() => updatedAt = DateTime.now();
 
-  Color? get customColor => colorValue == null ? null : Color(colorValue!);
+  HabitIcon get icon =>
+      HabitIcon.values[iconIndex.clamp(0, HabitIcon.values.length - 1)];
 
-  IconData get icon {
-    const icons = [
-      Icons.fitness_center,
-      Icons.menu_book,
-      Icons.water_drop,
-      Icons.self_improvement,
-      Icons.bedtime,
-      Icons.restaurant,
-      Icons.directions_walk,
-      Icons.school,
-      Icons.music_note,
-      Icons.palette,
-      Icons.code,
-      Icons.favorite,
-      Icons.savings,
-      Icons.people,
-      Icons.park,
-      Icons.star,
-    ];
-    return icons[iconIndex.clamp(0, icons.length - 1)];
-  }
+  Color? get customColor => colorValue == null ? null : Color(colorValue!);
 
   bool isDueOn(DateTime date) {
     final day = DateTime(date.year, date.month, date.day);
@@ -97,31 +133,21 @@ class Habit extends HiveObject {
     );
   }
 
-  bool isSkippedOn(DateTime date) {
-    final normalized = DateTime(date.year, date.month, date.day);
-    return skipLog.any(
-      (d) =>
-          d.year == normalized.year &&
-          d.month == normalized.month &&
-          d.day == normalized.day,
-    );
-  }
-
   /// Current streak counted across scheduled days, ending at [asOf].
-  /// Skipped days count as completed (excused).
   int currentStreak({DateTime? asOf}) {
     final value = asOf ?? DateTime.now();
     var cursor = DateTime(value.year, value.month, value.day);
     final firstDay = DateTime(createdAt.year, createdAt.month, createdAt.day);
     var streak = 0;
 
-    if (isDueOn(cursor) && !isCompletedOn(cursor) && !isSkippedOn(cursor)) {
+    // Today is still in progress, so an incomplete today does not break a streak.
+    if (isDueOn(cursor) && !isCompletedOn(cursor)) {
       cursor = DateTime(cursor.year, cursor.month, cursor.day - 1);
     }
 
     while (!cursor.isBefore(firstDay)) {
       if (isDueOn(cursor)) {
-        if (!isCompletedOn(cursor) && !isSkippedOn(cursor)) break;
+        if (!isCompletedOn(cursor)) break;
         streak++;
       }
       cursor = DateTime(cursor.year, cursor.month, cursor.day - 1);
@@ -129,25 +155,25 @@ class Habit extends HiveObject {
     return streak;
   }
 
+  /// Best (longest) streak across scheduled days, ignoring duplicate logs.
   int bestStreak() {
-    if (completionLog.isEmpty && skipLog.isEmpty) return 0;
-    final goodDays = <DateTime>{};
-    for (final d in completionLog) {
-      goodDays.add(DateTime(d.year, d.month, d.day));
-    }
-    for (final d in skipLog) {
-      goodDays.add(DateTime(d.year, d.month, d.day));
-    }
-    final dueDays = goodDays.where(isDueOn).toList()..sort();
-    if (dueDays.isEmpty) return 0;
+    if (completionLog.isEmpty) return 0;
+    final completedDays = completionLog
+        .map((d) => DateTime(d.year, d.month, d.day))
+        .where(isDueOn)
+        .toSet()
+        .toList()
+      ..sort();
+    if (completedDays.isEmpty) return 0;
 
     var best = 0;
     var current = 0;
     var cursor = DateTime(createdAt.year, createdAt.month, createdAt.day);
-    final last = dueDays.last;
+    final last = completedDays.last;
+    final completed = completedDays.toSet();
     while (!cursor.isAfter(last)) {
       if (isDueOn(cursor)) {
-        if (goodDays.contains(cursor)) {
+        if (completed.contains(cursor)) {
           current++;
           if (current > best) best = current;
         } else {
@@ -159,6 +185,29 @@ class Habit extends HiveObject {
     return best;
   }
 
+  /// Number of consecutive scheduled days missed before today.
+  int currentMissStreak({DateTime? asOf}) {
+    final value = asOf ?? DateTime.now();
+    var cursor = DateTime(
+      value.year,
+      value.month,
+      value.day,
+    );
+    cursor = DateTime(cursor.year, cursor.month, cursor.day - 1);
+    final firstDay = DateTime(createdAt.year, createdAt.month, createdAt.day);
+    var misses = 0;
+
+    while (!cursor.isBefore(firstDay)) {
+      if (isDueOn(cursor)) {
+        if (isCompletedOn(cursor)) break;
+        misses++;
+      }
+      cursor = DateTime(cursor.year, cursor.month, cursor.day - 1);
+    }
+    return misses;
+  }
+
+  /// Completion rate over the last [days] days (0.0 - 1.0).
   double completionRate({int days = 30, DateTime? asOf}) {
     if (days <= 0) return 0;
     final value = asOf ?? DateTime.now();
@@ -171,39 +220,19 @@ class Habit extends HiveObject {
     while (!cursor.isAfter(end)) {
       if (isDueOn(cursor)) {
         dueDays++;
-        if (isCompletedOn(cursor) || isSkippedOn(cursor)) completedDays++;
+        if (isCompletedOn(cursor)) completedDays++;
       }
       cursor = DateTime(cursor.year, cursor.month, cursor.day + 1);
     }
     return dueDays == 0 ? 0 : completedDays / dueDays;
   }
 
+  /// Total unique, valid completions.
   int get totalCompletions => completionLog
       .map((d) => DateTime(d.year, d.month, d.day))
       .where(isDueOn)
       .toSet()
       .length;
-
-  /// Consistency score: streak length + frequency + recency (0-100).
-  int get consistencyScore {
-    final streak = currentStreak();
-    final rate = completionRate(days: 30);
-    final recencyBoost = completionLog.isNotEmpty &&
-            DateTime.now().difference(completionLog.last).inDays == 0
-        ? 10
-        : 0;
-    final score = (streak * 2.0).clamp(0, 50) +
-        (rate * 40) +
-        recencyBoost;
-    return score.round().clamp(0, 100);
-  }
-
-  /// Check if a milestone was just reached (7, 30, 100 days).
-  int? checkMilestone() {
-    final s = currentStreak();
-    if (s == 7 || s == 30 || s == 100) return s;
-    return null;
-  }
 }
 
 class HabitAdapter extends TypeAdapter<Habit> {
@@ -218,18 +247,16 @@ class HabitAdapter extends TypeAdapter<Habit> {
     };
     return Habit(
       id: fields[0] as String,
-      title: fields[1] as String,
-      description: fields[2] as String? ?? '',
-      linkedGoalId: fields[12] as String?,
+      name: fields[1] as String,
+      category: HabitCategory.values[fields[2] as int],
       frequency: HabitFrequency.values[fields[3] as int],
       customDays: (fields[4] as List).cast<int>(),
-      reminderTime: fields[11] as DateTime?,
       completionLog: (fields[5] as List).cast<DateTime>(),
-      skipLog: (fields[13] as List?)?.cast<DateTime>() ?? [],
       createdAt: fields[6] as DateTime,
-      iconIndex: fields[7] as int? ?? 0,
+      iconIndex: fields[7] as int? ?? 15,
       colorValue: fields[8] as int?,
       targetStreak: fields[9] as int? ?? 0,
+      // updatedAt (field 10) — backward compatible: fall back to createdAt
       updatedAt: fields[10] as DateTime? ?? fields[6] as DateTime,
     );
   }
@@ -237,13 +264,13 @@ class HabitAdapter extends TypeAdapter<Habit> {
   @override
   void write(BinaryWriter writer, Habit obj) {
     writer
-      ..writeByte(14)
+      ..writeByte(11)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
-      ..write(obj.title)
+      ..write(obj.name)
       ..writeByte(2)
-      ..write(obj.description)
+      ..write(obj.category.index)
       ..writeByte(3)
       ..write(obj.frequency.index)
       ..writeByte(4)
@@ -259,12 +286,6 @@ class HabitAdapter extends TypeAdapter<Habit> {
       ..writeByte(9)
       ..write(obj.targetStreak)
       ..writeByte(10)
-      ..write(obj.updatedAt)
-      ..writeByte(11)
-      ..write(obj.reminderTime)
-      ..writeByte(12)
-      ..write(obj.linkedGoalId)
-      ..writeByte(13)
-      ..write(obj.skipLog);
+      ..write(obj.updatedAt);
   }
 }

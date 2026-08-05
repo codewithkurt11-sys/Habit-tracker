@@ -1,0 +1,46 @@
+/// Static, bundled quote list used to seed the quotes box on first launch.
+/// Each entry is (text, author).
+const List<List<String>> kDefaultQuotes = [
+  ["Small steps, taken daily, become the path.", "Unknown"],
+  ["You do not have to be perfect to be proud of yourself.", "Unknown"],
+  ["Progress is quiet before it is visible.", "Unknown"],
+  ["Rest is part of the work, not a break from it.", "Unknown"],
+  ["What you repeat, you become.", "Unknown"],
+  ["Begin again, as many times as it takes.", "Unknown"],
+  ["A calm mind is a productive mind.", "Unknown"],
+  ["The days you don't feel like it are the ones that count most.", "Unknown"],
+  ["You are allowed to grow at your own pace.", "Unknown"],
+  ["Showing up is the habit. Everything else follows.", "Unknown"],
+  ["Consistency is kinder to you than intensity.", "Unknown"],
+  ["Today only asks for today's effort.", "Unknown"],
+  ["Your future self is built from today's small choices.", "Unknown"],
+  [
+    "It's okay to move slowly, as long as you don't stop.",
+    "Confucius (paraphrased)",
+  ],
+  [
+    "Discipline is choosing between what you want now and what you want most.",
+    "Unknown",
+  ],
+  ["The comeback is always stronger than the setback.", "Unknown"],
+  ["Give yourself credit for the version of you that kept going.", "Unknown"],
+  ["A little progress each day adds up to big results.", "Unknown"],
+  ["Take care of yourself first; everything else follows.", "Unknown"],
+  [
+    "You don't need to see the whole staircase, just the next step.",
+    "Martin Luther King Jr. (paraphrased)",
+  ],
+  ["Be gentle with yourself. You're doing the best you can.", "Unknown"],
+  [
+    "Habits are the compound interest of self-improvement.",
+    "James Clear (paraphrased)",
+  ],
+  ["Every day is a fresh start.", "Unknown"],
+  ["Your only competition is who you were yesterday.", "Unknown"],
+  ["Stillness is productive too.", "Unknown"],
+  ["Trust the process, even on the slow days.", "Unknown"],
+  ["A cozy corner of routine can hold a lot of peace.", "Unknown"],
+  ["What matters most is that you keep showing up for yourself.", "Unknown"],
+  ["Growth isn't always loud. Sometimes it's just steady.", "Unknown"],
+  ["Take the next right step, that's all you need.", "Unknown"],
+];

@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../logic/app_state.dart';
-import '../../core/theme/app_spacing.dart';
 import '../../data/models/habit.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_spacing.dart';
+import '../../core/theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
-import '../widgets/heatmap_widget.dart';
 import 'habit_detail_screen.dart';
 
 class HabitsScreen extends StatelessWidget {
@@ -14,329 +15,328 @@ class HabitsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final habits = state.habits;
+    final habits = state.habitsRepo.getDueToday();
 
-    return SafeArea(
-      child: Scaffold(
-        floatingActionButton: FloatingActionButton(
-          onPressed: () => _showAddHabitDialog(context),
-          child: const Icon(Icons.add),
-        ),
-        body: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(
-              child: ScreenTitleBar(
-                title: 'Habits',
-                subtitle: '${habits.length} total • ${state.totalCurrentStreaks} active streaks',
-              ),
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          children: [
+            ScreenTitleBar(
+              title: 'Habits',
+              subtitle: '${habits.length} due today',
+              onMenuTap: () => Scaffold.of(context).openDrawer(),
             ),
-            if (habits.isEmpty)
-              const SliverToBoxAdapter(
-                child: EmptyState(
-                  icon: Icons.repeat_rounded,
-                  title: 'No habits yet',
-                  subtitle: 'Create your first habit to start tracking',
-                  actionLabel: 'Add Habit',
-                ),
-              )
-            else
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final h = habits[index];
-                    return _HabitCard(habit: h);
-                  },
-                  childCount: habits.length,
-                ),
-              ),
-            const SliverToBoxAdapter(child: SizedBox(height: 80)),
+            Expanded(
+              child: habits.isEmpty
+                  ? EmptyState(
+                      icon: Icons.repeat_rounded,
+                      title: 'No habits for today',
+                      subtitle:
+                          'Create a habit or enjoy a clear schedule today.',
+                      actionLabel: 'Add Habit',
+                      onAction: () => _showAddHabitDialog(context),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
+                      itemCount: habits.length,
+                      itemBuilder: (_, i) => _HabitTile(habit: habits[i]),
+                    ),
+            ),
           ],
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddHabitDialog(context),
+        child: const Icon(Icons.add),
       ),
     );
   }
 
   void _showAddHabitDialog(BuildContext context) {
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      builder: (ctx) => const _AddHabitSheet(),
+      builder: (_) => const _AddHabitDialog(),
     );
   }
 }
 
-class _HabitCard extends StatelessWidget {
+class _HabitTile extends StatelessWidget {
   final Habit habit;
-  const _HabitCard({required this.habit});
+  const _HabitTile({required this.habit});
 
   @override
   Widget build(BuildContext context) {
     final state = context.read<AppState>();
     final theme = Theme.of(context);
-    final isDone = habit.isCompletedOn(DateTime.now());
-    final color = habit.customColor ?? theme.colorScheme.primary;
+    final done = habit.isCompletedOn(DateTime.now());
     final streak = habit.currentStreak();
-    final milestone = habit.checkMilestone();
+    final color = habit.customColor ?? _categoryColor(habit.category);
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
-      child: SoftCard(
-        onTap: () => Navigator.push(context,
-            MaterialPageRoute(builder: (_) => HabitDetailScreen(habitId: habit.id))),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md, vertical: AppSpacing.xs + 2),
+      child: Card(
+        child: InkWell(
+          onTap: () => state.toggleHabit(habit.id),
+          onLongPress: () => Navigator.of(context).push(
+            MaterialPageRoute(
+                builder: (_) => HabitDetailScreen(habitId: habit.id)),
+          ),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Row(
               children: [
-                GestureDetector(
-                  onTap: () async {
-                    await state.toggleHabit(habit.id);
-                    showUndoToast(context, isDone ? 'Undone' : 'Habit completed',
-                        () => state.toggleHabit(habit.id));
-                  },
-                  child: CompletionRing(completed: isDone, color: color, milestone: milestone),
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.15),
+                    borderRadius:
+                        BorderRadius.circular(AppSpacing.radiusMedium),
+                  ),
+                  child: Icon(habit.icon.data, color: color, size: 24),
                 ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(habit.title, style: theme.textTheme.titleMedium),
-                      Text(
-                        '${habit.frequency.name} • ${streak} day streak • ${habit.consistencyScore}% consistent',
-                        style: theme.textTheme.bodySmall,
+                      Text(habit.name,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                              decoration:
+                                  done ? TextDecoration.lineThrough : null,
+                              color: done
+                                  ? theme.colorScheme.onSurface
+                                      .withValues(alpha: 0.4)
+                                  : null)),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          if (streak > 0)
+                            PillChip(
+                              label: '$streak day streak',
+                              icon: Icons.local_fire_department_outlined,
+                              color: AppColors.lightAccent,
+                            )
+                          else
+                            PillChip(
+                              label: habit.frequency.name,
+                              color: color,
+                            ),
+                        ],
                       ),
                     ],
                   ),
                 ),
-                Icon(habit.icon, color: color, size: 24),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: done ? color : Colors.transparent,
+                    border: Border.all(color: color, width: 2),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusSmall),
+                  ),
+                  child: done
+                      ? const Icon(Icons.check, color: Colors.white, size: 18)
+                      : null,
+                ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );
   }
+
+  Color _categoryColor(HabitCategory cat) {
+    switch (cat) {
+      case HabitCategory.workout:
+        return AppColors.categoryWorkout;
+      case HabitCategory.lifestyle:
+        return AppColors.categoryLifestyle;
+      case HabitCategory.other:
+        return AppColors.categoryOther;
+    }
+  }
 }
 
-class _AddHabitSheet extends StatefulWidget {
-  const _AddHabitSheet();
+class _AddHabitDialog extends StatefulWidget {
+  const _AddHabitDialog();
 
   @override
-  State<_AddHabitSheet> createState() => _AddHabitSheetState();
+  State<_AddHabitDialog> createState() => _AddHabitDialogState();
 }
 
-class _AddHabitSheetState extends State<_AddHabitSheet> {
-  final _titleController = TextEditingController();
-  final _descController = TextEditingController();
-  HabitFrequency _frequency = HabitFrequency.daily;
-  List<int> _customDays = [];
-  TimeOfDay? _reminderTime;
+class _AddHabitDialogState extends State<_AddHabitDialog> {
+  final _nameController = TextEditingController();
+  int _categoryIndex = 0;
+  int _frequencyIndex = 0;
   int _iconIndex = 0;
-  int _selectedColorIndex = 0;
-  String? _linkedGoalId;
-
-  static const _colors = [
-    Color(0xFFE8946F), Color(0xFF6B9080), Color(0xFF7B93B5),
-    Color(0xFFC4A895), Color(0xFFB58BB5), Color(0xFF8FC0A0),
-    Color(0xFFE8B66F), Color(0xFFD67474),
-  ];
-
-  static const _icons = [
-    Icons.fitness_center, Icons.menu_book, Icons.water_drop, Icons.self_improvement,
-    Icons.bedtime, Icons.restaurant, Icons.directions_walk, Icons.school,
-    Icons.music_note, Icons.palette, Icons.code, Icons.favorite,
-    Icons.savings, Icons.people, Icons.park, Icons.star,
-  ];
+  int _colorIndex = 0;
 
   @override
   void dispose() {
-    _titleController.dispose();
-    _descController.dispose();
+    _nameController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final state = context.read<AppState>();
     final theme = Theme.of(context);
-    final goals = state.activeGoals;
-
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        AppSpacing.lg, AppSpacing.lg, AppSpacing.lg,
-        MediaQuery.of(context).viewInsets.bottom + AppSpacing.lg,
-      ),
-      child: SingleChildScrollView(
+    return AlertDialog(
+      title: const Text('New Habit'),
+      content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('New Habit', style: theme.textTheme.headlineMedium),
-            const SizedBox(height: AppSpacing.md),
             TextField(
-              controller: _titleController,
-              decoration: const InputDecoration(labelText: 'Habit title'),
+              controller: _nameController,
+              decoration: const InputDecoration(
+                labelText: 'Habit name',
+                hintText: 'e.g. Drink 8 glasses of water',
+              ),
               autofocus: true,
             ),
+            const SizedBox(height: AppSpacing.md),
+            // Category
+            _buildSegmentedControl(
+              'Category',
+              ['Workout', 'Lifestyle', 'Other'],
+              _categoryIndex,
+              (i) => setState(() => _categoryIndex = i),
+            ),
             const SizedBox(height: AppSpacing.sm),
-            TextField(
-              controller: _descController,
-              decoration: const InputDecoration(labelText: 'Description (optional)'),
-              maxLines: 2,
-            ),
-            const SizedBox(height: AppSpacing.md),
             // Frequency
-            Text('Frequency', style: theme.textTheme.titleSmall),
-            const SizedBox(height: AppSpacing.xs),
-            Wrap(
-              spacing: 8,
-              children: HabitFrequency.values.map((f) {
-                return ChoiceChip(
-                  label: Text(f.name),
-                  selected: _frequency == f,
-                  onSelected: (selected) {
-                    if (selected) setState(() => _frequency = f);
-                  },
-                );
-              }).toList(),
-            ),
-            if (_frequency == HabitFrequency.custom) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Wrap(
-                spacing: 4,
-                children: List.generate(7, (i) {
-                  final day = i + 1;
-                  const labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-                  return FilterChip(
-                    label: Text(labels[i]),
-                    selected: _customDays.contains(day),
-                    onSelected: (selected) {
-                      setState(() {
-                        if (selected) {
-                          _customDays.add(day);
-                        } else {
-                          _customDays.remove(day);
-                        }
-                      });
-                    },
-                  );
-                }),
-              ),
-            ],
-            const SizedBox(height: AppSpacing.md),
-            // Reminder time
-            Row(
-              children: [
-                Text('Reminder', style: theme.textTheme.titleSmall),
-                const Spacer(),
-                TextButton(
-                  onPressed: () async {
-                    final time = await showTimePicker(
-                      context: context,
-                      initialTime: TimeOfDay.now(),
-                    );
-                    if (time != null) setState(() => _reminderTime = time);
-                  },
-                  child: Text(_reminderTime != null
-                      ? '${_reminderTime!.hour}:${_reminderTime!.minute.toString().padLeft(2, '0')}'
-                      : 'None'),
-                ),
-              ],
+            _buildSegmentedControl(
+              'Frequency',
+              ['Daily', 'Weekly', 'Custom'],
+              _frequencyIndex,
+              (i) => setState(() => _frequencyIndex = i),
             ),
             const SizedBox(height: AppSpacing.md),
-            // Link to goal
-            if (goals.isNotEmpty) ...[
-              Text('Link to Goal', style: theme.textTheme.titleSmall),
-              const SizedBox(height: AppSpacing.xs),
-              DropdownButton<String?>(
-                value: _linkedGoalId,
-                hint: const Text('None'),
-                items: [
-                  const DropdownMenuItem(value: null, child: Text('None')),
-                  ...goals.map((g) => DropdownMenuItem(
-                    value: g.id,
-                    child: Text(g.title),
-                  )),
-                ],
-                onChanged: (v) => setState(() => _linkedGoalId = v),
-              ),
-              const SizedBox(height: AppSpacing.md),
-            ],
-            // Color
-            Text('Color', style: theme.textTheme.titleSmall),
-            const SizedBox(height: AppSpacing.xs),
+            // Icon picker
+            Text('Icon', style: theme.textTheme.labelLarge),
+            const SizedBox(height: AppSpacing.sm),
             Wrap(
               spacing: 8,
-              children: List.generate(_colors.length, (i) {
-                return GestureDetector(
-                  onTap: () => setState(() => _selectedColorIndex = i),
-                  child: Container(
-                    width: 32, height: 32,
-                    decoration: BoxDecoration(
-                      color: _colors[i],
-                      shape: BoxShape.circle,
-                      border: _selectedColorIndex == i
-                          ? Border.all(color: theme.colorScheme.onSurface, width: 3)
-                          : null,
-                    ),
-                  ),
-                );
-              }),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            // Icon
-            Text('Icon', style: theme.textTheme.titleSmall),
-            const SizedBox(height: AppSpacing.xs),
-            Wrap(
-              spacing: 8,
-              children: List.generate(_icons.length, (i) {
+              runSpacing: 8,
+              children: List.generate(HabitIcon.values.length, (i) {
+                final sel = i == _iconIndex;
                 return GestureDetector(
                   onTap: () => setState(() => _iconIndex = i),
                   child: Container(
-                    width: 40, height: 40,
+                    width: 40,
+                    height: 40,
                     decoration: BoxDecoration(
-                      color: _iconIndex == i
-                          ? theme.colorScheme.primary.withValues(alpha: 0.15)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(8),
-                      border: _iconIndex == i
-                          ? Border.all(color: theme.colorScheme.primary)
-                          : null,
+                      color: sel
+                          ? theme.colorScheme.primary
+                          : theme.extension<AppThemeExtension>()!.surfaceMuted,
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(_icons[i], size: 20,
-                        color: _iconIndex == i ? theme.colorScheme.primary : theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                    child: Icon(
+                      HabitIcon.values[i].data,
+                      size: 20,
+                      color: sel ? Colors.white : theme.colorScheme.onSurface,
+                    ),
                   ),
                 );
               }),
             ),
-            const SizedBox(height: AppSpacing.lg),
-            // Save button
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: () {
-                  if (_titleController.text.trim().isEmpty) return;
-                  context.read<AppState>().addHabit(
-                    title: _titleController.text.trim(),
-                    description: _descController.text.trim(),
-                    linkedGoalId: _linkedGoalId,
-                    frequency: _frequency,
-                    customDays: _frequency == HabitFrequency.custom ? _customDays : null,
-                    reminderTime: _reminderTime != null
-                        ? DateTime(2000, 1, 1, _reminderTime!.hour, _reminderTime!.minute)
-                        : null,
-                    iconIndex: _iconIndex,
-                    colorValue: _colors[_selectedColorIndex].value,
-                  );
-                  Navigator.pop(context);
-                },
-                child: const Text('Create Habit'),
-              ),
+            const SizedBox(height: AppSpacing.md),
+            // Color picker
+            Text('Color', style: theme.textTheme.labelLarge),
+            const SizedBox(height: AppSpacing.sm),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: List.generate(AppColors.habitColorPalette.length, (i) {
+                final sel = i == _colorIndex;
+                return GestureDetector(
+                  onTap: () => setState(() => _colorIndex = i),
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: AppColors.habitColorPalette[i],
+                      shape: BoxShape.circle,
+                      border: sel
+                          ? Border.all(
+                              color: theme.colorScheme.onSurface, width: 3)
+                          : null,
+                    ),
+                  ),
+                );
+              }),
             ),
           ],
         ),
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            final name = _nameController.text.trim();
+            if (name.isEmpty) return;
+            context.read<AppState>().addHabit(
+                  name: name,
+                  categoryIndex: _categoryIndex,
+                  frequencyIndex: _frequencyIndex,
+                  iconIndex: _iconIndex,
+                  colorValue:
+                      AppColors.habitColorPalette[_colorIndex].toARGB32(),
+                );
+            Navigator.pop(context);
+          },
+          child: const Text('Add'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSegmentedControl(
+    String label,
+    List<String> options,
+    int selected,
+    ValueChanged<int> onChanged,
+  ) {
+    final theme = Theme.of(context);
+    final ext = theme.extension<AppThemeExtension>()!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: theme.textTheme.labelLarge),
+        const SizedBox(height: AppSpacing.xs),
+        Wrap(
+          spacing: 8,
+          children: List.generate(options.length, (i) {
+            final sel = i == selected;
+            return GestureDetector(
+              onTap: () => onChanged(i),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: sel ? theme.colorScheme.primary : ext.surfaceMuted,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  options[i],
+                  style: TextStyle(
+                    color: sel ? Colors.white : theme.colorScheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+      ],
     );
   }
 }

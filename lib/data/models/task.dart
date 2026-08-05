@@ -2,51 +2,113 @@ import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 
 enum TaskPriority { low, medium, high, urgent }
+
 enum TaskStatus { todo, inProgress, done, archived }
+
 enum TaskCategory {
-  work, personal, health, finance, education, home, social, other
+  work,
+  personal,
+  health,
+  finance,
+  education,
+  home,
+  social,
+  other,
 }
 
 extension TaskPriorityExt on TaskPriority {
-  String get label => switch (this) {
-    TaskPriority.low => 'Low', TaskPriority.medium => 'Medium',
-    TaskPriority.high => 'High', TaskPriority.urgent => 'Urgent',
-  };
-  Color get color => switch (this) {
-    TaskPriority.low => const Color(0xFF6B9080),
-    TaskPriority.medium => const Color(0xFFE8C56F),
-    TaskPriority.high => const Color(0xFFE8946F),
-    TaskPriority.urgent => const Color(0xFFD4675A),
-  };
-  IconData get icon => switch (this) {
-    TaskPriority.low => Icons.arrow_downward,
-    TaskPriority.medium => Icons.remove,
-    TaskPriority.high => Icons.arrow_upward,
-    TaskPriority.urgent => Icons.priority_high,
-  };
+  String get label {
+    switch (this) {
+      case TaskPriority.low:
+        return 'Low';
+      case TaskPriority.medium:
+        return 'Medium';
+      case TaskPriority.high:
+        return 'High';
+      case TaskPriority.urgent:
+        return 'Urgent';
+    }
+  }
+
+  Color get color {
+    switch (this) {
+      case TaskPriority.low:
+        return const Color(0xFF6B9080);
+      case TaskPriority.medium:
+        return const Color(0xFFE8C56F);
+      case TaskPriority.high:
+        return const Color(0xFFE8946F);
+      case TaskPriority.urgent:
+        return const Color(0xFFD4675A);
+    }
+  }
+
+  IconData get icon {
+    switch (this) {
+      case TaskPriority.low:
+        return Icons.arrow_downward;
+      case TaskPriority.medium:
+        return Icons.remove;
+      case TaskPriority.high:
+        return Icons.arrow_upward;
+      case TaskPriority.urgent:
+        return Icons.priority_high;
+    }
+  }
 }
 
 extension TaskCategoryExt on TaskCategory {
-  String get label => switch (this) {
-    TaskCategory.work => 'Work', TaskCategory.personal => 'Personal',
-    TaskCategory.health => 'Health', TaskCategory.finance => 'Finance',
-    TaskCategory.education => 'Education', TaskCategory.home => 'Home',
-    TaskCategory.social => 'Social', TaskCategory.other => 'Other',
-  };
-  IconData get icon => switch (this) {
-    TaskCategory.work => Icons.work_outline,
-    TaskCategory.personal => Icons.person_outline,
-    TaskCategory.health => Icons.favorite_outline,
-    TaskCategory.finance => Icons.account_balance_wallet_outlined,
-    TaskCategory.education => Icons.school_outlined,
-    TaskCategory.home => Icons.home_outlined,
-    TaskCategory.social => Icons.people_outline,
-    TaskCategory.other => Icons.category_outlined,
-  };
+  String get label {
+    switch (this) {
+      case TaskCategory.work:
+        return 'Work';
+      case TaskCategory.personal:
+        return 'Personal';
+      case TaskCategory.health:
+        return 'Health';
+      case TaskCategory.finance:
+        return 'Finance';
+      case TaskCategory.education:
+        return 'Education';
+      case TaskCategory.home:
+        return 'Home';
+      case TaskCategory.social:
+        return 'Social';
+      case TaskCategory.other:
+        return 'Other';
+    }
+  }
+
+  IconData get icon {
+    switch (this) {
+      case TaskCategory.work:
+        return Icons.work_outline;
+      case TaskCategory.personal:
+        return Icons.person_outline;
+      case TaskCategory.health:
+        return Icons.favorite_outline;
+      case TaskCategory.finance:
+        return Icons.account_balance_wallet_outlined;
+      case TaskCategory.education:
+        return Icons.school_outlined;
+      case TaskCategory.home:
+        return Icons.home_outlined;
+      case TaskCategory.social:
+        return Icons.people_outline;
+      case TaskCategory.other:
+        return Icons.category_outlined;
+    }
+  }
 }
 
-/// v2.0.0 Task: [linkedGoalId], [linkedHabitId], [recurring], [recurrenceRule].
-/// [recurrenceRule] = 'daily','weekly','monthly','weekdays' etc.
+class SubTask {
+  String id;
+  String title;
+  bool done;
+
+  SubTask({required this.id, required this.title, this.done = false});
+}
+
 class Task extends HiveObject {
   String id;
   String title;
@@ -59,10 +121,8 @@ class Task extends HiveObject {
   List<String> tags;
   List<String> subtaskTitles;
   List<bool> subtaskDone;
-  bool recurring;
-  String recurrenceRule;
-  String? linkedGoalId;
-  String? linkedHabitId;
+  bool isRecurring;
+  String recurringPattern; // 'daily','weekly','monthly'
   DateTime createdAt;
   DateTime? completedAt;
   bool archived;
@@ -80,10 +140,8 @@ class Task extends HiveObject {
     List<String>? tags,
     List<String>? subtaskTitles,
     List<bool>? subtaskDone,
-    this.recurring = false,
-    this.recurrenceRule = '',
-    this.linkedGoalId,
-    this.linkedHabitId,
+    this.isRecurring = false,
+    this.recurringPattern = '',
     DateTime? createdAt,
     this.completedAt,
     this.archived = false,
@@ -94,6 +152,7 @@ class Task extends HiveObject {
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
 
+  /// Touch [updatedAt] to now. Called by repositories on every mutation.
   void touch() => updatedAt = DateTime.now();
 
   double get progress {
@@ -117,7 +176,16 @@ class Task extends HiveObject {
     return due.isBefore(DateTime(today.year, today.month, today.day));
   }
 
-  bool get isDone => status == TaskStatus.done;
+  List<SubTask> get subtasks {
+    final len = subtaskTitles.length;
+    return List.generate(
+        len,
+        (i) => SubTask(
+              id: i.toString(),
+              title: subtaskTitles[i],
+              done: i < subtaskDone.length ? subtaskDone[i] : false,
+            ));
+  }
 }
 
 class TaskAdapter extends TypeAdapter<Task> {
@@ -142,14 +210,14 @@ class TaskAdapter extends TypeAdapter<Task> {
       tags: (fields[8] as List?)?.cast<String>() ?? [],
       subtaskTitles: (fields[9] as List?)?.cast<String>() ?? [],
       subtaskDone: (fields[10] as List?)?.cast<bool>() ?? [],
-      recurring: fields[17] as bool? ?? (fields[11] as bool? ?? false),
-      recurrenceRule: fields[18] as String? ?? (fields[12] as String? ?? ''),
-      linkedGoalId: fields[19] as String?,
-      linkedHabitId: fields[20] as String?,
+      isRecurring: fields[11] as bool? ?? false,
+      recurringPattern: fields[12] as String? ?? '',
       createdAt: fields[13] as DateTime? ?? DateTime.now(),
       completedAt: fields[14] as DateTime?,
       archived: fields[15] as bool? ?? false,
-      updatedAt: fields[16] as DateTime? ?? DateTime.now(),
+      // updatedAt (field 16) — backward compatible: fall back to createdAt
+      updatedAt:
+          fields[16] as DateTime? ?? fields[13] as DateTime? ?? DateTime.now(),
     );
   }
 
@@ -179,14 +247,10 @@ class TaskAdapter extends TypeAdapter<Task> {
       ..write(obj.subtaskTitles)
       ..writeByte(10)
       ..write(obj.subtaskDone)
-      ..writeByte(17)
-      ..write(obj.recurring)
-      ..writeByte(18)
-      ..write(obj.recurrenceRule)
-      ..writeByte(19)
-      ..write(obj.linkedGoalId)
-      ..writeByte(20)
-      ..write(obj.linkedHabitId)
+      ..writeByte(11)
+      ..write(obj.isRecurring)
+      ..writeByte(12)
+      ..write(obj.recurringPattern)
       ..writeByte(13)
       ..write(obj.createdAt)
       ..writeByte(14)

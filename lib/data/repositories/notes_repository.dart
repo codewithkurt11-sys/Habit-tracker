@@ -9,65 +9,64 @@ class NotesRepository {
 
   List<Note> getAll() {
     final list = _box.values.toList();
-    list.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
     return list;
   }
 
-  List<Note> getForEntity(String entityType, String entityId) {
-    return getAll()
-        .where((n) => n.linkedEntityType == entityType && n.linkedEntityId == entityId)
-        .toList();
+  List<Note> getForHabit(String habitId) {
+    return getAll().where((n) => n.habitId == habitId).toList();
   }
 
-  List<Note> getForTag(String tag) {
-    return getAll().where((n) => n.tags.contains(tag)).toList();
+  List<Note> getForDate(DateTime date) {
+    return getAll().where((n) {
+      if (n.linkedDate == null) return false;
+      return n.linkedDate!.year == date.year &&
+          n.linkedDate!.month == date.month &&
+          n.linkedDate!.day == date.day;
+    }).toList();
   }
 
-  List<Note> getRecent({int limit = 3}) {
-    return getAll().take(limit).toList();
-  }
-
+  /// Search notes by title or body (case-insensitive).
   List<Note> search(String query) {
     if (query.isEmpty) return getAll();
     final lower = query.toLowerCase();
     return getAll().where((n) {
       return n.title.toLowerCase().contains(lower) ||
-          n.body.toLowerCase().contains(lower) ||
-          n.tags.any((t) => t.toLowerCase().contains(lower));
+          n.body.toLowerCase().contains(lower);
     }).toList();
   }
 
-  List<String> getAllTags() {
-    final tags = <String>{};
-    for (final n in getAll()) {
-      tags.addAll(n.tags);
-    }
-    return tags.toList()..sort();
+  bool hasNoteToday() {
+    final now = DateTime.now();
+    return _box.values.any(
+      (n) =>
+          n.timestamp.year == now.year &&
+          n.timestamp.month == now.month &&
+          n.timestamp.day == now.day,
+    );
   }
 
   Future<Note> create({
     required String title,
     required String body,
-    List<String>? attachments,
-    String linkedEntityType = 'none',
-    String? linkedEntityId,
-    List<String>? tags,
+    String? habitId,
+    DateTime? linkedDate,
+    int moodIndex = -1,
   }) async {
     final note = Note(
       id: _uuid.v4(),
       title: title,
       body: body,
-      attachments: attachments,
-      linkedEntityType: linkedEntityType,
-      linkedEntityId: linkedEntityId,
-      tags: tags,
+      timestamp: DateTime.now(),
+      habitId: habitId,
+      linkedDate: linkedDate,
+      moodIndex: moodIndex,
     );
     await _box.put(note.id, note);
     return note;
   }
 
   Future<void> update(Note note) async {
-    note.updatedAt = DateTime.now();
     await _box.put(note.id, note);
   }
 

@@ -1,143 +1,158 @@
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import 'file_utils.dart';
 
-/// v2.0.0 File Manager Service — Fixed scoped storage bug.
-///
-/// BUG FIX: Previously listed /storage/emulated/ (parent, inaccessible).
-/// Now resolves root via getExternalStorageDirectory() or SAF.
-/// Never uses the raw parent path /storage/emulated/ directly.
-///
-/// Android 11+ Scoped Storage compliance:
-/// - Uses app-specific external storage as default
-/// - Does NOT request MANAGE_EXTERNAL_STORAGE broadly
-/// - Relies on SAF (Storage Access Framework) for arbitrary folder access
+/// A storage location shown on the file manager home.
 class StorageRoot {
   final String label;
   final String path;
   final bool isPrimary;
 
-  const StorageRoot({required this.label, required this.path, this.isPrimary = false});
+  const StorageRoot({
+    required this.label,
+    required this.path,
+    this.isPrimary = false,
+  });
 }
 
+/// Represents a pending copy or move operation.
 class FileClipboard {
   final List<String> paths;
   final bool isCut;
+
   const FileClipboard({required this.paths, required this.isCut});
 }
 
+/// The real outcome of a paste operation.
 class PasteResult {
   final int completed;
   final int skipped;
   final List<String> errors;
-  const PasteResult({required this.completed, required this.skipped, required this.errors});
+
+  const PasteResult({
+    required this.completed,
+    required this.skipped,
+    required this.errors,
+  });
+
   bool get hasErrors => errors.isNotEmpty;
 }
 
+/// Handles filesystem interaction for the file manager.
 class FileManagerService {
   FileClipboard? clipboard;
-  bool _hasStorageAccess = !Platform.isAndroid;
+  bool _hasBroadStorageAccess = !Platform.isAndroid;
 
-  bool get hasBroadStorageAccess => _hasStorageAccess;
+  bool get hasBroadStorageAccess => _hasBroadStorageAccess;
 
-  /// v2.0.0: Uses SAF approach. Does NOT request MANAGE_EXTERNAL_STORAGE broadly.
-  /// Returns true if app-specific storage is available (always on Android).
   Future<bool> ensurePermission() async {
     if (!Platform.isAndroid) return true;
 
-    // App-specific external storage is always accessible on Android 11+
-    final appDir = await getExternalStorageDirectory();
-    if (appDir != null) {
-      _hasStorageAccess = true;
+    if (await Permission.manageExternalStorage.isGranted ||
+        await Permission.storage.isGranted) {
+      _hasBroadStorageAccess = true;
       return true;
     }
 
-    // Fallback: try legacy storage permission (Android 10 and below)
+    // Android 11+ file managers need "All files access" to browse shared
+    // storage. On older Android versions, the legacy storage permission is
+    // used instead. If both are unavailable, app-specific storage still works.
+    final allFiles = await Permission.manageExternalStorage.request();
+    if (allFiles.isGranted) {
+      _hasBroadStorageAccess = true;
+      return true;
+    }
+
     final legacyStorage = await Permission.storage.request();
-    _hasStorageAccess = legacyStorage.isGranted;
-    return _hasStorageAccess;
+    _hasBroadStorageAccess = legacyStorage.isGranted;
+    return _hasBroadStorageAccess ||
+        await getExternalStorageDirectory() != null;
   }
 
   Future<bool> hasPermission() async {
     if (!Platform.isAndroid) return true;
-    // App-specific storage is always available
-    final appDir = await getExternalStorageDirectory();
-    _hasStorageAccess = appDir != null ||
+    _hasBroadStorageAccess = await Permission.manageExternalStorage.isGranted ||
         await Permission.storage.isGranted;
-    return _hasStorageAccess;
+    return _hasBroadStorageAccess ||
+        await getExternalStorageDirectory() != null;
   }
 
   Future<bool> openPermissionSettings() async {
+    if (Platform.isAndroid) {
+      final result = await Permission.manageExternalStorage.request();
+      if (result.isGranted) {
+        _hasBroadStorageAccess = true;
+        return true;
+      }
+    }
     return openAppSettings();
   }
 
-  /// v2.0.0 FIX: Resolves storage roots via getExternalStorageDirectory(),
-  /// NEVER uses the raw parent path /storage/emulated/.
-  /// App-specific storage is the primary root for scoped storage compliance.
   Future<List<StorageRoot>> storageRoots() async {
     final roots = <StorageRoot>[];
-
     if (Platform.isAndroid) {
-      // PRIMARY: App-specific external storage — always accessible
-      try {
-        final appDir = await getExternalStorageDirectory();
-        if (appDir != null) {
-          roots.add(StorageRoot(
-            label: 'App Storage',
-            path: appDir.path,
+      final canBrowseSharedStorage =
+          await Permission.manageExternalStorage.isGranted ||
+              await Permission.storage.isGranted;
+      _hasBroadStorageAccess = canBrowseSharedStorage;
+      if (canBrowseSharedStorage) {
+        const primary = '/storage/emulated/0';
+        if (await Directory(primary).exists()) {
+          roots.add(const StorageRoot(
+            label: 'Internal Storage',
+            path: primary,
             isPrimary: true,
           ));
-
-          // List common subdirectories in app storage
-          for (final folder in ['Download', 'Documents', 'Pictures', 'Music', 'Movies']) {
-            final path = p.join(appDir.path, folder);
-            final dir = Directory(path);
-            if (await dir.exists()) {
+          for (final folder in const [
+            'Download',
+            'Documents',
+            'DCIM',
+            'Pictures',
+            'Music',
+            'Movies',
+          ]) {
+            final path = p.join(primary, folder);
+            if (await Directory(path).exists()) {
               roots.add(StorageRoot(label: folder, path: path));
-            } else {
-              // Create it if it doesn't exist
-              try {
-                await dir.create(recursive: true);
-                roots.add(StorageRoot(label: folder, path: path));
-              } catch (_) {
-                // Skip if can't create
+            }
+          }
+        }
+
+        try {
+          final storageDir = Directory('/storage');
+          if (await storageDir.exists()) {
+            await for (final entity in storageDir.list(followLinks: false)) {
+              final name = p.basename(entity.path);
+              if (entity is Directory &&
+                  name != 'emulated' &&
+                  name != 'self' &&
+                  name.contains('-')) {
+                roots.add(StorageRoot(
+                  label: 'SD Card ($name)',
+                  path: entity.path,
+                ));
               }
             }
           }
+        } on FileSystemException {
+          // Some manufacturers block listing /storage.
         }
-      } on FileSystemException catch (e) {
-        if (kDebugMode) debugPrint('storageRoots appDir error: $e');
       }
 
-      // OPTIONAL: Shared storage — only if permission is already granted
-      // Do NOT request MANAGE_EXTERNAL_STORAGE for this
       try {
-        final canBrowseShared = await Permission.storage.isGranted;
-        if (canBrowseShared) {
-          // FIX: Use /storage/emulated/0 (the ACTUAL accessible path)
-          // NOT /storage/emulated/ (the parent which is inaccessible)
-          const primary = '/storage/emulated/0';
-          if (await Directory(primary).exists()) {
-            // Only add if not already covered by app storage
-            if (!roots.any((r) => p.equals(r.path, primary))) {
-              roots.add(const StorageRoot(
-                label: 'Internal Storage',
-                path: primary,
-              ));
-            }
-          }
+        final appDir = await getExternalStorageDirectory();
+        if (appDir != null &&
+            !roots.any((root) => p.equals(root.path, appDir.path))) {
+          roots.add(StorageRoot(label: 'App Storage', path: appDir.path));
         }
-      } on FileSystemException catch (e) {
-        // Silently skip — shared storage may not be accessible
-        if (kDebugMode) debugPrint('storageRoots shared storage error: $e');
+      } on FileSystemException {
+        // The device may not expose an app-specific external directory.
       }
     } else {
-      // Non-Android: use home directory
       final home = Platform.environment['HOME'] ?? Directory.current.path;
       roots.add(StorageRoot(label: 'Home', path: home, isPrimary: true));
       try {
@@ -145,9 +160,10 @@ class FileManagerService {
         if (!roots.any((root) => p.equals(root.path, docs.path))) {
           roots.add(StorageRoot(label: 'Documents', path: docs.path));
         }
-      } on FileSystemException catch (_) {}
+      } on FileSystemException {
+        // The home location is still available.
+      }
     }
-
     return roots;
   }
 
@@ -174,19 +190,26 @@ class FileManagerService {
 
   void _sort(List<FileSystemEntity> items, FileSortBy sortBy, bool ascending) {
     items.sort((a, b) {
-      final folderOrder = (a is Directory ? 0 : 1).compareTo(b is Directory ? 0 : 1);
+      final folderOrder = (a is Directory ? 0 : 1).compareTo(
+        b is Directory ? 0 : 1,
+      );
       if (folderOrder != 0) return folderOrder;
 
       int comparison;
       switch (sortBy) {
         case FileSortBy.name:
-          comparison = p.basename(a.path).toLowerCase().compareTo(p.basename(b.path).toLowerCase());
+          comparison = p
+              .basename(a.path)
+              .toLowerCase()
+              .compareTo(p.basename(b.path).toLowerCase());
         case FileSortBy.size:
           comparison = _statSize(a).compareTo(_statSize(b));
         case FileSortBy.date:
           comparison = _statDate(a).compareTo(_statDate(b));
         case FileSortBy.type:
-          comparison = FileUtils.extension(a.path).compareTo(FileUtils.extension(b.path));
+          comparison = FileUtils.extension(
+            a.path,
+          ).compareTo(FileUtils.extension(b.path));
       }
       return ascending ? comparison : -comparison;
     });
@@ -213,10 +236,17 @@ class FileManagerService {
     var folders = 0;
     var size = 0;
     final directory = Directory(path);
-    await for (final entity in directory.list(recursive: true, followLinks: false)) {
+    await for (final entity in directory.list(
+      recursive: true,
+      followLinks: false,
+    )) {
       if (entity is File) {
         files++;
-        try { size += await entity.length(); } on FileSystemException {}
+        try {
+          size += await entity.length();
+        } on FileSystemException {
+          // Keep counting readable files.
+        }
       } else if (entity is Directory) {
         folders++;
       }
@@ -240,17 +270,22 @@ class FileManagerService {
 
     final newPath = p.join(p.dirname(entity.path), newName);
     if (await _pathExists(newPath)) {
-      throw FileSystemException('An item with that name already exists', newPath);
+      throw FileSystemException(
+          'An item with that name already exists', newPath);
     }
     await entity.rename(newPath);
   }
 
   void _validateName(String name) {
     final trimmed = name.trim();
-    if (trimmed.isEmpty || trimmed == '.' || trimmed == '..' ||
-        trimmed.contains('/') || trimmed.contains('\\') ||
+    if (trimmed.isEmpty ||
+        trimmed == '.' ||
+        trimmed == '..' ||
+        trimmed.contains('/') ||
+        trimmed.contains('\\') ||
         trimmed.contains('\u0000')) {
-      throw const FileSystemException('Enter a valid name without path separators');
+      throw const FileSystemException(
+          'Enter a valid name without path separators');
     }
   }
 
@@ -285,16 +320,27 @@ class FileManagerService {
       final sourcePath = p.normalize(p.absolute(source));
       final sourceName = p.basename(sourcePath);
       try {
-        final sourceType = await FileSystemEntity.type(sourcePath, followLinks: false);
+        final sourceType = await FileSystemEntity.type(
+          sourcePath,
+          followLinks: false,
+        );
         if (sourceType == FileSystemEntityType.notFound) {
           skipped++;
           errors.add('$sourceName no longer exists');
           continue;
         }
 
-        if (currentClipboard.isCut && p.equals(p.dirname(sourcePath), destinationPath)) {
+        if (currentClipboard.isCut &&
+            p.equals(p.dirname(sourcePath), destinationPath)) {
           skipped++;
           continue;
+        }
+
+        if (sourceType == FileSystemEntityType.directory &&
+            _isSameOrChild(destinationPath, sourcePath)) {
+          throw const FileSystemException(
+            'A folder cannot be pasted inside itself',
+          );
         }
 
         final target = await _uniquePath(p.join(destinationPath, sourceName));
@@ -330,9 +376,23 @@ class FileManagerService {
     return PasteResult(completed: completed, skipped: skipped, errors: errors);
   }
 
-  Future<void> _copyEntity(String source, String target, FileSystemEntityType type) async {
+  bool _isSameOrChild(String candidate, String parent) {
+    return p.equals(candidate, parent) || p.isWithin(parent, candidate);
+  }
+
+  Future<void> _copyEntity(
+    String source,
+    String target,
+    FileSystemEntityType type,
+  ) async {
     if (type == FileSystemEntityType.directory) {
-      await _copyDirectory(Directory(source), Directory(target));
+      try {
+        await _copyDirectory(Directory(source), Directory(target));
+      } catch (_) {
+        final partial = Directory(target);
+        if (await partial.exists()) await partial.delete(recursive: true);
+        rethrow;
+      }
     } else if (type == FileSystemEntityType.file) {
       await File(source).copy(target);
     } else {
@@ -354,6 +414,7 @@ class FileManagerService {
 
   Future<String> _uniquePath(String path) async {
     if (!await _pathExists(path)) return path;
+
     final directory = p.dirname(path);
     final extension = p.extension(path);
     final base = p.basenameWithoutExtension(path);

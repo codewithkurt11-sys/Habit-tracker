@@ -2,402 +2,853 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../logic/app_state.dart';
-import '../../core/theme/app_spacing.dart';
-import '../../core/theme/app_theme.dart';
+import '../../logic/stats_engine.dart';
 import '../../data/models/habit.dart';
 import '../../data/models/task.dart';
 import '../../data/models/goal.dart';
-import '../../data/models/finance_entry.dart';
-import '../../data/models/note.dart';
+import '../../data/models/quote.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_spacing.dart';
+import '../../core/theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
-import 'habit_detail_screen.dart';
 
-class DashboardScreen extends StatefulWidget {
+class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
-
-  @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
-}
-
-class _DashboardScreenState extends State<DashboardScreen> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkMissedFinance();
-    });
-  }
-
-  void _checkMissedFinance() {
-    final state = context.read<AppState>();
-    final missed = state.getMissedFinanceDays();
-    if (missed.isNotEmpty && mounted) {
-      for (final (finance, date) in missed) {
-        final currency = state.settings.currencySymbol;
-        showMissedFinanceBanner(
-          context,
-          'Missed $currency${finance.dailyAmount.toStringAsFixed(0)} on '
-          '${date.month}/${date.day} — recalculate remaining days?',
-          onYes: () {
-            state.refresh();
-          },
-        );
-        break; // show one at a time
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     final theme = Theme.of(context);
-    final order = state.settings.dashboardWidgetOrder;
+    final ext = theme.extension<AppThemeExtension>()!;
 
-    return SafeArea(
-      child: SingleChildScrollView(
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    final dueHabits = state.habitsRepo.getDueToday();
+    final completedHabits =
+        dueHabits.where((h) => h.isCompletedOn(today)).toList();
+    final activeTasks = state.tasksRepo.getActive();
+    final overdueTasks = activeTasks.where((t) => t.isOverdue).toList();
+    final todayTasks = activeTasks.where((t) {
+      if (t.dueDate == null) return false;
+      final td = DateTime(t.dueDate!.year, t.dueDate!.month, t.dueDate!.day);
+      return td.isAtSameMomentAs(today);
+    }).toList();
+    final activeGoals = state.goalsRepo.getActive();
+    final todaySchedule = state.scheduleRepo.getForToday();
+    final focusMinutes = state.focusRepo.getTotalFocusMinutesToday();
+    final dailyQuote = state.quotesRepo.quoteForDate(today);
+    final habits = state.habitsRepo.getAll();
+    final insights = StatsEngine.generateInsights(
+      habits: habits,
+      tasks: activeTasks,
+      focusSessions: state.focusRepo.getAll(),
+    );
+
+    final habitsPct =
+        dueHabits.isEmpty ? 0.0 : completedHabits.length / dueHabits.length;
+    final userName = state.settings.userName ?? 'there';
+
+    return Scaffold(
+      body: SafeArea(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ScreenTitleBar(
-              title: _greeting(state.settings.userName),
-              subtitle: _dateString(),
+              title: 'Hi, $userName',
+              subtitle: _greeting(),
+              onMenuTap: () => Scaffold.of(context).openDrawer(),
             ),
-            for (final widget in order) ..._buildWidget(widget, state, theme),
-            const SizedBox(height: AppSpacing.xl),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
+                children: [
+                  // Daily progress card
+                  _DailyProgressCard(
+                    completed: completedHabits.length,
+                    total: dueHabits.length,
+                    progress: habitsPct,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+
+                  // Quick stats row
+                  Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                    child: Row(
+                      children: [
+                        Expanded(
+                            child: _QuickStat(
+                                icon: Icons.check_circle_outline,
+                                label: 'Tasks',
+                                value: '${activeTasks.length}',
+                                sub: overdueTasks.isNotEmpty
+                                    ? '${overdueTasks.length} overdue'
+                                    : 'active',
+                                color: ext.categoryOther)),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                            child: _QuickStat(
+                                icon: Icons.track_changes_outlined,
+                                label: 'Goals',
+                                value: '${activeGoals.length}',
+                                sub: 'active',
+                                color: ext.categoryLifestyle)),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                            child: _QuickStat(
+                                icon: Icons.timer_outlined,
+                                label: 'Focus',
+                                value: '${focusMinutes}m',
+                                sub: 'today',
+                                color: ext.success)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+
+                  // Quick actions
+                  _QuickActionsGrid(state: state),
+                  const SizedBox(height: AppSpacing.md),
+
+                  // Today's habits
+                  if (dueHabits.isNotEmpty) ...[
+                    _SectionHeader(
+                        title: 'Today\'s Habits',
+                        count: '${completedHabits.length}/${dueHabits.length}'),
+                    ...dueHabits.take(4).map(
+                        (h) => _DashboardHabitTile(habit: h, state: state)),
+                    if (dueHabits.length > 4)
+                      _SeeAllButton(
+                          label: 'View all ${dueHabits.length} habits'),
+                    const SizedBox(height: AppSpacing.md),
+                  ],
+
+                  // Today's tasks
+                  if (todayTasks.isNotEmpty || overdueTasks.isNotEmpty) ...[
+                    _SectionHeader(
+                        title: 'Tasks',
+                        count:
+                            '${todayTasks.length + overdueTasks.length} pending'),
+                    ...overdueTasks.take(2).map((t) => _DashboardTaskTile(
+                        task: t, state: state, isOverdue: true)),
+                    ...todayTasks
+                        .take(3)
+                        .map((t) => _DashboardTaskTile(task: t, state: state)),
+                    const SizedBox(height: AppSpacing.md),
+                  ],
+
+                  // Today's schedule
+                  if (todaySchedule.isNotEmpty) ...[
+                    _SectionHeader(
+                        title: 'Today\'s Schedule',
+                        count: '${todaySchedule.length} items'),
+                    ...todaySchedule.take(3).map(
+                        (s) => _DashboardScheduleTile(item: s, state: state)),
+                    const SizedBox(height: AppSpacing.md),
+                  ],
+
+                  // Active goals summary
+                  if (activeGoals.isNotEmpty) ...[
+                    _SectionHeader(
+                        title: 'Goal Progress',
+                        count: '${activeGoals.length} active'),
+                    ...activeGoals
+                        .take(2)
+                        .map((g) => _DashboardGoalTile(goal: g, state: state)),
+                    const SizedBox(height: AppSpacing.md),
+                  ],
+
+                  // Top insight
+                  if (insights.isNotEmpty) ...[
+                    const _SectionHeader(title: 'Insight', count: ''),
+                    _InsightBanner(insight: insights.first),
+                    const SizedBox(height: AppSpacing.md),
+                  ],
+
+                  // Daily quote
+                  _QuoteBanner(quote: dailyQuote),
+                ],
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  List<Widget> _buildWidget(String key, AppState state, ThemeData theme) {
-    switch (key) {
-      case 'habits':
-        return [_buildHabitsSection(state, theme)];
-      case 'tasks':
-        return [_buildTasksSection(state, theme)];
-      case 'goals':
-        return [_buildGoalsSection(state, theme)];
-      case 'finance':
-        return [_buildFinanceSection(state, theme)];
-      case 'notes':
-        return [_buildNotesSection(state, theme)];
-      default:
-        return [];
-    }
-  }
-
-  String _greeting(String? name) {
+  String _greeting() {
     final hour = DateTime.now().hour;
-    final greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
-    return '$greeting, ${name ?? 'there'}';
-  }
-
-  String _dateString() {
-    final now = DateTime.now();
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return '${days[now.weekday - 1]}, ${months[now.month - 1]} ${now.day}';
-  }
-
-  // ---------- Habits ----------
-  Widget _buildHabitsSection(AppState state, ThemeData theme) {
-    final habits = state.habitsDueToday;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SectionHeader(title: 'Today\'s Habits', subtitle: '${habits.where((h) => h.isCompletedOn(DateTime.now())).length}/${habits.length} done'),
-        if (habits.isEmpty)
-          const Padding(padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            child: Text('No habits due today', style: TextStyle(color: Colors.grey)))
-        else
-          ...habits.map((h) => _HabitRow(habit: h)),
-      ],
-    );
-  }
-
-  // ---------- Tasks ----------
-  Widget _buildTasksSection(AppState state, ThemeData theme) {
-    final tasks = state.tasksDueToday;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SectionHeader(title: 'Today\'s Tasks', subtitle: '${tasks.where((t) => t.isDone).length}/${tasks.length} done'),
-        if (tasks.isEmpty)
-          const Padding(padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            child: Text('No tasks due today', style: TextStyle(color: Colors.grey)))
-        else
-          ...tasks.map((t) => _TaskRow(task: t)),
-      ],
-    );
-  }
-
-  // ---------- Goals ----------
-  Widget _buildGoalsSection(AppState state, ThemeData theme) {
-    final goals = state.activeGoals.take(3).toList();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SectionHeader(title: 'Active Goals'),
-        if (goals.isEmpty)
-          const Padding(padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            child: Text('No active goals', style: TextStyle(color: Colors.grey)))
-        else
-          ...goals.map((g) => _GoalRow(goal: g, progress: state.computeGoalProgress(g))),
-      ],
-    );
-  }
-
-  // ---------- Finance ----------
-  Widget _buildFinanceSection(AppState state, ThemeData theme) {
-    final finances = state.financesDueToday;
-    final currency = state.settings.currencySymbol;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SectionHeader(title: 'Savings Due Today'),
-        if (finances.isEmpty)
-          const Padding(padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            child: Text('No savings due today', style: TextStyle(color: Colors.grey)))
-        else
-          ...finances.map((f) => _FinanceRow(finance: f, currency: currency)),
-      ],
-    );
-  }
-
-  // ---------- Notes ----------
-  Widget _buildNotesSection(AppState state, ThemeData theme) {
-    final notes = state.notesRepo.getRecent(limit: 3);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SectionHeader(title: 'Recent Notes'),
-        if (notes.isEmpty)
-          const Padding(padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            child: Text('No notes yet', style: TextStyle(color: Colors.grey)))
-        else
-          ...notes.map((n) => _NoteRow(note: n)),
-      ],
-    );
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
   }
 }
 
-// ---------- Row widgets ----------
-
-class _HabitRow extends StatelessWidget {
-  final Habit habit;
-  const _HabitRow({required this.habit});
+class _DailyProgressCard extends StatelessWidget {
+  final int completed;
+  final int total;
+  final double progress;
+  const _DailyProgressCard(
+      {required this.completed, required this.total, required this.progress});
 
   @override
   Widget build(BuildContext context) {
-    final state = context.read<AppState>();
     final theme = Theme.of(context);
-    final isDone = habit.isCompletedOn(DateTime.now());
-    final color = habit.customColor ?? theme.colorScheme.primary;
-    final streak = habit.currentStreak();
-    final milestone = habit.checkMilestone();
+    final ext = theme.extension<AppThemeExtension>()!;
+    final pct = (progress * 100).round();
 
-    return Dismissible(
-      key: ValueKey('habit_${habit.id}'),
-      background: Container(
-        alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.only(left: AppSpacing.lg),
-        color: Colors.grey.withValues(alpha: 0.2),
-        child: const Icon(Icons.check, color: Colors.green),
-      ),
-      secondaryBackground: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: AppSpacing.lg),
-        color: Colors.orange.withValues(alpha: 0.2),
-        child: const Icon(Icons.skip_next, color: Colors.orange),
-      ),
-      confirmDismiss: (direction) async {
-        if (direction == DismissDirection.startToEnd) {
-          // Complete
-          await state.toggleHabit(habit.id);
-          showUndoToast(context, 'Habit completed', () => state.toggleHabit(habit.id));
-        } else {
-          // Skip
-          await state.skipHabit(habit.id);
-          showUndoToast(context, 'Habit skipped (excused)', null);
-        }
-        return false; // don't actually remove
-      },
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-        leading: GestureDetector(
-          onTap: () async {
-            await state.toggleHabit(habit.id);
-            showUndoToast(context, isDone ? 'Undone' : 'Habit completed',
-                () => state.toggleHabit(habit.id));
-          },
-          child: CompletionRing(completed: isDone, color: color, milestone: milestone),
-        ),
-        title: Text(
-          habit.title,
-          style: TextStyle(
-            decoration: isDone ? TextDecoration.lineThrough : null,
-            color: isDone ? theme.colorScheme.onSurface.withValues(alpha: 0.4) : null,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      child: Card(
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [ext.gradientTop, ext.gradientBottom],
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Row(
+              children: [
+                // Progress ring
+                SizedBox(
+                  width: 64,
+                  height: 64,
+                  child: Stack(
+                    children: [
+                      CircularProgressIndicator(
+                        value: progress,
+                        strokeWidth: 6,
+                        backgroundColor:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.08),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                            theme.colorScheme.primary),
+                      ),
+                      Center(
+                        child: Text('$pct%',
+                            style: theme.textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Daily Progress',
+                          style: theme.textTheme.titleMedium),
+                      const SizedBox(height: 2),
+                      Text(
+                        total == 0
+                            ? 'No habits due today'
+                            : completed == total
+                                ? 'All done! Great work!'
+                                : '$completed of $total habits completed',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-        subtitle: Row(
+      ),
+    );
+  }
+}
+
+class _QuickStat extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final String sub;
+  final Color color;
+  const _QuickStat(
+      {required this.icon,
+      required this.label,
+      required this.value,
+      required this.sub,
+      required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.sm + 2),
+        child: Column(
           children: [
-            if (streak > 0) ...[
-              Icon(Icons.local_fire_department, size: 14, color: color),
-              const SizedBox(width: 2),
-              Text('$streak day streak', style: TextStyle(fontSize: 12, color: color)),
+            Icon(icon, color: color, size: 20),
+            const SizedBox(height: 4),
+            Text(value,
+                style: theme.textTheme.titleSmall
+                    ?.copyWith(fontWeight: FontWeight.bold)),
+            Text(label,
+                style: theme.textTheme.bodySmall?.copyWith(fontSize: 10)),
+            Text(sub,
+                style: theme.textTheme.bodySmall?.copyWith(
+                    fontSize: 9,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.4))),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickActionsGrid extends StatelessWidget {
+  final AppState state;
+  const _QuickActionsGrid({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      child: GridView.count(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisCount: 4,
+        mainAxisSpacing: AppSpacing.sm,
+        crossAxisSpacing: AppSpacing.sm,
+        childAspectRatio: 0.85,
+        children: [
+          _QuickAction(
+              icon: Icons.add_circle,
+              label: 'Habit',
+              color: AppColors.categoryLifestyle,
+              onTap: () => _showAddHabit(context)),
+          _QuickAction(
+              icon: Icons.check_circle,
+              label: 'Task',
+              color: AppColors.categoryOther,
+              onTap: () => _showAddTask(context)),
+          _QuickAction(
+              icon: Icons.edit_note,
+              label: 'Journal',
+              color: const Color(0xFF7B93B5),
+              onTap: () => _showAddJournal(context)),
+          _QuickAction(
+              icon: Icons.timer,
+              label: 'Focus',
+              color: AppColors.lightSuccess,
+              onTap: () => _showFocusTimer(context)),
+        ],
+      ),
+    );
+  }
+
+  void _showAddHabit(BuildContext context) {
+    showDialog(context: context, builder: (_) => const _QuickHabitDialog());
+  }
+
+  void _showAddTask(BuildContext context) {
+    showDialog(context: context, builder: (_) => const _QuickTaskDialog());
+  }
+
+  void _showAddJournal(BuildContext context) {
+    showDialog(context: context, builder: (_) => const _QuickJournalDialog());
+  }
+
+  void _showFocusTimer(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+          content: Text('Open the Focus tab to start a timer'),
+          duration: Duration(seconds: 2)),
+    );
+  }
+}
+
+class _QuickAction extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+  const _QuickAction(
+      {required this.icon,
+      required this.label,
+      required this.color,
+      required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return GestureDetector(
+      onTap: onTap,
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.15),
+                    borderRadius:
+                        BorderRadius.circular(AppSpacing.radiusSmall)),
+                child: Icon(icon, color: color, size: 18),
+              ),
+              const SizedBox(height: 4),
+              Text(label,
+                  style: theme.textTheme.bodySmall?.copyWith(fontSize: 10)),
             ],
-          ],
+          ),
         ),
-        trailing: isDone
-          ? QuickNoteButton(entityType: 'habit', entityId: habit.id)
-          : null,
-      onTap: () => Navigator.push(context,
-          MaterialPageRoute(builder: (_) => HabitDetailScreen(habitId: habit.id))),
       ),
     );
   }
 }
 
-class _TaskRow extends StatelessWidget {
-  final Task task;
-  const _TaskRow({required this.task});
-
-  @override
-  Widget build(BuildContext context) {
-    final state = context.read<AppState>();
-    final theme = Theme.of(context);
-    final isDone = task.isDone;
-
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-      leading: GestureDetector(
-        onTap: () async {
-          await state.toggleTaskDone(task.id);
-          showUndoToast(context, isDone ? 'Undone' : 'Task completed',
-              () => state.toggleTaskDone(task.id));
-        },
-        child: CompletionRing(completed: isDone, color: task.priority.color, size: 24),
-      ),
-      title: Text(
-        task.title,
-        style: TextStyle(
-          decoration: isDone ? TextDecoration.lineThrough : null,
-          color: isDone ? theme.colorScheme.onSurface.withValues(alpha: 0.4) : null,
-        ),
-      ),
-      subtitle: task.dueTime != null
-        ? Text('${task.dueTime!.hour}:${task.dueTime!.minute.toString().padLeft(2, '0')}',
-            style: TextStyle(fontSize: 12, color: task.priority.color))
-        : null,
-      trailing: isDone
-        ? QuickNoteButton(entityType: 'task', entityId: task.id)
-        : null,
-    );
-  }
-}
-
-class _GoalRow extends StatelessWidget {
-  final Goal goal;
-  final double progress;
-  const _GoalRow({required this.goal, required this.progress});
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  final String count;
+  const _SectionHeader({required this.title, required this.count});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
-      child: SoftCard(
-        child: Row(
-          children: [
-            CircularFillIcon(progress: progress / 100, icon: goal.category.icon, color: goal.color),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(goal.title, style: theme.textTheme.titleSmall),
-                  if (goal.targetDate != null)
-                    Text('${goal.daysLeft} days left', style: theme.textTheme.bodySmall),
-                  const SizedBox(height: AppSpacing.xs),
-                  LinearProgressIndicator(
-                    value: progress / 100,
-                    backgroundColor: goal.color.withValues(alpha: 0.15),
-                    valueColor: AlwaysStoppedAnimation(goal.color),
-                    minHeight: 4,
+      padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.xs),
+      child: Row(
+        children: [
+          Text(title, style: theme.textTheme.titleSmall),
+          if (count.isNotEmpty) ...[
+            const SizedBox(width: 6),
+            Text(count,
+                style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.4))),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SeeAllButton extends StatelessWidget {
+  final String label;
+  const _SeeAllButton({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+      child: TextButton(
+        onPressed: () {},
+        child: Text(label),
+      ),
+    );
+  }
+}
+
+class _DashboardHabitTile extends StatelessWidget {
+  final Habit habit;
+  final AppState state;
+  const _DashboardHabitTile({required this.habit, required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final done = habit.isCompletedOn(DateTime.now());
+    final color = habit.customColor ?? AppColors.categoryLifestyle;
+
+    return Padding(
+      padding:
+          const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 2),
+      child: Card(
+        child: InkWell(
+          onTap: () => state.toggleHabit(habit.id),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md, vertical: AppSpacing.sm + 2),
+            child: Row(
+              children: [
+                Icon(habit.icon.data, color: color, size: 22),
+                const SizedBox(width: AppSpacing.sm + 4),
+                Expanded(
+                  child: Text(
+                    habit.name,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      decoration: done ? TextDecoration.lineThrough : null,
+                      color: done
+                          ? theme.colorScheme.onSurface.withValues(alpha: 0.4)
+                          : null,
+                    ),
                   ),
-                ],
-              ),
+                ),
+                Icon(done ? Icons.check_circle : Icons.circle_outlined,
+                    size: 22,
+                    color: done
+                        ? color
+                        : theme.colorScheme.onSurface.withValues(alpha: 0.2)),
+              ],
             ),
-            const SizedBox(width: AppSpacing.sm),
-            Text('${progress.round()}%', style: theme.textTheme.titleMedium?.copyWith(color: goal.color)),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _FinanceRow extends StatelessWidget {
-  final FinanceEntry finance;
-  final String currency;
-  const _FinanceRow({required this.finance, required this.currency});
-
-  @override
-  Widget build(BuildContext context) {
-    final state = context.read<AppState>();
-    final theme = Theme.of(context);
-    final isConfirmed = finance.isConfirmedOn(DateTime.now());
-
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-      leading: GestureDetector(
-        onTap: () async {
-          if (isConfirmed) {
-            await state.unconfirmFinanceToday(finance.id);
-            showUndoToast(context, 'Contribution undone', null);
-          } else {
-            await state.confirmFinanceToday(finance.id);
-            showUndoToast(context, '$currency${finance.dailyAmount.toStringAsFixed(0)} saved!', null);
-          }
-        },
-        child: CompletionRing(completed: isConfirmed, color: const Color(0xFF6B9080), size: 24),
-      ),
-      title: Text(finance.title),
-      subtitle: Text('$currency${finance.dailyAmount.toStringAsFixed(0)}/day • ${finance.confirmedDays}/${finance.targetDays} days'),
-    );
-  }
-}
-
-class _NoteRow extends StatelessWidget {
-  final Note note;
-  const _NoteRow({required this.note});
+class _DashboardTaskTile extends StatelessWidget {
+  final Task task;
+  final AppState state;
+  final bool isOverdue;
+  const _DashboardTaskTile(
+      {required this.task, required this.state, this.isOverdue = false});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
-      child: SoftCard(
-        onTap: () {
-          // Navigate to note editor (handled by notes screen)
-        },
-        child: Row(
-          children: [
-            Icon(Icons.sticky_note_2_outlined, color: theme.colorScheme.primary, size: 20),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(note.title, style: theme.textTheme.titleSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
-                  Text(note.body, style: theme.textTheme.bodySmall, maxLines: 2, overflow: TextOverflow.ellipsis),
-                ],
-              ),
+      padding:
+          const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 2),
+      child: Card(
+        child: InkWell(
+          onTap: () => state.toggleTaskDone(task.id),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md, vertical: AppSpacing.sm + 2),
+            child: Row(
+              children: [
+                Icon(task.priority.icon, color: task.priority.color, size: 16),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                    child: Text(task.title,
+                        style: theme.textTheme.bodyMedium,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis)),
+                if (isOverdue)
+                  PillChip(label: 'Overdue', color: theme.colorScheme.error),
+              ],
             ),
-          ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+class _DashboardScheduleTile extends StatelessWidget {
+  final dynamic item;
+  final AppState state;
+  const _DashboardScheduleTile({required this.item, required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final time =
+        '${item.dateTime.hour.toString().padLeft(2, '0')}:${item.dateTime.minute.toString().padLeft(2, '0')}';
+    return Padding(
+      padding:
+          const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 2),
+      child: Card(
+        child: InkWell(
+          onTap: () => state.toggleSchedule(item.id),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md, vertical: AppSpacing.sm + 2),
+            child: Row(
+              children: [
+                Text(time,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.primary)),
+                const SizedBox(width: AppSpacing.sm + 4),
+                Expanded(
+                    child: Text(item.title,
+                        style: theme.textTheme.bodyMedium,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis)),
+                Icon(item.done ? Icons.check_circle : Icons.circle_outlined,
+                    size: 18,
+                    color: item.done
+                        ? AppColors.lightSuccess
+                        : theme.colorScheme.onSurface.withValues(alpha: 0.2)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DashboardGoalTile extends StatelessWidget {
+  final Goal goal;
+  final AppState state;
+  const _DashboardGoalTile({required this.goal, required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding:
+          const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 2),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(goal.category.icon, color: goal.color, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                      child: Text(goal.title,
+                          style: theme.textTheme.bodyMedium,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis)),
+                  Text('${(goal.progressFraction * 100).toStringAsFixed(0)}%',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                          color: goal.color, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+                child: LinearProgressIndicator(
+                  value: goal.progressFraction,
+                  minHeight: 6,
+                  backgroundColor:
+                      theme.colorScheme.onSurface.withValues(alpha: 0.08),
+                  valueColor: AlwaysStoppedAnimation<Color>(goal.color),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InsightBanner extends StatelessWidget {
+  final dynamic insight;
+  const _InsightBanner({required this.insight});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Row(
+            children: [
+              Text(insight.icon as String,
+                  style: const TextStyle(fontSize: 28)),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(insight.title as String,
+                        style: theme.textTheme.titleSmall),
+                    const SizedBox(height: 2),
+                    Text(insight.description as String,
+                        style: theme.textTheme.bodySmall),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuoteBanner extends StatelessWidget {
+  final Quote quote;
+  const _QuoteBanner({required this.quote});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final ext = theme.extension<AppThemeExtension>()!;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      child: Card(
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
+            gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [ext.gradientTop, ext.gradientBottom]),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              children: [
+                Icon(Icons.format_quote,
+                    color: theme.colorScheme.primary, size: 24),
+                const SizedBox(height: AppSpacing.xs),
+                Text(quote.text,
+                    style: theme.textTheme.bodyMedium
+                        ?.copyWith(fontStyle: FontStyle.italic),
+                    textAlign: TextAlign.center),
+                const SizedBox(height: AppSpacing.xs),
+                Text('— ${quote.author}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// Quick add dialogs
+class _QuickHabitDialog extends StatefulWidget {
+  const _QuickHabitDialog();
+  @override
+  State<_QuickHabitDialog> createState() => _QuickHabitDialogState();
+}
+
+class _QuickHabitDialogState extends State<_QuickHabitDialog> {
+  final _controller = TextEditingController();
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Quick Habit'),
+      content: TextField(
+          controller: _controller,
+          decoration: const InputDecoration(labelText: 'Habit name'),
+          autofocus: true),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel')),
+        ElevatedButton(
+          onPressed: () {
+            final name = _controller.text.trim();
+            if (name.isEmpty) return;
+            context.read<AppState>().addHabit(
+                name: name, categoryIndex: 1, frequencyIndex: 0, iconIndex: 15);
+            Navigator.pop(context);
+          },
+          child: const Text('Add'),
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickTaskDialog extends StatefulWidget {
+  const _QuickTaskDialog();
+  @override
+  State<_QuickTaskDialog> createState() => _QuickTaskDialogState();
+}
+
+class _QuickTaskDialogState extends State<_QuickTaskDialog> {
+  final _controller = TextEditingController();
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Quick Task'),
+      content: TextField(
+          controller: _controller,
+          decoration: const InputDecoration(labelText: 'Task title'),
+          autofocus: true),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel')),
+        ElevatedButton(
+          onPressed: () {
+            final title = _controller.text.trim();
+            if (title.isEmpty) return;
+            context.read<AppState>().addTask(title: title);
+            Navigator.pop(context);
+          },
+          child: const Text('Add'),
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickJournalDialog extends StatefulWidget {
+  const _QuickJournalDialog();
+  @override
+  State<_QuickJournalDialog> createState() => _QuickJournalDialogState();
+}
+
+class _QuickJournalDialogState extends State<_QuickJournalDialog> {
+  final _titleController = TextEditingController();
+  final _bodyController = TextEditingController();
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _bodyController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Quick Journal'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+              controller: _titleController,
+              decoration: const InputDecoration(labelText: 'Title'),
+              autofocus: true),
+          const SizedBox(height: 8),
+          TextField(
+              controller: _bodyController,
+              decoration: const InputDecoration(labelText: 'What happened?'),
+              maxLines: 3),
+        ],
+      ),
+      actions: [
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel')),
+        ElevatedButton(
+          onPressed: () {
+            final title = _titleController.text.trim();
+            if (title.isEmpty) return;
+            context.read<AppState>().addJournal(
+                title: title,
+                body: _bodyController.text.trim(),
+                date: DateTime.now());
+            Navigator.pop(context);
+          },
+          child: const Text('Save'),
+        ),
+      ],
     );
   }
 }

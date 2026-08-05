@@ -1,34 +1,75 @@
+import 'dart:async';
+import 'dart:developer' as developer;
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'core/theme/app_theme.dart';
 import 'data/hive_boxes.dart';
 import 'logic/app_state.dart';
-import 'core/theme/app_theme.dart';
+import 'ui/screens/onboarding_screen.dart';
 import 'ui/widgets/app_shell.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await HiveInitializer.init();
-  runApp(const LifeTrackerApp());
+
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    developer.log(
+      'UNCAUGHT FLUTTER ERROR: ${details.exceptionAsString()}',
+      name: 'Yourself.Global',
+      error: details.exception,
+      stackTrace: details.stack,
+    );
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    developer.log(
+      'UNCAUGHT PLATFORM ERROR: $error',
+      name: 'Yourself.Global',
+      error: error,
+      stackTrace: stack,
+    );
+    return false;
+  };
+
+  await runZonedGuarded(() async {
+    await HiveInitializer.init();
+    developer.log('LOCAL INIT: Hive initialized', name: 'Yourself.Startup');
+    runApp(const HabitTrackerApp());
+  }, (error, stack) {
+    developer.log(
+      'UNCAUGHT ZONE ERROR: $error',
+      name: 'Yourself.Global',
+      error: error,
+      stackTrace: stack,
+    );
+  });
 }
 
-class LifeTrackerApp extends StatelessWidget {
-  const LifeTrackerApp({super.key});
+class HabitTrackerApp extends StatelessWidget {
+  const HabitTrackerApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => AppState()..initNotifications(),
+      create: (context) {
+        final state = AppState();
+        state.seedQuotes();
+        state.initNotifications();
+        return state;
+      },
       child: Consumer<AppState>(
         builder: (context, state, _) {
-          final isDark = state.isDark;
           return MaterialApp(
-            title: 'Life Tracker',
+            title: 'Yourself',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.light(),
             darkTheme: AppTheme.dark(),
-            themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
-            home: const AppShell(),
+            themeMode: ThemeMode.values[state.settings.themeMode.index],
+            home: state.onboardingComplete
+                ? const AppShell()
+                : const OnboardingScreen(),
           );
         },
       ),

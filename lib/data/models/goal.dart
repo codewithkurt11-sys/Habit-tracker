@@ -14,56 +14,91 @@ enum GoalCategory {
 extension GoalCategoryExt on GoalCategory {
   String get label {
     switch (this) {
-      case GoalCategory.health: return 'Health';
-      case GoalCategory.career: return 'Career';
-      case GoalCategory.finance: return 'Finance';
-      case GoalCategory.education: return 'Education';
-      case GoalCategory.personal: return 'Personal';
-      case GoalCategory.fitness: return 'Fitness';
-      case GoalCategory.other: return 'Other';
+      case GoalCategory.health:
+        return 'Health';
+      case GoalCategory.career:
+        return 'Career';
+      case GoalCategory.finance:
+        return 'Finance';
+      case GoalCategory.education:
+        return 'Education';
+      case GoalCategory.personal:
+        return 'Personal';
+      case GoalCategory.fitness:
+        return 'Fitness';
+      case GoalCategory.other:
+        return 'Other';
     }
   }
 
   IconData get icon {
     switch (this) {
-      case GoalCategory.health: return Icons.favorite_outline;
-      case GoalCategory.career: return Icons.work_outline;
-      case GoalCategory.finance: return Icons.account_balance_wallet_outlined;
-      case GoalCategory.education: return Icons.school_outlined;
-      case GoalCategory.personal: return Icons.person_outline;
-      case GoalCategory.fitness: return Icons.fitness_center;
-      case GoalCategory.other: return Icons.flag_outlined;
+      case GoalCategory.health:
+        return Icons.favorite_outline;
+      case GoalCategory.career:
+        return Icons.work_outline;
+      case GoalCategory.finance:
+        return Icons.account_balance_wallet_outlined;
+      case GoalCategory.education:
+        return Icons.school_outlined;
+      case GoalCategory.personal:
+        return Icons.person_outline;
+      case GoalCategory.fitness:
+        return Icons.fitness_center;
+      case GoalCategory.other:
+        return Icons.flag_outlined;
     }
   }
 
   Color get color {
     switch (this) {
-      case GoalCategory.health: return const Color(0xFFD4675A);
-      case GoalCategory.career: return const Color(0xFF7B93B5);
-      case GoalCategory.finance: return const Color(0xFF6B9080);
-      case GoalCategory.education: return const Color(0xFFE8C56F);
-      case GoalCategory.personal: return const Color(0xFFB58BB5);
-      case GoalCategory.fitness: return const Color(0xFFE8946F);
-      case GoalCategory.other: return const Color(0xFFC4A895);
+      case GoalCategory.health:
+        return const Color(0xFFD4675A);
+      case GoalCategory.career:
+        return const Color(0xFF7B93B5);
+      case GoalCategory.finance:
+        return const Color(0xFF6B9080);
+      case GoalCategory.education:
+        return const Color(0xFFE8C56F);
+      case GoalCategory.personal:
+        return const Color(0xFFB58BB5);
+      case GoalCategory.fitness:
+        return const Color(0xFFE8946F);
+      case GoalCategory.other:
+        return const Color(0xFFC4A895);
     }
   }
 }
 
-/// v2.0.0 Goal: progress is auto-calculated from linked items.
-/// [linkedHabitIds], [linkedTaskIds], [linkedFinanceId] connect entities.
-/// [progressPercent] is computed from linked items' completion ratio.
+class Milestone {
+  String id;
+  String title;
+  bool completed;
+  DateTime? dueDate;
+
+  Milestone({
+    required this.id,
+    required this.title,
+    this.completed = false,
+    this.dueDate,
+  });
+}
+
 class Goal extends HiveObject {
   String id;
   String title;
   String description;
   int categoryIndex;
-  DateTime? targetDate;
-  List<String> linkedHabitIds;
-  List<String> linkedTaskIds;
-  String? linkedFinanceId;
-  int colorValue;
+  DateTime? deadline;
+  double targetValue;
+  double currentValue;
+  List<String> milestoneIds;
+  List<String> milestoneTitles;
+  List<bool> milestoneDone;
+  List<DateTime?> milestoneDates;
   bool completed;
   bool archived;
+  int colorValue;
   DateTime createdAt;
   DateTime updatedAt;
 
@@ -72,52 +107,54 @@ class Goal extends HiveObject {
     required this.title,
     this.description = '',
     this.categoryIndex = 6,
-    this.targetDate,
-    List<String>? linkedHabitIds,
-    List<String>? linkedTaskIds,
-    this.linkedFinanceId,
-    this.colorValue = 0xFF6B9080,
+    this.deadline,
+    this.targetValue = 100,
+    this.currentValue = 0,
+    List<String>? milestoneIds,
+    List<String>? milestoneTitles,
+    List<bool>? milestoneDone,
+    List<DateTime?>? milestoneDates,
     this.completed = false,
     this.archived = false,
+    this.colorValue = 0xFF6B9080,
     DateTime? createdAt,
     DateTime? updatedAt,
-  })  : linkedHabitIds = linkedHabitIds ?? [],
-        linkedTaskIds = linkedTaskIds ?? [],
+  })  : milestoneIds = milestoneIds ?? [],
+        milestoneTitles = milestoneTitles ?? [],
+        milestoneDone = milestoneDone ?? [],
+        milestoneDates = milestoneDates ?? [],
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
 
+  /// Touch [updatedAt] to now. Called by repositories on every mutation.
   void touch() => updatedAt = DateTime.now();
 
-  GoalCategory get category =>
-      GoalCategory.values[categoryIndex.clamp(0, GoalCategory.values.length - 1)];
+  GoalCategory get category => GoalCategory
+      .values[categoryIndex.clamp(0, GoalCategory.values.length - 1)];
 
   Color get color => Color(colorValue);
 
-  int get daysLeft {
-    if (targetDate == null) return -1;
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final dueDay = DateTime(targetDate!.year, targetDate!.month, targetDate!.day);
-    return dueDay.difference(today).inDays;
+  double get progressFraction =>
+      targetValue <= 0 ? 0 : (currentValue / targetValue).clamp(0, 1);
+
+  List<Milestone> get milestones {
+    final len = milestoneTitles.length;
+    return List.generate(
+        len,
+        (i) => Milestone(
+              id: i < milestoneIds.length ? milestoneIds[i] : i.toString(),
+              title: milestoneTitles[i],
+              completed: i < milestoneDone.length ? milestoneDone[i] : false,
+              dueDate: i < milestoneDates.length ? milestoneDates[i] : null,
+            ));
   }
 
-  /// Auto-calculated progress from linked items.
-  /// Habits: avg completion rate over last 30 days
-  /// Tasks: fraction completed
-  /// Finance: fraction of target saved
-  double progressPercent(List<double> habitRates, double taskFraction, double financeFraction) {
-    final parts = <double>[];
-    if (habitRates.isNotEmpty) {
-      parts.add(habitRates.reduce((a, b) => a + b) / habitRates.length);
-    }
-    if (linkedTaskIds.isNotEmpty) {
-      parts.add(taskFraction);
-    }
-    if (linkedFinanceId != null) {
-      parts.add(financeFraction);
-    }
-    if (parts.isEmpty) return completed ? 100.0 : 0.0;
-    return (parts.reduce((a, b) => a + b) / parts.length * 100).clamp(0, 100);
+  int get daysLeft {
+    if (deadline == null) return -1;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dueDay = DateTime(deadline!.year, deadline!.month, deadline!.day);
+    return dueDay.difference(today).inDays;
   }
 }
 
@@ -136,22 +173,27 @@ class GoalAdapter extends TypeAdapter<Goal> {
       title: fields[1] as String,
       description: fields[2] as String? ?? '',
       categoryIndex: fields[3] as int? ?? 6,
-      targetDate: fields[4] as DateTime?,
-      linkedHabitIds: (fields[14] as List?)?.cast<String>() ?? [],
-      linkedTaskIds: (fields[15] as List?)?.cast<String>() ?? [],
-      linkedFinanceId: fields[16] as String?,
-      colorValue: fields[13] as int? ?? 0xFF6B9080,
+      deadline: fields[4] as DateTime?,
+      targetValue: (fields[5] as num?)?.toDouble() ?? 100,
+      currentValue: (fields[6] as num?)?.toDouble() ?? 0,
+      milestoneIds: (fields[7] as List?)?.cast<String>() ?? [],
+      milestoneTitles: (fields[8] as List?)?.cast<String>() ?? [],
+      milestoneDone: (fields[9] as List?)?.cast<bool>() ?? [],
+      milestoneDates: (fields[10] as List?)?.cast<DateTime?>() ?? [],
       completed: fields[11] as bool? ?? false,
       archived: fields[12] as bool? ?? false,
-      createdAt: fields[17] as DateTime? ?? DateTime.now(),
-      updatedAt: fields[18] as DateTime? ?? DateTime.now(),
+      colorValue: fields[13] as int? ?? 0xFF6B9080,
+      createdAt: fields[14] as DateTime? ?? DateTime.now(),
+      // updatedAt (field 15) — backward compatible: fall back to createdAt
+      updatedAt:
+          fields[15] as DateTime? ?? fields[14] as DateTime? ?? DateTime.now(),
     );
   }
 
   @override
   void write(BinaryWriter writer, Goal obj) {
     writer
-      ..writeByte(13)
+      ..writeByte(16)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -161,7 +203,19 @@ class GoalAdapter extends TypeAdapter<Goal> {
       ..writeByte(3)
       ..write(obj.categoryIndex)
       ..writeByte(4)
-      ..write(obj.targetDate)
+      ..write(obj.deadline)
+      ..writeByte(5)
+      ..write(obj.targetValue)
+      ..writeByte(6)
+      ..write(obj.currentValue)
+      ..writeByte(7)
+      ..write(obj.milestoneIds)
+      ..writeByte(8)
+      ..write(obj.milestoneTitles)
+      ..writeByte(9)
+      ..write(obj.milestoneDone)
+      ..writeByte(10)
+      ..write(obj.milestoneDates)
       ..writeByte(11)
       ..write(obj.completed)
       ..writeByte(12)
@@ -169,14 +223,8 @@ class GoalAdapter extends TypeAdapter<Goal> {
       ..writeByte(13)
       ..write(obj.colorValue)
       ..writeByte(14)
-      ..write(obj.linkedHabitIds)
-      ..writeByte(15)
-      ..write(obj.linkedTaskIds)
-      ..writeByte(16)
-      ..write(obj.linkedFinanceId)
-      ..writeByte(17)
       ..write(obj.createdAt)
-      ..writeByte(18)
+      ..writeByte(15)
       ..write(obj.updatedAt);
   }
 }

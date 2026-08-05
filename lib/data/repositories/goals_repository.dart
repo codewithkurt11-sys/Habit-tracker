@@ -13,8 +13,8 @@ class GoalsRepository {
     list.sort((a, b) {
       if (a.completed && !b.completed) return 1;
       if (!a.completed && b.completed) return -1;
-      if (a.targetDate != null && b.targetDate != null) {
-        return a.targetDate!.compareTo(b.targetDate!);
+      if (a.deadline != null && b.deadline != null) {
+        return a.deadline!.compareTo(b.deadline!);
       }
       return b.createdAt.compareTo(a.createdAt);
     });
@@ -24,19 +24,12 @@ class GoalsRepository {
   List<Goal> getActive() => getAll().where((g) => !g.completed).toList();
   List<Goal> getCompleted() => getAll().where((g) => g.completed).toList();
 
-  Goal? getById(String id) {
-    try {
-      return _box.values.firstWhere((g) => g.id == id);
-    } catch (_) {
-      return null;
-    }
-  }
-
   Future<Goal> create({
     required String title,
     String description = '',
     int categoryIndex = 6,
-    DateTime? targetDate,
+    DateTime? deadline,
+    double targetValue = 100,
     int colorValue = 0xFF6B9080,
   }) async {
     final goal = Goal(
@@ -44,7 +37,8 @@ class GoalsRepository {
       title: title,
       description: description,
       categoryIndex: categoryIndex,
-      targetDate: targetDate,
+      deadline: deadline,
+      targetValue: targetValue,
       colorValue: colorValue,
     );
     await _box.put(goal.id, goal);
@@ -58,44 +52,44 @@ class GoalsRepository {
 
   Future<void> delete(String id) async => _box.delete(id);
 
-  Future<void> linkHabit(Goal goal, String habitId) async {
-    if (!goal.linkedHabitIds.contains(habitId)) {
-      goal.linkedHabitIds.add(habitId);
-      goal.touch();
-      await _box.put(goal.id, goal);
+  Future<void> addMilestone(Goal goal, String title,
+      {DateTime? dueDate}) async {
+    goal.milestoneIds.add(_uuid.v4());
+    goal.milestoneTitles.add(title);
+    goal.milestoneDone.add(false);
+    goal.milestoneDates.add(dueDate);
+    goal.touch();
+    await _box.put(goal.id, goal);
+  }
+
+  Future<void> toggleMilestone(Goal goal, int index) async {
+    if (index < 0 || index >= goal.milestoneDone.length) return;
+
+    goal.milestoneDone[index] = !goal.milestoneDone[index];
+    goal.completed = _hasReachedTarget(goal) || _allMilestonesDone(goal);
+    goal.touch();
+    await _box.put(goal.id, goal);
+  }
+
+  Future<void> updateProgress(Goal goal, double value) async {
+    final safeTarget = goal.targetValue < 0 ? 0.0 : goal.targetValue;
+    goal.currentValue = value.clamp(0.0, safeTarget).toDouble();
+    goal.completed = _hasReachedTarget(goal) || _allMilestonesDone(goal);
+    goal.touch();
+    await _box.put(goal.id, goal);
+  }
+
+  bool _hasReachedTarget(Goal goal) =>
+      goal.targetValue > 0 && goal.currentValue >= goal.targetValue;
+
+  bool _allMilestonesDone(Goal goal) {
+    if (goal.milestoneTitles.isEmpty ||
+        goal.milestoneDone.length < goal.milestoneTitles.length) {
+      return false;
     }
-  }
-
-  Future<void> unlinkHabit(Goal goal, String habitId) async {
-    goal.linkedHabitIds.remove(habitId);
-    goal.touch();
-    await _box.put(goal.id, goal);
-  }
-
-  Future<void> linkTask(Goal goal, String taskId) async {
-    if (!goal.linkedTaskIds.contains(taskId)) {
-      goal.linkedTaskIds.add(taskId);
-      goal.touch();
-      await _box.put(goal.id, goal);
-    }
-  }
-
-  Future<void> unlinkTask(Goal goal, String taskId) async {
-    goal.linkedTaskIds.remove(taskId);
-    goal.touch();
-    await _box.put(goal.id, goal);
-  }
-
-  Future<void> linkFinance(Goal goal, String financeId) async {
-    goal.linkedFinanceId = financeId;
-    goal.touch();
-    await _box.put(goal.id, goal);
-  }
-
-  Future<void> unlinkFinance(Goal goal) async {
-    goal.linkedFinanceId = null;
-    goal.touch();
-    await _box.put(goal.id, goal);
+    return goal.milestoneDone
+        .take(goal.milestoneTitles.length)
+        .every((done) => done);
   }
 
   Future<void> archive(Goal goal) async {
