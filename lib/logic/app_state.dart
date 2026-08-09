@@ -1,7 +1,12 @@
 import 'package:flutter/foundation.dart';
+import 'package:hive/hive.dart';
 import '../data/models/user_settings.dart';
 import '../data/models/habit.dart';
 import '../data/models/task.dart';
+import '../data/models/goal.dart';
+import '../data/models/note.dart';
+import '../data/models/finance_entry.dart';
+import '../data/hive_boxes.dart';
 import '../data/repositories/habits_repository.dart';
 import '../data/repositories/tasks_repository.dart';
 import '../data/repositories/goals_repository.dart';
@@ -12,6 +17,8 @@ import '../data/repositories/focus_repository.dart';
 import '../data/repositories/schedule_repository.dart';
 import '../data/repositories/quotes_repository.dart';
 import '../data/repositories/settings_repository.dart';
+import '../data/repositories/savings_goal_repository.dart';
+import '../data/models/savings_goal.dart';
 import '../services/notification_service.dart';
 
 /// Central app state exposed via [Provider].
@@ -29,6 +36,7 @@ class AppState extends ChangeNotifier {
   final scheduleRepo = ScheduleRepository();
   final quotesRepo = QuotesRepository();
   final settingsRepo = SettingsRepository();
+  final savingsGoalsRepo = SavingsGoalRepository();
 
   final notificationService = NotificationService();
 
@@ -85,6 +93,7 @@ class AppState extends ChangeNotifier {
     int iconIndex = 15,
     int? colorValue,
     int targetStreak = 0,
+    String? goalId,
   }) async {
     _busy = true;
     notifyListeners();
@@ -97,7 +106,9 @@ class AppState extends ChangeNotifier {
         iconIndex: iconIndex,
         colorValue: colorValue,
         targetStreak: targetStreak,
+        goalId: goalId,
       );
+      if (goalId != null) await syncGoalProgress(goalId);
     } finally {
       _busy = false;
       notifyListeners();
@@ -108,11 +119,22 @@ class AppState extends ChangeNotifier {
     final h = habitsRepo.getById(id);
     if (h == null) return;
     await habitsRepo.toggleCompletion(h, date: date);
+    if (h.goalId != null) await syncGoalProgress(h.goalId!);
+    notifyListeners();
+  }
+
+  Future<void> skipHabit(String id, {DateTime? date}) async {
+    final h = habitsRepo.getById(id);
+    if (h == null) return;
+    await habitsRepo.skipDay(h, date: date);
+    if (h.goalId != null) await syncGoalProgress(h.goalId!);
     notifyListeners();
   }
 
   Future<void> deleteHabit(String id) async {
+    final habit = habitsRepo.getById(id);
     await habitsRepo.delete(id);
+    if (habit?.goalId != null) await syncGoalProgress(habit!.goalId!);
     notifyListeners();
   }
 
@@ -129,6 +151,10 @@ class AppState extends ChangeNotifier {
     int categoryIndex = 1,
     DateTime? dueDate,
     List<String> subtaskTitles = const [],
+    bool isRecurring = false,
+    String recurringPattern = '',
+    String? goalId,
+    String? habitId,
   }) async {
     _busy = true;
     notifyListeners();
@@ -140,8 +166,13 @@ class AppState extends ChangeNotifier {
         category: _taskCategory(categoryIndex),
         dueDate: dueDate,
         subtaskTitles: subtaskTitles,
+        isRecurring: isRecurring,
+        recurringPattern: recurringPattern,
+        goalId: goalId,
+        habitId: habitId,
       );
       await notificationService.scheduleTask(task);
+      if (goalId != null) await syncGoalProgress(goalId);
     } finally {
       _busy = false;
       notifyListeners();
@@ -161,6 +192,7 @@ class AppState extends ChangeNotifier {
     t.touch();
     await tasksRepo.update(t);
     await notificationService.scheduleTask(t);
+    if (t.goalId != null) await syncGoalProgress(t.goalId!);
     notifyListeners();
   }
 
@@ -168,12 +200,15 @@ class AppState extends ChangeNotifier {
     final t = tasksRepo.getById(taskId);
     if (t == null) return;
     await tasksRepo.toggleSubtask(t, index);
+    if (t.goalId != null) await syncGoalProgress(t.goalId!);
     notifyListeners();
   }
 
   Future<void> deleteTask(String id) async {
+    final task = tasksRepo.getById(id);
     await tasksRepo.delete(id);
     await notificationService.cancelTask(id);
+    if (task?.goalId != null) await syncGoalProgress(task!.goalId!);
     notifyListeners();
   }
 
@@ -280,6 +315,11 @@ class AppState extends ChangeNotifier {
     required String title,
     required String body,
     int moodIndex = -1,
+    String folder = 'Notes',
+    List<String> tags = const [],
+    List<String> attachmentPaths = const [],
+    String? linkedEntityType,
+    String? linkedEntityId,
   }) async {
     _busy = true;
     notifyListeners();
@@ -288,6 +328,11 @@ class AppState extends ChangeNotifier {
         title: title,
         body: body,
         moodIndex: moodIndex,
+        folder: folder,
+        tags: tags,
+        attachmentPaths: attachmentPaths,
+        linkedEntityType: linkedEntityType,
+        linkedEntityId: linkedEntityId,
       );
     } finally {
       _busy = false;
@@ -308,6 +353,8 @@ class AppState extends ChangeNotifier {
     required int categoryIndex,
     required DateTime date,
     String note = '',
+    String? goalId,
+    double plannedAmount = 0,
   }) async {
     _busy = true;
     notifyListeners();
@@ -319,7 +366,10 @@ class AppState extends ChangeNotifier {
         categoryIndex: categoryIndex,
         date: date,
         note: note,
+        goalId: goalId,
+        plannedAmount: plannedAmount,
       );
+      if (goalId != null) await syncGoalProgress(goalId);
     } finally {
       _busy = false;
       notifyListeners();
@@ -327,7 +377,136 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> deleteFinance(String id) async {
+    final entry = financeRepo.getAll().where((item) => item.id == id).firstOrNull;
     await financeRepo.delete(id);
+    if (entry?.goalId != null) await syncGoalProgress(entry!.goalId!);
+    notifyListeners();
+  }
+
+  /// Recalculates a goal's progress from all linked habits, tasks, finance
+  /// contributions, and savings goals.  Uses [computeGoalProgress] which
+  /// blends 30-day habit completion rate + task completion fraction +
+  /// finance/savings progress fraction.  The resulting [currentValue] is
+  /// never manually set by the user.
+  Future<void> syncGoalProgress(String goalId) async {
+    final goal = goalsRepo
+        .getAll(includeArchived: true)
+        .where((item) => item.id == goalId)
+        .firstOrNull;
+    if (goal == null) return;
+    final pct = computeGoalProgress(goalId);
+    final linkedValue = pct * goal.targetValue;
+    await goalsRepo.updateProgress(goal, linkedValue);
+  }
+
+  /// Computes the auto-calculated progress percentage (0.0–1.0) for a goal
+  /// from all linked entities:
+  ///   - 30-day habit completion rate (average across linked habits)
+  ///   - task completion fraction (average across linked tasks)
+  ///   - finance progress fraction (contributed / target)
+  ///   - savings goal progress fraction (average across linked savings goals)
+  /// All three fractions are equally weighted when present.
+  double computeGoalProgress(String goalId) {
+    final goal = goalsRepo
+        .getAll(includeArchived: true)
+        .where((item) => item.id == goalId)
+        .firstOrNull;
+    if (goal == null) return 0;
+
+    final habits =
+        habitsRepo.getAll().where((h) => h.goalId == goalId).toList();
+    final tasks = tasksRepo
+        .getAll(includeArchived: true)
+        .where((t) => t.goalId == goalId).toList();
+    final savingsGoals = savingsGoalsRepo.getForGoal(goalId);
+
+    final fractions = <double>[];
+
+    // 30-day habit completion rate
+    if (habits.isNotEmpty) {
+      final habitRate =
+          habits.fold(0.0, (s, h) => s + h.completionRate(days: 30)) /
+              habits.length;
+      fractions.add(habitRate);
+    }
+
+    // Task completion fraction
+    if (tasks.isNotEmpty) {
+      final taskFrac =
+          tasks.fold(0.0, (s, t) => s + t.progress) / tasks.length;
+      fractions.add(taskFrac);
+    }
+
+    // Finance / savings progress fraction
+    if (goal.category == GoalCategory.finance) {
+      final financeTotal = financeRepo.contributedToGoal(goalId);
+      if (savingsGoals.isNotEmpty) {
+        final savingsFrac = savingsGoals
+                .fold(0.0, (s, sg) => s + sg.progressFraction) /
+            savingsGoals.length;
+        fractions.add(savingsFrac);
+      } else if (goal.targetValue > 0) {
+        fractions.add((financeTotal / goal.targetValue).clamp(0.0, 1.0));
+      }
+    }
+
+    if (fractions.isEmpty) return 0;
+    final avg =
+        fractions.reduce((a, b) => a + b) / fractions.length;
+    return avg.clamp(0.0, 1.0);
+  }
+
+  // ---------- savings goals ----------
+
+  Future<void> addSavingsGoal({
+    required String title,
+    required double targetAmount,
+    required int targetDays,
+    String? goalId,
+  }) async {
+    _busy = true;
+    notifyListeners();
+    try {
+      await savingsGoalsRepo.create(
+        title: title,
+        targetAmount: targetAmount,
+        targetDays: targetDays,
+        goalId: goalId,
+      );
+      if (goalId != null) await syncGoalProgress(goalId);
+    } finally {
+      _busy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> confirmSavingsContribution(String id) async {
+    final sg = savingsGoalsRepo.getById(id);
+    if (sg == null) return;
+    await savingsGoalsRepo.confirmContribution(sg);
+    if (sg.goalId != null) await syncGoalProgress(sg.goalId!);
+    notifyListeners();
+  }
+
+  Future<void> recalculateSavingsGoal(String id) async {
+    final sg = savingsGoalsRepo.getById(id);
+    if (sg == null) return;
+    await savingsGoalsRepo.recalculate(sg);
+    if (sg.goalId != null) await syncGoalProgress(sg.goalId!);
+    notifyListeners();
+  }
+
+  Future<void> deleteSavingsGoal(String id) async {
+    final sg = savingsGoalsRepo.getById(id);
+    await savingsGoalsRepo.delete(id);
+    if (sg?.goalId != null) await syncGoalProgress(sg!.goalId!);
+    notifyListeners();
+  }
+
+  // ---------- dashboard config ----------
+
+  Future<void> setDashboardConfig(DashboardConfig config) async {
+    await settingsRepo.setDashboardConfig(config);
     notifyListeners();
   }
 
@@ -404,7 +583,11 @@ class AppState extends ChangeNotifier {
   // ---------- export ----------
   /// Returns a complete JSON-serializable map of all app data.
   Map<String, dynamic> exportAllData() {
-    final data = <String, dynamic>{};
+    final data = <String, dynamic>{
+      'format': 'yourself-backup',
+      'version': 2,
+      'exportedAt': DateTime.now().toIso8601String(),
+    };
 
     // settings
     data['settings'] = {
@@ -432,6 +615,7 @@ class AppState extends ChangeNotifier {
               'bestStreak': h.bestStreak(),
               'totalCompletions': h.totalCompletions,
               'completionRate': h.completionRate(),
+              'goalId': h.goalId,
             })
         .toList();
 
@@ -459,6 +643,8 @@ class AppState extends ChangeNotifier {
               'createdAt': t.createdAt.toIso8601String(),
               'completedAt': t.completedAt?.toIso8601String(),
               'archived': t.archived,
+              'goalId': t.goalId,
+              'habitId': t.habitId,
             })
         .toList();
 
@@ -517,6 +703,11 @@ class AppState extends ChangeNotifier {
               'timestamp': n.timestamp.toIso8601String(),
               'habitId': n.habitId,
               'linkedDate': n.linkedDate?.toIso8601String(),
+              'folder': n.folder,
+              'tags': n.tags,
+              'attachmentPaths': n.attachmentPaths,
+              'linkedEntityType': n.linkedEntityType,
+              'linkedEntityId': n.linkedEntityId,
             })
         .toList();
 
@@ -532,6 +723,8 @@ class AppState extends ChangeNotifier {
               'date': f.date.toIso8601String(),
               'note': f.note,
               'createdAt': f.createdAt.toIso8601String(),
+              'goalId': f.goalId,
+              'plannedAmount': f.plannedAmount,
             })
         .toList();
 
@@ -579,6 +772,24 @@ class AppState extends ChangeNotifier {
             })
         .toList();
 
+    // savings goals
+    data['savingsGoals'] = savingsGoalsRepo
+        .getAll()
+        .map((sg) => {
+              'id': sg.id,
+              'title': sg.title,
+              'targetAmount': sg.targetAmount,
+              'targetDays': sg.targetDays,
+              'startDate': sg.startDate.toIso8601String(),
+              'contributionDates': sg.contributionDates
+                  .map((d) => d.toIso8601String())
+                  .toList(),
+              'contributionAmounts': sg.contributionAmounts,
+              'goalId': sg.goalId,
+              'createdAt': sg.createdAt.toIso8601String(),
+            })
+        .toList();
+
     // summary counts
     data['_summary'] = {
       'habitsCount': habitsRepo.getAll().length,
@@ -590,9 +801,190 @@ class AppState extends ChangeNotifier {
       'focusSessionsCount': focusRepo.getAll().length,
       'scheduleItemsCount': scheduleRepo.getAll().length,
       'quotesCount': quotesRepo.getAll().length,
+      'savingsGoalsCount': savingsGoalsRepo.getAll().length,
     };
 
     return data;
+  }
+
+  /// Validates and restores the connected v2 core data from a local backup.
+  Future<void> importAllData(Map<String, dynamic> data) async {
+    if (data['format'] != 'yourself-backup' || data['version'] is! num) {
+      throw const FormatException('This is not a valid Yourself backup file.');
+    }
+    for (final key in ['habits', 'tasks', 'goals', 'notes', 'finance']) {
+      if (data[key] is! List) {
+        throw FormatException('Backup is missing the $key collection.');
+      }
+    }
+
+    final goalBox = Hive.box<Goal>(HiveBoxes.goals);
+    final habitBox = Hive.box<Habit>(HiveBoxes.habits);
+    final taskBox = Hive.box<Task>(HiveBoxes.tasks);
+    final noteBox = Hive.box<Note>(HiveBoxes.notes);
+    final financeBox = Hive.box<FinanceEntry>(HiveBoxes.finance);
+
+    final goals = <Goal>[];
+    for (final raw in data['goals'] as List) {
+      final item = Map<String, dynamic>.from(raw as Map);
+      goals.add(Goal(
+        id: item['id'] as String,
+        title: item['title'] as String,
+        description: item['description'] as String? ?? '',
+        categoryIndex: GoalCategory.values
+            .indexWhere((value) => value.name == item['category']),
+        deadline: _date(item['deadline']),
+        targetValue: (item['targetValue'] as num?)?.toDouble() ?? 100,
+        currentValue: (item['currentValue'] as num?)?.toDouble() ?? 0,
+        completed: item['completed'] as bool? ?? false,
+        archived: item['archived'] as bool? ?? false,
+        createdAt: _date(item['createdAt']),
+      ));
+    }
+
+    final habits = <Habit>[];
+    for (final raw in data['habits'] as List) {
+      final item = Map<String, dynamic>.from(raw as Map);
+      habits.add(Habit(
+        id: item['id'] as String,
+        name: item['name'] as String,
+        category: HabitCategory.values.firstWhere(
+          (value) => value.name == item['category'],
+          orElse: () => HabitCategory.other,
+        ),
+        frequency: HabitFrequency.values.firstWhere(
+          (value) => value.name == item['frequency'],
+          orElse: () => HabitFrequency.daily,
+        ),
+        customDays: (item['customDays'] as List?)?.cast<int>() ?? [],
+        completionLog: (item['completionLog'] as List? ?? [])
+            .map((value) => DateTime.parse(value as String))
+            .toList(),
+        createdAt: _date(item['createdAt']),
+        iconIndex: item['iconIndex'] as int? ?? 15,
+        colorValue: item['colorValue'] as int?,
+        targetStreak: item['targetStreak'] as int? ?? 0,
+        goalId: item['goalId'] as String?,
+      ));
+    }
+
+    final tasks = <Task>[];
+    for (final raw in data['tasks'] as List) {
+      final item = Map<String, dynamic>.from(raw as Map);
+      final subtasks = (item['subtasks'] as List? ?? [])
+          .map((value) => Map<String, dynamic>.from(value as Map))
+          .toList();
+      tasks.add(Task(
+        id: item['id'] as String,
+        title: item['title'] as String,
+        description: item['description'] as String? ?? '',
+        priority: TaskPriority.values.firstWhere(
+          (value) => value.name == item['priority'],
+          orElse: () => TaskPriority.medium,
+        ),
+        status: TaskStatus.values.firstWhere(
+          (value) => value.name == item['status'],
+          orElse: () => TaskStatus.todo,
+        ),
+        category: TaskCategory.values.firstWhere(
+          (value) => value.name == item['category'],
+          orElse: () => TaskCategory.other,
+        ),
+        dueDate: _date(item['dueDate']),
+        tags: (item['tags'] as List?)?.cast<String>() ?? [],
+        subtaskTitles:
+            subtasks.map((item) => item['title'] as String).toList(),
+        subtaskDone:
+            subtasks.map((item) => item['done'] as bool? ?? false).toList(),
+        isRecurring: item['isRecurring'] as bool? ?? false,
+        recurringPattern: item['recurringPattern'] as String? ?? '',
+        createdAt: _date(item['createdAt']),
+        completedAt: _date(item['completedAt']),
+        archived: item['archived'] as bool? ?? false,
+        goalId: item['goalId'] as String?,
+        habitId: item['habitId'] as String?,
+      ));
+    }
+
+    final notes = <Note>[];
+    for (final raw in data['notes'] as List) {
+      final item = Map<String, dynamic>.from(raw as Map);
+      notes.add(Note(
+        id: item['id'] as String,
+        title: item['title'] as String,
+        body: item['body'] as String? ?? '',
+        timestamp: _date(item['timestamp']) ?? DateTime.now(),
+        habitId: item['habitId'] as String?,
+        linkedDate: _date(item['linkedDate']),
+        folder: item['folder'] as String? ?? 'Notes',
+        tags: (item['tags'] as List?)?.cast<String>() ?? [],
+        attachmentPaths:
+            (item['attachmentPaths'] as List?)?.cast<String>() ?? [],
+        linkedEntityType: item['linkedEntityType'] as String?,
+        linkedEntityId: item['linkedEntityId'] as String?,
+      ));
+    }
+
+    final finance = <FinanceEntry>[];
+    for (final raw in data['finance'] as List) {
+      final item = Map<String, dynamic>.from(raw as Map);
+      finance.add(FinanceEntry(
+        id: item['id'] as String,
+        title: item['title'] as String,
+        amount: (item['amount'] as num).toDouble(),
+        typeIndex: item['type'] == FinanceType.income.name ? 0 : 1,
+        categoryIndex: 0,
+        date: _date(item['date']) ?? DateTime.now(),
+        note: item['note'] as String? ?? '',
+        createdAt: _date(item['createdAt']),
+        goalId: item['goalId'] as String?,
+        plannedAmount: (item['plannedAmount'] as num?)?.toDouble() ?? 0,
+      ));
+    }
+
+    // savings goals
+    final savingsGoals = <SavingsGoal>[];
+    if (data['savingsGoals'] is List) {
+      for (final raw in data['savingsGoals'] as List) {
+        final item = Map<String, dynamic>.from(raw as Map);
+        savingsGoals.add(SavingsGoal(
+          id: item['id'] as String,
+          title: item['title'] as String,
+          targetAmount: (item['targetAmount'] as num).toDouble(),
+          targetDays: item['targetDays'] as int,
+          startDate: _date(item['startDate']) ?? DateTime.now(),
+          contributionDates: (item['contributionDates'] as List? ?? [])
+              .map((v) => DateTime.parse(v as String))
+              .toList(),
+          contributionAmounts:
+              (item['contributionAmounts'] as List?)?.cast<double>() ?? [],
+          goalId: item['goalId'] as String?,
+          createdAt: _date(item['createdAt']) ?? DateTime.now(),
+        ));
+      }
+    }
+    final savingsBox = Hive.box<SavingsGoal>(HiveBoxes.savingsGoals);
+
+    await Future.wait([
+      goalBox.clear(),
+      habitBox.clear(),
+      taskBox.clear(),
+      noteBox.clear(),
+      financeBox.clear(),
+      savingsBox.clear(),
+    ]);
+    await goalBox.putAll({for (final item in goals) item.id: item});
+    await habitBox.putAll({for (final item in habits) item.id: item});
+    await taskBox.putAll({for (final item in tasks) item.id: item});
+    await noteBox.putAll({for (final item in notes) item.id: item});
+    await financeBox.putAll({for (final item in finance) item.id: item});
+    await savingsBox.putAll({for (final item in savingsGoals) item.id: item});
+    notifyListeners();
+  }
+
+  DateTime? _date(dynamic value) {
+    if (value == null || value is! String || value.isEmpty) return null;
+    return DateTime.tryParse(value);
   }
 
   // ---------- enum helpers ----------

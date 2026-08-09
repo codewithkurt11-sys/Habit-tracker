@@ -9,6 +9,7 @@ import 'models/journal_entry.dart';
 import 'models/finance_entry.dart';
 import 'models/goal.dart';
 import 'models/focus_session.dart';
+import 'models/savings_goal.dart';
 
 /// Box name constants. Centralized so repositories never hardcode string literals.
 class HiveBoxes {
@@ -25,6 +26,7 @@ class HiveBoxes {
   static const String financeBudget = 'finance_budget_box';
   static const String goals = 'goals_box';
   static const String focus = 'focus_box';
+  static const String savingsGoals = 'savings_goals_box';
 
   /// Fixed key for the single [UserSettings] record.
   static const String settingsKey = 'user_settings';
@@ -52,6 +54,7 @@ class HiveInitializer {
     Hive.registerAdapter(FinanceBudgetAdapter());
     Hive.registerAdapter(GoalAdapter());
     Hive.registerAdapter(FocusSessionAdapter());
+    Hive.registerAdapter(SavingsGoalAdapter());
 
     await Future.wait([
       Hive.openBox<Note>(HiveBoxes.notes),
@@ -65,6 +68,7 @@ class HiveInitializer {
       Hive.openBox<FinanceBudget>(HiveBoxes.financeBudget),
       Hive.openBox<Goal>(HiveBoxes.goals),
       Hive.openBox<FocusSession>(HiveBoxes.focus),
+      Hive.openBox<SavingsGoal>(HiveBoxes.savingsGoals),
     ]);
 
     _initialized = true;

@@ -141,7 +141,17 @@ class FinanceEntry extends HiveObject {
   int categoryIndex; // income or expense category index
   DateTime date;
   String note;
+  String? goalId;
+  double plannedAmount;
   DateTime createdAt;
+  // schema-only: savings-goal shape fields (parallel lists for contribution log)
+  double targetAmount;
+  int targetDays;
+  double dailyAmount;
+  List<DateTime> contributionLogDates;
+  List<double> contributionLogAmounts;
+  List<bool> contributionLogConfirmed;
+  String? linkedGoalId;
 
   FinanceEntry({
     required this.id,
@@ -151,8 +161,20 @@ class FinanceEntry extends HiveObject {
     required this.categoryIndex,
     required this.date,
     this.note = '',
+    this.goalId,
+    this.plannedAmount = 0,
     DateTime? createdAt,
-  }) : createdAt = createdAt ?? DateTime.now();
+    this.targetAmount = 0,
+    this.targetDays = 0,
+    this.dailyAmount = 0,
+    List<DateTime>? contributionLogDates,
+    List<double>? contributionLogAmounts,
+    List<bool>? contributionLogConfirmed,
+    this.linkedGoalId,
+  })  : createdAt = createdAt ?? DateTime.now(),
+        contributionLogDates = contributionLogDates ?? [],
+        contributionLogAmounts = contributionLogAmounts ?? [],
+        contributionLogConfirmed = contributionLogConfirmed ?? [];
 
   FinanceType get type => FinanceType.values[typeIndex];
 
@@ -193,13 +215,25 @@ class FinanceEntryAdapter extends TypeAdapter<FinanceEntry> {
       date: fields[5] as DateTime,
       note: fields[6] as String? ?? '',
       createdAt: fields[7] as DateTime? ?? DateTime.now(),
+      goalId: fields[8] as String?,
+      plannedAmount: (fields[9] as num?)?.toDouble() ?? 0,
+      targetAmount: (fields[10] as num?)?.toDouble() ?? 0,
+      targetDays: fields[11] as int? ?? 0,
+      dailyAmount: (fields[12] as num?)?.toDouble() ?? 0,
+      contributionLogDates:
+          (fields[13] as List?)?.cast<DateTime>() ?? [],
+      contributionLogAmounts:
+          (fields[14] as List?)?.cast<double>() ?? [],
+      contributionLogConfirmed:
+          (fields[15] as List?)?.cast<bool>() ?? [],
+      linkedGoalId: fields[16] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, FinanceEntry obj) {
     writer
-      ..writeByte(8)
+      ..writeByte(17)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -215,7 +249,25 @@ class FinanceEntryAdapter extends TypeAdapter<FinanceEntry> {
       ..writeByte(6)
       ..write(obj.note)
       ..writeByte(7)
-      ..write(obj.createdAt);
+      ..write(obj.createdAt)
+      ..writeByte(8)
+      ..write(obj.goalId)
+      ..writeByte(9)
+      ..write(obj.plannedAmount)
+      ..writeByte(10)
+      ..write(obj.targetAmount)
+      ..writeByte(11)
+      ..write(obj.targetDays)
+      ..writeByte(12)
+      ..write(obj.dailyAmount)
+      ..writeByte(13)
+      ..write(obj.contributionLogDates)
+      ..writeByte(14)
+      ..write(obj.contributionLogAmounts)
+      ..writeByte(15)
+      ..write(obj.contributionLogConfirmed)
+      ..writeByte(16)
+      ..write(obj.linkedGoalId);
   }
 }
 

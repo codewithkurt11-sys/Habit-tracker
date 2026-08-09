@@ -100,9 +100,32 @@ class FileManagerService {
               await Permission.storage.isGranted;
       _hasBroadStorageAccess = canBrowseSharedStorage;
       if (canBrowseSharedStorage) {
-        const primary = '/storage/emulated/0';
+        // Fix: resolve root to /storage/emulated/0, not /storage/emulated
+        // Also try getExternalStorageDirectory() as fallback for SAF.
+        String primary = '/storage/emulated/0';
+        if (!await Directory(primary).exists()) {
+          try {
+            final extDir = await getExternalStorageDirectory();
+            if (extDir != null) {
+              // getExternalStorageDirectory() returns app-specific path like
+              // /storage/emulated/0/Android/data/com.yourself.habits/files
+              // Navigate up to the real external storage root.
+              final parts = p.split(extDir.path);
+              // Find 'emulated' and take everything up to the next segment (e.g. '0')
+              final emulatedIdx = parts.indexWhere((part) => part == 'emulated');
+              if (emulatedIdx >= 0 && emulatedIdx + 1 < parts.length) {
+                primary = p.joinAll(
+                    ['/', ...parts.sublist(0, emulatedIdx + 2)]);
+              } else {
+                primary = extDir.path;
+              }
+            }
+          } on Exception {
+            // Fall back to the hardcoded path
+          }
+        }
         if (await Directory(primary).exists()) {
-          roots.add(const StorageRoot(
+          roots.add(StorageRoot(
             label: 'Internal Storage',
             path: primary,
             isPrimary: true,
@@ -173,9 +196,10 @@ class FileManagerService {
     bool ascending = true,
     bool showHidden = false,
   }) async {
-    final directory = Directory(path);
+    final safePath = _safeBrowsePath(path);
+    final directory = Directory(safePath);
     if (!await directory.exists()) {
-      throw FileSystemException('Folder does not exist', path);
+      throw FileSystemException('Folder does not exist', safePath);
     }
 
     final entities = <FileSystemEntity>[];
@@ -186,6 +210,17 @@ class FileManagerService {
     }
     _sort(entities, sortBy, ascending);
     return entities;
+  }
+
+  String _safeBrowsePath(String value) {
+    final normalized = p.normalize(value);
+    // Fix: root path /storage/emulated resolves to /storage/emulated/0
+    if (Platform.isAndroid) {
+      if (normalized == '/storage/emulated' || normalized == '/storage/emulated/') {
+        return '/storage/emulated/0';
+      }
+    }
+    return normalized;
   }
 
   void _sort(List<FileSystemEntity> items, FileSortBy sortBy, bool ascending) {

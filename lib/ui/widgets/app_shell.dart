@@ -165,7 +165,7 @@ class _AppShellState extends State<AppShell> {
         );
       case 4: // Kanban
         return FloatingActionButton(
-          onPressed: () {},
+          onPressed: () => showAddTaskDialog(context),
           child: const Icon(Icons.add),
         );
       default:
@@ -248,6 +248,12 @@ class _AppShellState extends State<AppShell> {
         ),
       ),
       body: _bottomScreens[_bottomIndex],
+      floatingActionButton: FloatingActionButton.small(
+        heroTag: 'global-note',
+        tooltip: 'Quick capture note',
+        onPressed: () => showAddNoteDialog(context),
+        child: const Icon(Icons.edit_note),
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _bottomIndex,
         onDestinationSelected: (i) => setState(() => _bottomIndex = i),

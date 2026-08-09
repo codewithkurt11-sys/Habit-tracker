@@ -141,6 +141,12 @@ class _TaskTile extends StatelessWidget {
                             label: task.category.label,
                             icon: task.category.icon,
                           ),
+                          if (task.goalId != null)
+                            const PillChip(label: 'Linked goal', icon: Icons.link),
+                          if (task.habitId != null)
+                            const PillChip(label: 'Linked habit', icon: Icons.repeat),
+                          if (task.isRecurring)
+                            const PillChip(label: 'Recurring', icon: Icons.repeat),
                         ],
                       ),
                     ],
@@ -168,6 +174,9 @@ class _AddTaskDialogState extends State<_AddTaskDialog> {
   int _priorityIndex = 1;
   int _categoryIndex = 1;
   DateTime? _dueDate;
+  String? _goalId;
+  String? _habitId;
+  bool _recurring = false;
 
   @override
   void dispose() {
@@ -280,6 +289,55 @@ class _AddTaskDialogState extends State<_AddTaskDialog> {
               }),
             ),
             const SizedBox(height: AppSpacing.md),
+            DropdownButtonFormField<String?>(
+              initialValue: _goalId,
+              decoration: const InputDecoration(
+                labelText: 'Contributes to goal (optional)',
+                prefixIcon: Icon(Icons.link),
+              ),
+              items: [
+                const DropdownMenuItem<String?>(
+                  value: null,
+                  child: Text('Standalone task'),
+                ),
+                ...context.read<AppState>().goalsRepo.getActive().map(
+                      (goal) => DropdownMenuItem<String?>(
+                        value: goal.id,
+                        child: Text(goal.title),
+                      ),
+                    ),
+              ],
+              onChanged: (value) => setState(() => _goalId = value),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            DropdownButtonFormField<String?>(
+              initialValue: _habitId,
+              decoration: const InputDecoration(
+                labelText: 'Linked habit (optional)',
+                prefixIcon: Icon(Icons.repeat),
+              ),
+              items: [
+                const DropdownMenuItem<String?>(
+                  value: null,
+                  child: Text('No linked habit'),
+                ),
+                ...context.read<AppState>().habitsRepo.getAll().map(
+                      (habit) => DropdownMenuItem<String?>(
+                        value: habit.id,
+                        child: Text(habit.name),
+                      ),
+                    ),
+              ],
+              onChanged: (value) => setState(() => _habitId = value),
+            ),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Repeat daily'),
+              subtitle: const Text('Keep this action in your routine'),
+              value: _recurring,
+              onChanged: (value) => setState(() => _recurring = value),
+            ),
+            const SizedBox(height: AppSpacing.md),
             // Due date
             Row(
               children: [
@@ -319,6 +377,10 @@ class _AddTaskDialogState extends State<_AddTaskDialog> {
                   priorityIndex: _priorityIndex,
                   categoryIndex: _categoryIndex,
                   dueDate: _dueDate,
+                  goalId: _goalId,
+                  habitId: _habitId,
+                  isRecurring: _recurring,
+                  recurringPattern: _recurring ? 'daily' : '',
                 );
             Navigator.pop(context);
           },
@@ -327,4 +389,13 @@ class _AddTaskDialogState extends State<_AddTaskDialog> {
       ],
     );
   }
+}
+
+
+/// Global FAB action — call from the parent Scaffold.
+void showAddTaskDialog(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (_) => const _AddTaskDialog(),
+  );
 }

@@ -382,6 +382,14 @@ class _MonthCalendarView extends StatelessWidget {
               j.date.day == date.day)
           .toList();
       final notes = state.notesRepo.getForDate(date);
+      final goals = state.goalsRepo
+          .getActive()
+          .where((goal) =>
+              goal.deadline != null &&
+              goal.deadline!.year == date.year &&
+              goal.deadline!.month == date.month &&
+              goal.deadline!.day == date.day)
+          .toList();
       final schedules = state.scheduleRepo
           .getAll()
           .where((s) =>
@@ -397,6 +405,7 @@ class _MonthCalendarView extends StatelessWidget {
         hasJournal: journals.isNotEmpty,
         hasNote: notes.isNotEmpty,
         scheduleCount: schedules.length,
+        goalCount: goals.length,
         isToday: date.isAtSameMomentAs(todayNorm),
       ));
     }
@@ -499,7 +508,8 @@ class _MonthCalendarView extends StatelessWidget {
                                         if (cell.due > 0 ||
                                             cell.taskCount > 0 ||
                                             cell.hasJournal ||
-                                            cell.scheduleCount > 0) ...[
+                                            cell.scheduleCount > 0 ||
+                                            cell.goalCount > 0) ...[
                                           const SizedBox(height: 2),
                                           Wrap(
                                             spacing: 2,
@@ -525,6 +535,9 @@ class _MonthCalendarView extends StatelessWidget {
                                               if (cell.hasNote)
                                                 const _Dot(
                                                     color: Color(0xFFE8C56F)),
+                                              if (cell.goalCount > 0)
+                                                const _Dot(
+                                                    color: Color(0xFF6B9080)),
                                             ],
                                           ),
                                         ],
@@ -585,6 +598,7 @@ class _DayCell {
   final bool hasJournal;
   final bool hasNote;
   final int scheduleCount;
+  final int goalCount;
   final bool isToday;
   final bool isEmpty;
 
@@ -596,6 +610,7 @@ class _DayCell {
       required this.hasJournal,
       required this.hasNote,
       required this.scheduleCount,
+      required this.goalCount,
       required this.isToday})
       : isEmpty = false;
   _DayCell.empty()
@@ -606,6 +621,7 @@ class _DayCell {
         hasJournal = false,
         hasNote = false,
         scheduleCount = 0,
+        goalCount = 0,
         isToday = false,
         isEmpty = true;
 }
@@ -632,6 +648,14 @@ class _DateDetail extends StatelessWidget {
             j.date.day == d.day)
         .toList();
     final notes = state.notesRepo.getForDate(d);
+    final goals = state.goalsRepo
+        .getActive()
+        .where((goal) =>
+            goal.deadline != null &&
+            goal.deadline!.year == d.year &&
+            goal.deadline!.month == d.month &&
+            goal.deadline!.day == d.day)
+        .toList();
     final schedules = state.scheduleRepo
         .getAll()
         .where((s) =>
@@ -670,6 +694,13 @@ class _DateDetail extends StatelessWidget {
                   value: '${schedules.length} items',
                   color: const Color(0xFFB58BB5)),
             ],
+            if (goals.isNotEmpty) ...[
+              _DetailRow(
+                  icon: Icons.track_changes_outlined,
+                  label: 'Goals',
+                  value: '${goals.length} due',
+                  color: const Color(0xFF6B9080)),
+            ],
             if (journals.isNotEmpty) ...[
               _DetailRow(
                   icon: Icons.book,
@@ -688,6 +719,7 @@ class _DateDetail extends StatelessWidget {
             if (dueHabits.isEmpty &&
                 tasks.isEmpty &&
                 schedules.isEmpty &&
+                goals.isEmpty &&
                 journals.isEmpty &&
                 notes.isEmpty)
               Text('No activity on this day',

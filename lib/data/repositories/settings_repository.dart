@@ -33,4 +33,10 @@ class SettingsRepository {
     s.onboardingComplete = updated.onboardingComplete;
     await s.save();
   }
+
+  Future<void> setDashboardConfig(DashboardConfig config) async {
+    final s = current;
+    s.dashboardConfig = config;
+    await s.save();
+  }
 }

@@ -1,7 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../logic/app_state.dart';
 import '../../core/theme/app_spacing.dart';
@@ -25,6 +29,7 @@ class ExportScreen extends StatelessWidget {
     final focusCount = state.focusRepo.getAll().length;
     final scheduleCount = state.scheduleRepo.getAll().length;
     final quotesCount = state.quotesRepo.getAll().length;
+    final savingsGoalsCount = state.savingsGoalsRepo.getAll().length;
 
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -104,6 +109,11 @@ class ExportScreen extends StatelessWidget {
                     label: 'Quotes',
                     count: quotesCount,
                     color: theme.colorScheme.primary),
+                _ExportRow(
+                    icon: Icons.savings_outlined,
+                    label: 'Savings Targets',
+                    count: savingsGoalsCount,
+                    color: const Color(0xFF6B9080)),
                 const Divider(),
                 _ExportRow(
                     icon: Icons.settings_outlined,
@@ -160,7 +170,7 @@ class ExportScreen extends StatelessWidget {
             title: const Text('Import from JSON'),
             subtitle: const Text('Restore from a previous backup'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => _showImportInfo(context),
+            onTap: () => _importJson(context),
           ),
         ),
         const SizedBox(height: AppSpacing.xxl),
@@ -174,9 +184,17 @@ class ExportScreen extends StatelessWidget {
     try {
       final data = state.exportAllData();
       final jsonString = const JsonEncoder.withIndent('  ').convert(data);
-      final timestamp = DateTime.now().toIso8601String().split('.').first;
-      await Share.share(jsonString,
-          subject: 'Habit Tracker Data Export — $timestamp');
+      final timestamp = DateTime.now()
+          .toIso8601String()
+          .split('.').first
+          .replaceAll(':', '-');
+      final directory = await getTemporaryDirectory();
+      final file = File('${directory.path}/yourself-backup-$timestamp.json');
+      await file.writeAsString(jsonString, flush: true);
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'application/json')],
+        subject: 'Yourself local backup — $timestamp',
+      );
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -263,19 +281,65 @@ class ExportScreen extends StatelessWidget {
     return value;
   }
 
-  void _showImportInfo(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Import Data'),
-        content: const Text(
-            'To import data, open your JSON backup file from a file manager and share it with this app. The app will detect and restore your data automatically.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context), child: const Text('OK')),
-        ],
-      ),
-    );
+  Future<void> _importJson(BuildContext context) async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['json'],
+        withData: true,
+      );
+      if (result == null || !context.mounted) return;
+      final picked = result.files.single;
+      final source = picked.bytes != null
+          ? utf8.decode(picked.bytes!)
+          : await File(picked.path!).readAsString();
+      final decoded = jsonDecode(source);
+      if (decoded is! Map) {
+        throw const FormatException('Backup content must be a JSON object.');
+      }
+      final data = Map<String, dynamic>.from(decoded);
+      final summary = data['_summary'] as Map?;
+      if (!context.mounted) return;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Restore local backup?'),
+          content: Text(
+            'The file passed basic JSON validation. Restoring will replace your '
+            'current goals, habits, tasks, notes, and finance entries.\n\n'
+            'Backup summary: ${summary ?? 'not available'}',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Validate & Restore'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !context.mounted) return;
+      await context.read<AppState>().importAllData(data);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Local backup restored successfully.')),
+      );
+    } on FormatException catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not restore this file. Check that it is a valid v2 backup.'),
+        ),
+      );
+    }
   }
 }
 

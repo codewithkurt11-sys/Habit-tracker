@@ -126,6 +126,11 @@ class Task extends HiveObject {
   DateTime createdAt;
   DateTime? completedAt;
   bool archived;
+  String? goalId;
+  String? habitId;
+  // schema-only: future cross-linking fields
+  String? linkedGoalId;
+  String? linkedHabitId;
   DateTime updatedAt;
 
   Task({
@@ -145,6 +150,10 @@ class Task extends HiveObject {
     DateTime? createdAt,
     this.completedAt,
     this.archived = false,
+    this.goalId,
+    this.habitId,
+    this.linkedGoalId,
+    this.linkedHabitId,
     DateTime? updatedAt,
   })  : tags = tags ?? [],
         subtaskTitles = subtaskTitles ?? [],
@@ -218,13 +227,17 @@ class TaskAdapter extends TypeAdapter<Task> {
       // updatedAt (field 16) — backward compatible: fall back to createdAt
       updatedAt:
           fields[16] as DateTime? ?? fields[13] as DateTime? ?? DateTime.now(),
+      goalId: fields[17] as String?,
+      habitId: fields[18] as String?,
+      linkedGoalId: fields[19] as String?,
+      linkedHabitId: fields[20] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Task obj) {
     writer
-      ..writeByte(17)
+      ..writeByte(21)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -258,6 +271,14 @@ class TaskAdapter extends TypeAdapter<Task> {
       ..writeByte(15)
       ..write(obj.archived)
       ..writeByte(16)
-      ..write(obj.updatedAt);
+      ..write(obj.updatedAt)
+      ..writeByte(17)
+      ..write(obj.goalId)
+      ..writeByte(18)
+      ..write(obj.habitId)
+      ..writeByte(19)
+      ..write(obj.linkedGoalId)
+      ..writeByte(20)
+      ..write(obj.linkedHabitId);
   }
 }

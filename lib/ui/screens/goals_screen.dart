@@ -67,6 +67,14 @@ class _GoalTile extends StatelessWidget {
     final theme = Theme.of(context);
     final progress = goal.progressFraction;
     final milestones = goal.milestones;
+    final linkedHabits =
+        state.habitsRepo.getAll().where((habit) => habit.goalId == goal.id).toList();
+    final linkedTasks = state.tasksRepo
+        .getAll(includeArchived: true)
+        .where((task) => task.goalId == goal.id)
+        .toList();
+    final contributions = state.financeRepo.getForGoal(goal.id);
+    final linkedNotes = state.notesRepo.getForEntity('goal', goal.id);
 
     return Dismissible(
       key: ValueKey(goal.id),
@@ -142,6 +150,37 @@ class _GoalTile extends StatelessWidget {
                     Text('${(progress * 100).toStringAsFixed(0)}%',
                         style: theme.textTheme.bodySmall?.copyWith(
                             color: goal.color, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    if (linkedHabits.isNotEmpty)
+                      PillChip(
+                        label: '${linkedHabits.length} habits',
+                        icon: Icons.repeat,
+                        color: goal.color,
+                      ),
+                    if (linkedTasks.isNotEmpty)
+                      PillChip(
+                        label: '${linkedTasks.length} tasks',
+                        icon: Icons.check_circle_outline,
+                        color: goal.color,
+                      ),
+                    if (contributions.isNotEmpty)
+                      PillChip(
+                        label: '${contributions.length} contributions',
+                        icon: Icons.savings_outlined,
+                        color: goal.color,
+                      ),
+                    if (linkedNotes.isNotEmpty)
+                      PillChip(
+                        label: '${linkedNotes.length} notes',
+                        icon: Icons.sticky_note_2_outlined,
+                        color: goal.color,
+                      ),
                   ],
                 ),
                 // Milestones

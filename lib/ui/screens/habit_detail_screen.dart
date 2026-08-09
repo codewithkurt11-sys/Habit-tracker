@@ -42,6 +42,7 @@ class HabitDetailScreen extends StatelessWidget {
         date: date,
         isDue: habit.isDueOn(date),
         isDone: habit.isCompletedOn(date),
+        isSkipped: habit.isSkippedOn(date),
       ));
     }
 
@@ -183,27 +184,35 @@ class HabitDetailScreen extends StatelessWidget {
                 children: history
                     .map((h) => Tooltip(
                           message:
-                              '${h.date.month}/${h.date.day}: ${h.isDone ? "Done" : h.isDue ? "Missed" : "Not due"}',
+                              '${h.date.month}/${h.date.day}: ${h.isDone ? "Done" : h.isSkipped ? "Skipped" : h.isDue ? "Missed" : "Not due"}',
                           child: Container(
                             width: 28,
                             height: 28,
                             decoration: BoxDecoration(
                               color: h.isDone
                                   ? color
-                                  : h.isDue
-                                      ? color.withValues(alpha: 0.15)
-                                      : theme.colorScheme.onSurface
-                                          .withValues(alpha: 0.05),
+                                  : h.isSkipped
+                                      ? theme.colorScheme.onSurface
+                                          .withValues(alpha: 0.15)
+                                      : h.isDue
+                                          ? color.withValues(alpha: 0.15)
+                                          : theme.colorScheme.onSurface
+                                              .withValues(alpha: 0.05),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: h.isDone
                                 ? const Icon(Icons.check,
                                     size: 16, color: Colors.white)
-                                : h.isDue
-                                    ? Icon(Icons.close,
+                                : h.isSkipped
+                                    ? Icon(Icons.skip_next,
                                         size: 14,
-                                        color: color.withValues(alpha: 0.4))
-                                    : null,
+                                        color: theme.colorScheme.onSurface
+                                            .withValues(alpha: 0.3))
+                                    : h.isDue
+                                        ? Icon(Icons.close,
+                                            size: 14,
+                                            color: color.withValues(alpha: 0.4))
+                                        : null,
                           ),
                         ))
                     .toList(),
@@ -425,5 +434,6 @@ class _HistoryDay {
   final DateTime date;
   final bool isDue;
   final bool isDone;
-  _HistoryDay({required this.date, required this.isDue, required this.isDone});
+  final bool isSkipped;
+  _HistoryDay({required this.date, required this.isDue, required this.isDone, this.isSkipped = false});
 }

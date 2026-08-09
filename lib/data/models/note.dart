@@ -45,6 +45,11 @@ class Note extends HiveObject {
   String? habitId;
   DateTime? linkedDate;
   int moodIndex; // -1 means no mood set
+  String folder;
+  List<String> tags;
+  List<String> attachmentPaths;
+  String? linkedEntityType;
+  String? linkedEntityId;
 
   Note({
     required this.id,
@@ -54,7 +59,13 @@ class Note extends HiveObject {
     this.habitId,
     this.linkedDate,
     this.moodIndex = -1,
-  });
+    this.folder = 'Notes',
+    List<String>? tags,
+    List<String>? attachmentPaths,
+    this.linkedEntityType,
+    this.linkedEntityId,
+  })  : tags = tags ?? [],
+        attachmentPaths = attachmentPaths ?? [];
 
   Mood? get mood => moodIndex >= 0 && moodIndex < Mood.values.length
       ? Mood.values[moodIndex]
@@ -69,6 +80,11 @@ class Note extends HiveObject {
     DateTime? linkedDate,
     bool clearLinkedDate = false,
     int? moodIndex,
+    String? folder,
+    List<String>? tags,
+    List<String>? attachmentPaths,
+    String? linkedEntityType,
+    String? linkedEntityId,
   }) {
     return Note(
       id: id,
@@ -78,6 +94,12 @@ class Note extends HiveObject {
       habitId: clearHabitId ? null : (habitId ?? this.habitId),
       linkedDate: clearLinkedDate ? null : (linkedDate ?? this.linkedDate),
       moodIndex: moodIndex ?? this.moodIndex,
+      folder: folder ?? this.folder,
+      tags: tags ?? List<String>.from(this.tags),
+      attachmentPaths:
+          attachmentPaths ?? List<String>.from(this.attachmentPaths),
+      linkedEntityType: linkedEntityType ?? this.linkedEntityType,
+      linkedEntityId: linkedEntityId ?? this.linkedEntityId,
     );
   }
 }
@@ -100,13 +122,18 @@ class NoteAdapter extends TypeAdapter<Note> {
       habitId: fields[4] as String?,
       linkedDate: fields[5] as DateTime?,
       moodIndex: fields[6] as int? ?? -1,
+      folder: fields[7] as String? ?? 'Notes',
+      tags: (fields[8] as List?)?.cast<String>() ?? [],
+      attachmentPaths: (fields[9] as List?)?.cast<String>() ?? [],
+      linkedEntityType: fields[10] as String?,
+      linkedEntityId: fields[11] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Note obj) {
     writer
-      ..writeByte(7)
+      ..writeByte(12)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -120,6 +147,16 @@ class NoteAdapter extends TypeAdapter<Note> {
       ..writeByte(5)
       ..write(obj.linkedDate)
       ..writeByte(6)
-      ..write(obj.moodIndex);
+      ..write(obj.moodIndex)
+      ..writeByte(7)
+      ..write(obj.folder)
+      ..writeByte(8)
+      ..write(obj.tags)
+      ..writeByte(9)
+      ..write(obj.attachmentPaths)
+      ..writeByte(10)
+      ..write(obj.linkedEntityType)
+      ..writeByte(11)
+      ..write(obj.linkedEntityId);
   }
 }

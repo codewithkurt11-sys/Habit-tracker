@@ -99,6 +99,29 @@ class StatsEngine {
     return total / habits.length;
   }
 
+  /// Consistency score (0–100): a composite measure combining 30-day
+  /// completion rate, streak longevity, and miss-streak penalty.
+  /// Designed to give users a single number summarizing how consistent
+  /// they are with their habits — minimal, no gamification.
+  static int consistencyScore(List<Habit> habits) {
+    if (habits.isEmpty) return 0;
+    // 30-day completion rate component (0-60 points)
+    final completionRate = overallCompletionRate(habits);
+    final completionScore = (completionRate * 60).round();
+
+    // Current streak component (0-30 points, capped at 30 days)
+    final maxCurrentStreak = currentStreakAcross(habits);
+    final streakScore = (maxCurrentStreak * 30 / 30).round().clamp(0, 30);
+
+    // Miss-streak penalty (0-10 points, reduces with more misses)
+    final maxMissStreak = habits.fold<int>(
+        0, (max, h) => h.currentMissStreak() > max ? h.currentMissStreak() : max);
+    final missPenalty = (maxMissStreak * 2).clamp(0, 10);
+
+    final score = (completionScore + streakScore - missPenalty).clamp(0, 100);
+    return score;
+  }
+
   /// Best streak across all habits.
   static int bestStreakAcross(List<Habit> habits) {
     if (habits.isEmpty) return 0;
@@ -326,7 +349,7 @@ class StatsEngine {
     final best = bestStreakAcross(habits);
     if (best > 0) {
       insights.add(HabitInsight(
-        icon: '🔥',
+        icon: '',
         title: 'Best Streak: $best days',
         description:
             'Your longest habit streak is $best consecutive days. Keep it going!',
@@ -338,7 +361,7 @@ class StatsEngine {
     final current = currentStreakAcross(habits);
     if (current > 0) {
       insights.add(HabitInsight(
-        icon: '⚡',
+        icon: '',
         title: 'Current Streak: $current days',
         description:
             'You\'re on a $current-day streak. Don\'t break the chain!',
@@ -351,7 +374,7 @@ class StatsEngine {
     if (rate > 0) {
       final pct = (rate * 100).round();
       insights.add(HabitInsight(
-        icon: '📊',
+        icon: '',
         title: '30-Day Completion: $pct%',
         description: pct >= 80
             ? 'Excellent consistency! You\'re completing $pct% of your habits.'
@@ -367,7 +390,7 @@ class StatsEngine {
     if (focusMin > 0) {
       final hours = (focusMin / 60).toStringAsFixed(1);
       insights.add(HabitInsight(
-        icon: '🎯',
+        icon: '',
         title: 'Total Focus: ${hours}h',
         description:
             'You\'ve focused for $focusMin minutes ($hours hours) total.',
@@ -379,7 +402,7 @@ class StatsEngine {
     final overdue = overdueTasks(tasks);
     if (overdue > 0) {
       insights.add(HabitInsight(
-        icon: '⚠️',
+        icon: '',
         title: '$overdue Overdue Task${overdue > 1 ? 's' : ''}',
         description:
             'You have $overdue overdue task${overdue > 1 ? 's' : ''}. Consider rescheduling or completing them.',

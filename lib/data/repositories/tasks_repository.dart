@@ -61,6 +61,8 @@ class TasksRepository {
     List<String> subtaskTitles = const [],
     bool isRecurring = false,
     String recurringPattern = '',
+    String? goalId,
+    String? habitId,
   }) async {
     final task = Task(
       id: _uuid.v4(),
@@ -75,6 +77,8 @@ class TasksRepository {
       subtaskDone: List.filled(subtaskTitles.length, false),
       isRecurring: isRecurring,
       recurringPattern: recurringPattern,
+      goalId: goalId,
+      habitId: habitId,
     );
     await _box.put(task.id, task);
     return task;

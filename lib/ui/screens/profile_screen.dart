@@ -24,6 +24,13 @@ class ProfileScreen extends StatelessWidget {
     final financeEntries = state.financeRepo.getAll().length;
     final quotesCount = state.quotesRepo.getAll().length;
     final scheduleCount = state.scheduleRepo.getAll().length;
+    final habits = state.habitsRepo.getAll();
+    final longestStreak = habits.isEmpty
+        ? 0
+        : habits.map((habit) => habit.bestStreak()).reduce((a, b) => a > b ? a : b);
+    final totalCompletions =
+        habits.fold<int>(0, (sum, habit) => sum + habit.totalCompletions);
+    final goalsAchieved = state.goalsRepo.getCompleted().length;
 
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -71,8 +78,26 @@ class ProfileScreen extends StatelessWidget {
           childAspectRatio: 1.6,
           children: [
             _StatCard(
+              icon: Icons.local_fire_department_outlined,
+              label: 'Longest Streak',
+              value: '$longestStreak days',
+              color: ext.categoryWorkout,
+            ),
+            _StatCard(
+              icon: Icons.done_all,
+              label: 'Habit Completions',
+              value: '$totalCompletions',
+              color: ext.success,
+            ),
+            _StatCard(
+              icon: Icons.flag_outlined,
+              label: 'Goals Achieved',
+              value: '$goalsAchieved',
+              color: ext.categoryOther,
+            ),
+            _StatCard(
               icon: Icons.repeat_rounded,
-              label: 'Habits',
+              label: 'Habits Tracked',
               value: '$habitsCount',
               color: ext.categoryWorkout,
             ),

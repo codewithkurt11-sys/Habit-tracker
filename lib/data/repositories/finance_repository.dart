@@ -77,6 +77,8 @@ class FinanceRepository {
     required int categoryIndex,
     required DateTime date,
     String note = '',
+    String? goalId,
+    double plannedAmount = 0,
   }) async {
     final entry = FinanceEntry(
       id: _uuid.v4(),
@@ -86,10 +88,19 @@ class FinanceRepository {
       categoryIndex: categoryIndex,
       date: date,
       note: note,
+      goalId: goalId,
+      plannedAmount: plannedAmount,
     );
     await _box.put(entry.id, entry);
     return entry;
   }
+
+  List<FinanceEntry> getForGoal(String goalId) =>
+      getAll().where((entry) => entry.goalId == goalId).toList();
+
+  double contributedToGoal(String goalId) => getForGoal(goalId)
+      .where((entry) => entry.isIncome)
+      .fold(0, (sum, entry) => sum + entry.amount);
 
   Future<void> update(FinanceEntry entry) async => _box.put(entry.id, entry);
 

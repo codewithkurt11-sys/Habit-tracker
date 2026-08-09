@@ -7,10 +7,14 @@ import '../../data/models/habit.dart';
 import '../../data/models/task.dart';
 import '../../data/models/goal.dart';
 import '../../data/models/quote.dart';
+import '../../data/models/savings_goal.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
+import 'notes_screen.dart';
+import 'habits_screen.dart';
+import 'focus_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -36,6 +40,10 @@ class DashboardScreen extends StatelessWidget {
     }).toList();
     final activeGoals = state.goalsRepo.getActive();
     final todaySchedule = state.scheduleRepo.getForToday();
+    final recentNotes = state.notesRepo.getAll().take(3).toList();
+    final financeGoals = activeGoals
+        .where((goal) => goal.category == GoalCategory.finance)
+        .toList();
     final focusMinutes = state.focusRepo.getTotalFocusMinutesToday();
     final dailyQuote = state.quotesRepo.quoteForDate(today);
     final habits = state.habitsRepo.getAll();
@@ -48,6 +56,9 @@ class DashboardScreen extends StatelessWidget {
     final habitsPct =
         dueHabits.isEmpty ? 0.0 : completedHabits.length / dueHabits.length;
     final userName = state.settings.userName ?? 'there';
+    final dashConfig = state.settings.dashboardConfig;
+    final consistencyScore = StatsEngine.consistencyScore(habits);
+    final savingsGoals = state.savingsGoalsRepo.getAll();
 
     return Scaffold(
       body: SafeArea(
@@ -62,56 +73,60 @@ class DashboardScreen extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
                 children: [
-                  // Daily progress card
-                  _DailyProgressCard(
-                    completed: completedHabits.length,
-                    total: dueHabits.length,
-                    progress: habitsPct,
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-
-                  // Quick stats row
-                  Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                    child: Row(
-                      children: [
-                        Expanded(
-                            child: _QuickStat(
-                                icon: Icons.check_circle_outline,
-                                label: 'Tasks',
-                                value: '${activeTasks.length}',
-                                sub: overdueTasks.isNotEmpty
-                                    ? '${overdueTasks.length} overdue'
-                                    : 'active',
-                                color: ext.categoryOther)),
-                        const SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                            child: _QuickStat(
-                                icon: Icons.track_changes_outlined,
-                                label: 'Goals',
-                                value: '${activeGoals.length}',
-                                sub: 'active',
-                                color: ext.categoryLifestyle)),
-                        const SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                            child: _QuickStat(
-                                icon: Icons.timer_outlined,
-                                label: 'Focus',
-                                value: '${focusMinutes}m',
-                                sub: 'today',
-                                color: ext.success)),
-                      ],
+                  if (dashConfig.showDailyProgress) ...[
+                    _DailyProgressCard(
+                      completed: completedHabits.length,
+                      total: dueHabits.length,
+                      progress: habitsPct,
+                      consistencyScore: consistencyScore,
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
+                    const SizedBox(height: AppSpacing.md),
+                  ],
 
-                  // Quick actions
-                  _QuickActionsGrid(state: state),
-                  const SizedBox(height: AppSpacing.md),
+                  if (dashConfig.showQuickStats) ...[
+                    Padding(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                      child: Row(
+                        children: [
+                          Expanded(
+                              child: _QuickStat(
+                                  icon: Icons.check_circle_outline,
+                                  label: 'Tasks',
+                                  value: '${activeTasks.length}',
+                                  sub: overdueTasks.isNotEmpty
+                                      ? '${overdueTasks.length} overdue'
+                                      : 'active',
+                                  color: ext.categoryOther)),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                              child: _QuickStat(
+                                  icon: Icons.track_changes_outlined,
+                                  label: 'Goals',
+                                  value: '${activeGoals.length}',
+                                  sub: 'active',
+                                  color: ext.categoryLifestyle)),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                              child: _QuickStat(
+                                  icon: Icons.timer_outlined,
+                                  label: 'Focus',
+                                  value: '${focusMinutes}m',
+                                  sub: 'today',
+                                  color: ext.success)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                  ],
+
+                  if (dashConfig.showQuickActions) ...[
+                    _QuickActionsGrid(state: state),
+                    const SizedBox(height: AppSpacing.md),
+                  ],
 
                   // Today's habits
-                  if (dueHabits.isNotEmpty) ...[
+                  if (dashConfig.showTodayHabits && dueHabits.isNotEmpty) ...[
                     _SectionHeader(
                         title: 'Today\'s Habits',
                         count: '${completedHabits.length}/${dueHabits.length}'),
@@ -124,7 +139,8 @@ class DashboardScreen extends StatelessWidget {
                   ],
 
                   // Today's tasks
-                  if (todayTasks.isNotEmpty || overdueTasks.isNotEmpty) ...[
+                  if (dashConfig.showTasks &&
+                      (todayTasks.isNotEmpty || overdueTasks.isNotEmpty)) ...[
                     _SectionHeader(
                         title: 'Tasks',
                         count:
@@ -138,7 +154,7 @@ class DashboardScreen extends StatelessWidget {
                   ],
 
                   // Today's schedule
-                  if (todaySchedule.isNotEmpty) ...[
+                  if (dashConfig.showSchedule && todaySchedule.isNotEmpty) ...[
                     _SectionHeader(
                         title: 'Today\'s Schedule',
                         count: '${todaySchedule.length} items'),
@@ -148,7 +164,7 @@ class DashboardScreen extends StatelessWidget {
                   ],
 
                   // Active goals summary
-                  if (activeGoals.isNotEmpty) ...[
+                  if (dashConfig.showGoalProgress && activeGoals.isNotEmpty) ...[
                     _SectionHeader(
                         title: 'Goal Progress',
                         count: '${activeGoals.length} active'),
@@ -158,15 +174,68 @@ class DashboardScreen extends StatelessWidget {
                     const SizedBox(height: AppSpacing.md),
                   ],
 
+                  if (dashConfig.showSavingsTargets &&
+                      (financeGoals.isNotEmpty || savingsGoals.isNotEmpty)) ...[
+                    _SectionHeader(
+                      title: 'Savings Targets',
+                      count: '${savingsGoals.length} active',
+                    ),
+                    ...savingsGoals.take(2).map(
+                      (sg) => _DashboardSavingsTile(savingsGoal: sg),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                  ],
+
+                  if (dashConfig.showRecentNotes && recentNotes.isNotEmpty) ...[
+                    _SectionHeader(
+                      title: 'Recent Notes',
+                      count: '${recentNotes.length} recent',
+                    ),
+                    ...recentNotes.map(
+                      (note) => Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.md,
+                          vertical: 2,
+                        ),
+                        child: Card(
+                          child: ListTile(
+                            leading: const Icon(Icons.sticky_note_2_outlined),
+                            title: Text(note.title),
+                            subtitle: Text(
+                              note.body,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            trailing: Text(note.folder),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                  ],
+
                   // Top insight
-                  if (insights.isNotEmpty) ...[
+                  if (dashConfig.showInsight && insights.isNotEmpty) ...[
                     const _SectionHeader(title: 'Insight', count: ''),
                     _InsightBanner(insight: insights.first),
                     const SizedBox(height: AppSpacing.md),
                   ],
 
-                  // Daily quote
-                  _QuoteBanner(quote: dailyQuote),
+                  if (dashConfig.showDailyQuote) ...[
+                    _QuoteBanner(quote: dailyQuote),
+                    const SizedBox(height: AppSpacing.md),
+                  ],
+
+                  // Customize dashboard button
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showCustomizeDialog(context, state),
+                      icon: const Icon(Icons.tune, size: 18),
+                      label: const Text('Customize Dashboard'),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -188,8 +257,12 @@ class _DailyProgressCard extends StatelessWidget {
   final int completed;
   final int total;
   final double progress;
+  final int consistencyScore;
   const _DailyProgressCard(
-      {required this.completed, required this.total, required this.progress});
+      {required this.completed,
+      required this.total,
+      required this.progress,
+      required this.consistencyScore});
 
   @override
   Widget build(BuildContext context) {
@@ -250,6 +323,14 @@ class _DailyProgressCard extends StatelessWidget {
                                 ? 'All done! Great work!'
                                 : '$completed of $total habits completed',
                         style: theme.textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Consistency score: $consistencyScore/100',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                   ),
@@ -330,9 +411,9 @@ class _QuickActionsGrid extends StatelessWidget {
               onTap: () => _showAddTask(context)),
           _QuickAction(
               icon: Icons.edit_note,
-              label: 'Journal',
+              label: 'Note',
               color: const Color(0xFF7B93B5),
-              onTap: () => _showAddJournal(context)),
+              onTap: () => showAddNoteDialog(context)),
           _QuickAction(
               icon: Icons.timer,
               label: 'Focus',
@@ -351,15 +432,10 @@ class _QuickActionsGrid extends StatelessWidget {
     showDialog(context: context, builder: (_) => const _QuickTaskDialog());
   }
 
-  void _showAddJournal(BuildContext context) {
-    showDialog(context: context, builder: (_) => const _QuickJournalDialog());
-  }
 
   void _showFocusTimer(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-          content: Text('Open the Focus tab to start a timer'),
-          duration: Duration(seconds: 2)),
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const FocusScreen()),
     );
   }
 }
@@ -442,9 +518,196 @@ class _SeeAllButton extends StatelessWidget {
       padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md, vertical: AppSpacing.xs),
       child: TextButton(
-        onPressed: () {},
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const HabitsScreen()),
+        ),
         child: Text(label),
       ),
+    );
+  }
+}
+
+/// Circular fill progress widget — Streaks-style minimal design.
+
+/// Savings goal tile on the dashboard.
+class _DashboardSavingsTile extends StatelessWidget {
+  final SavingsGoal savingsGoal;
+  const _DashboardSavingsTile({required this.savingsGoal});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final progress = savingsGoal.progressFraction;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 2),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.savings, color: theme.colorScheme.primary, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                      child: Text(savingsGoal.title,
+                          style: theme.textTheme.bodyMedium,
+                          maxLines: 1, overflow: TextOverflow.ellipsis)),
+                  Text('${(progress * 100).toStringAsFixed(0)}%',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.bold)),
+                ],
+              ),
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 6,
+                  backgroundColor:
+                      theme.colorScheme.onSurface.withValues(alpha: 0.08),
+                  valueColor:
+                      AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '₱${savingsGoal.totalContributed.toStringAsFixed(0)} / ₱${savingsGoal.targetAmount.toStringAsFixed(0)} · ${savingsGoal.remainingDays}d left · ${savingsGoal.varianceStatus.label}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Dashboard customization dialog.
+void _showCustomizeDialog(BuildContext context, AppState state) {
+  showDialog(
+    context: context,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (ctx, setSt) {
+        final cfg = state.settings.dashboardConfig;
+        return AlertDialog(
+          title: const Text('Customize Dashboard'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _DashboardToggle(
+                      label: 'Daily Progress',
+                      value: cfg.showDailyProgress,
+                      onChanged: (v) {
+                        setSt(() => cfg.showDailyProgress = v);
+                      }),
+                  _DashboardToggle(
+                      label: 'Quick Stats',
+                      value: cfg.showQuickStats,
+                      onChanged: (v) {
+                        setSt(() => cfg.showQuickStats = v);
+                      }),
+                  _DashboardToggle(
+                      label: 'Quick Actions',
+                      value: cfg.showQuickActions,
+                      onChanged: (v) {
+                        setSt(() => cfg.showQuickActions = v);
+                      }),
+                  _DashboardToggle(
+                      label: "Today's Habits",
+                      value: cfg.showTodayHabits,
+                      onChanged: (v) {
+                        setSt(() => cfg.showTodayHabits = v);
+                      }),
+                  _DashboardToggle(
+                      label: 'Tasks',
+                      value: cfg.showTasks,
+                      onChanged: (v) {
+                        setSt(() => cfg.showTasks = v);
+                      }),
+                  _DashboardToggle(
+                      label: 'Schedule',
+                      value: cfg.showSchedule,
+                      onChanged: (v) {
+                        setSt(() => cfg.showSchedule = v);
+                      }),
+                  _DashboardToggle(
+                      label: 'Goal Progress',
+                      value: cfg.showGoalProgress,
+                      onChanged: (v) {
+                        setSt(() => cfg.showGoalProgress = v);
+                      }),
+                  _DashboardToggle(
+                      label: 'Savings Targets',
+                      value: cfg.showSavingsTargets,
+                      onChanged: (v) {
+                        setSt(() => cfg.showSavingsTargets = v);
+                      }),
+                  _DashboardToggle(
+                      label: 'Recent Notes',
+                      value: cfg.showRecentNotes,
+                      onChanged: (v) {
+                        setSt(() => cfg.showRecentNotes = v);
+                      }),
+                  _DashboardToggle(
+                      label: 'Insight',
+                      value: cfg.showInsight,
+                      onChanged: (v) {
+                        setSt(() => cfg.showInsight = v);
+                      }),
+                  _DashboardToggle(
+                      label: 'Daily Quote',
+                      value: cfg.showDailyQuote,
+                      onChanged: (v) {
+                        setSt(() => cfg.showDailyQuote = v);
+                      }),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                state.setDashboardConfig(cfg);
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+}
+
+class _DashboardToggle extends StatelessWidget {
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  const _DashboardToggle({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SwitchListTile(
+      title: Text(label),
+      value: value,
+      onChanged: onChanged,
+      dense: true,
+      contentPadding: EdgeInsets.zero,
     );
   }
 }
@@ -649,8 +912,8 @@ class _InsightBanner extends StatelessWidget {
           padding: const EdgeInsets.all(AppSpacing.md),
           child: Row(
             children: [
-              Text(insight.icon as String,
-                  style: const TextStyle(fontSize: 28)),
+              Icon(Icons.insights, size: 20,
+                  color: theme.colorScheme.primary.withValues(alpha: 0.6)),
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Column(

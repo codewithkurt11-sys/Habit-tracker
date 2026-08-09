@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../logic/app_state.dart';
 import '../../logic/stats_engine.dart';
 import '../../data/models/finance_entry.dart';
+import '../../data/models/savings_goal.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
@@ -57,6 +58,9 @@ class FinanceScreen extends StatelessWidget {
               ),
             if (budget.monthlyBudget > 0 || categoryBreakdown.isNotEmpty)
               const SizedBox(height: AppSpacing.sm),
+            // Savings goals section
+            _SavingsGoalsSection(state: state),
+            const SizedBox(height: AppSpacing.sm),
             Expanded(
               child: entries.isEmpty
                   ? const EmptyState(
@@ -104,7 +108,7 @@ class _SummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final ext = theme.extension<AppThemeExtension>()!;
-    final fmt = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
+    final fmt = NumberFormat.currency(symbol: '₱', decimalDigits: 2);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
@@ -170,7 +174,7 @@ class _BudgetOverviewCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final ext = theme.extension<AppThemeExtension>()!;
-    final fmt = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+    final fmt = NumberFormat.currency(symbol: '₱', decimalDigits: 0);
     final budgetPct = budget > 0 ? (expenses / budget).clamp(0.0, 1.0) : 0.0;
     final savings = income - expenses;
     final savingsPct =
@@ -289,7 +293,7 @@ class _BudgetOverviewCard extends StatelessWidget {
                         ),
                         SizedBox(
                             width: 50,
-                            child: Text('\$${e.value.toStringAsFixed(0)}',
+                            child: Text('₱${e.value.toStringAsFixed(0)}',
                                 style: theme.textTheme.bodySmall,
                                 textAlign: TextAlign.right)),
                       ],
@@ -357,7 +361,7 @@ class _FinanceTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = context.read<AppState>();
     final theme = Theme.of(context);
-    final fmt = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
+    final fmt = NumberFormat.currency(symbol: '₱', decimalDigits: 2);
     final isIncome = entry.isIncome;
 
     return Dismissible(
@@ -401,6 +405,10 @@ class _FinanceTile extends StatelessWidget {
                           PillChip(
                               label: entry.categoryLabel,
                               color: entry.categoryColor),
+                          if (entry.goalId != null) ...[
+                            const SizedBox(width: 6),
+                            const PillChip(label: 'Savings goal', icon: Icons.link),
+                          ],
                           const SizedBox(width: 6),
                           Text(
                             '${entry.date.month}/${entry.date.day}',
@@ -442,15 +450,18 @@ class _AddFinanceDialogState extends State<_AddFinanceDialog> {
   final _titleController = TextEditingController();
   final _amountController = TextEditingController();
   final _noteController = TextEditingController();
+  final _plannedController = TextEditingController();
   int _typeIndex = 1; // 0 = income, 1 = expense
   int _categoryIndex = 0;
   DateTime _date = DateTime.now();
+  String? _goalId;
 
   @override
   void dispose() {
     _titleController.dispose();
     _amountController.dispose();
     _noteController.dispose();
+    _plannedController.dispose();
     super.dispose();
   }
 
@@ -552,7 +563,47 @@ class _AddFinanceDialogState extends State<_AddFinanceDialog> {
               controller: _amountController,
               decoration: const InputDecoration(
                 labelText: 'Amount',
-                prefixText: '\$ ',
+                prefixText: '₱ ',
+              ),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            DropdownButtonFormField<String?>(
+              initialValue: _goalId,
+              decoration: const InputDecoration(
+                labelText: 'Savings goal (optional)',
+                prefixIcon: Icon(Icons.savings_outlined),
+              ),
+              items: [
+                const DropdownMenuItem<String?>(
+                  value: null,
+                  child: Text('Not linked'),
+                ),
+                ...context
+                    .read<AppState>()
+                    .goalsRepo
+                    .getActive()
+                    .where((goal) => goal.category.name == 'finance')
+                    .map(
+                      (goal) => DropdownMenuItem<String?>(
+                        value: goal.id,
+                        child: Text(goal.title),
+                      ),
+                    ),
+              ],
+              onChanged: (value) => setState(() {
+                _goalId = value;
+                if (value != null) _typeIndex = 0;
+              }),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            TextField(
+              controller: _plannedController,
+              decoration: const InputDecoration(
+                labelText: 'Planned contribution (optional)',
+                prefixText: '₱ ',
+                helperText: 'Used to show actual versus planned variance.',
               ),
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
@@ -639,6 +690,373 @@ class _AddFinanceDialogState extends State<_AddFinanceDialog> {
                   typeIndex: _typeIndex,
                   categoryIndex: _categoryIndex,
                   date: _date,
+                  note: _noteController.text.trim(),
+                  goalId: _goalId,
+                  plannedAmount:
+                      double.tryParse(_plannedController.text.trim()) ?? 0,
+                );
+            Navigator.pop(context);
+          },
+          child: const Text('Add'),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Savings Goals Section
+// ─────────────────────────────────────────────────────────────────────
+
+class _SavingsGoalsSection extends StatelessWidget {
+  final AppState state;
+  const _SavingsGoalsSection({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final goals = state.savingsGoalsRepo.getAll();
+    if (goals.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+        child: Card(
+          child: ListTile(
+            leading: Icon(Icons.savings_outlined,
+                color: Theme.of(context).colorScheme.primary),
+            title: const Text('Savings Targets'),
+            subtitle: const Text(
+                'Set a target amount and daily contribution plan'),
+            trailing: IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: () => _showAddSavingsGoalDialog(context),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text('Savings Targets',
+                  style: Theme.of(context).textTheme.titleSmall),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.add, size: 20),
+                onPressed: () => _showAddSavingsGoalDialog(context),
+              ),
+            ],
+          ),
+          ...goals.map((sg) => _SavingsGoalCard(savingsGoal: sg)),
+        ],
+      ),
+    );
+  }
+
+  void _showAddSavingsGoalDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (_) => const _AddSavingsGoalDialog(),
+    );
+  }
+}
+
+class _SavingsGoalCard extends StatelessWidget {
+  final SavingsGoal savingsGoal;
+  const _SavingsGoalCard({required this.savingsGoal});
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.read<AppState>();
+    final theme = Theme.of(context);
+    final ext = theme.extension<AppThemeExtension>()!;
+    final fmt0 = NumberFormat.currency(symbol: '₱', decimalDigits: 0);
+
+    final progress = savingsGoal.progressFraction;
+    final variance = savingsGoal.varianceStatus;
+    final varianceColor = variance == VarianceStatus.ahead
+        ? ext.success
+        : variance == VarianceStatus.behind
+            ? theme.colorScheme.error
+            : theme.colorScheme.primary;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Title + delete
+              Row(
+                children: [
+                  Icon(Icons.savings, color: theme.colorScheme.primary, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(savingsGoal.title,
+                        style: theme.textTheme.titleSmall),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    constraints: const BoxConstraints(),
+                    padding: EdgeInsets.zero,
+                    onPressed: () {
+                      showDeleteConfirmation(context,
+                              itemName: 'savings goal',
+                              message:
+                                  'Delete "${savingsGoal.title}"?')
+                          .then((confirmed) {
+                        if (confirmed) state.deleteSavingsGoal(savingsGoal.id);
+                      });
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              // Target / daily / remaining
+              Row(
+                children: [
+                  _SavingsStat(
+                      label: 'Target',
+                      value: fmt0.format(savingsGoal.targetAmount)),
+                  const SizedBox(width: AppSpacing.md),
+                  _SavingsStat(
+                      label: 'Daily',
+                      value: fmt0.format(savingsGoal.dailyAmount)),
+                  const SizedBox(width: AppSpacing.md),
+                  _SavingsStat(
+                      label: 'Remaining',
+                      value:
+                          '${savingsGoal.remainingDays}d'),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              // Progress bar
+              ClipRRect(
+                borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 8,
+                  backgroundColor:
+                      theme.colorScheme.onSurface.withValues(alpha: 0.08),
+                  valueColor:
+                      AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '${fmt0.format(savingsGoal.totalContributed)} / ${fmt0.format(savingsGoal.targetAmount)}',
+                    style: theme.textTheme.bodySmall
+                        ?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  Text('${(progress * 100).toStringAsFixed(0)}%',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.bold)),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              // Variance status
+              Row(
+                children: [
+                  Icon(
+                    variance == VarianceStatus.ahead
+                        ? Icons.trending_up
+                        : variance == VarianceStatus.behind
+                            ? Icons.trending_down
+                            : Icons.trending_flat,
+                    size: 16,
+                    color: varianceColor,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(variance.label,
+                      style: theme.textTheme.bodySmall
+                          ?.copyWith(color: varianceColor, fontWeight: FontWeight.w600)),
+                  const Spacer(),
+                  Text(
+                    '${savingsGoal.confirmedCount}/${savingsGoal.expectedContributions} days',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface
+                            .withValues(alpha: 0.5)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              // Action buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: savingsGoal.isConfirmedToday
+                          ? null
+                          : () =>
+                              state.confirmSavingsContribution(savingsGoal.id),
+                      icon: const Icon(Icons.check, size: 18),
+                      label: Text(savingsGoal.isConfirmedToday
+                          ? 'Confirmed today'
+                          : 'Confirm ₱${savingsGoal.dailyAmount.toStringAsFixed(0)}'),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                            vertical: AppSpacing.sm),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  OutlinedButton.icon(
+                    onPressed: () =>
+                        state.recalculateSavingsGoal(savingsGoal.id),
+                    icon: const Icon(Icons.refresh, size: 18),
+                    label: const Text('Recalculate'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: AppSpacing.sm),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SavingsStat extends StatelessWidget {
+  final String label;
+  final String value;
+  const _SavingsStat({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                  fontSize: 10)),
+          Text(value,
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+}
+
+class _AddSavingsGoalDialog extends StatefulWidget {
+  const _AddSavingsGoalDialog();
+
+  @override
+  State<_AddSavingsGoalDialog> createState() => _AddSavingsGoalDialogState();
+}
+
+class _AddSavingsGoalDialogState extends State<_AddSavingsGoalDialog> {
+  final _titleController = TextEditingController();
+  final _targetController = TextEditingController();
+  final _daysController = TextEditingController();
+  String? _goalId;
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _targetController.dispose();
+    _daysController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('New Savings Target'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _titleController,
+              decoration: const InputDecoration(
+                labelText: 'Title',
+                hintText: 'e.g. Emergency fund',
+              ),
+              autofocus: true,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            TextField(
+              controller: _targetController,
+              decoration: const InputDecoration(
+                labelText: 'Target amount',
+                prefixText: '₱ ',
+              ),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            TextField(
+              controller: _daysController,
+              decoration: const InputDecoration(
+                labelText: 'Target days',
+                hintText: 'e.g. 30',
+              ),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            DropdownButtonFormField<String?>(
+              initialValue: _goalId,
+              decoration: const InputDecoration(
+                labelText: 'Link to goal (optional)',
+                prefixIcon: Icon(Icons.link),
+              ),
+              items: [
+                const DropdownMenuItem<String?>(
+                  value: null,
+                  child: Text('Not linked'),
+                ),
+                ...context
+                    .read<AppState>()
+                    .goalsRepo
+                    .getActive()
+                    .where((goal) => goal.category.name == 'finance')
+                    .map(
+                      (goal) => DropdownMenuItem<String?>(
+                        value: goal.id,
+                        child: Text(goal.title),
+                      ),
+                    ),
+              ],
+              onChanged: (value) => setState(() => _goalId = value),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            final title = _titleController.text.trim();
+            final target = double.tryParse(_targetController.text.trim());
+            final days = int.tryParse(_daysController.text.trim());
+            if (title.isEmpty || target == null || target <= 0 || days == null || days <= 0) {
+              return;
+            }
+            context.read<AppState>().addSavingsGoal(
+                  title: title,
+                  targetAmount: target,
+                  targetDays: days,
+                  goalId: _goalId,
                 );
             Navigator.pop(context);
           },

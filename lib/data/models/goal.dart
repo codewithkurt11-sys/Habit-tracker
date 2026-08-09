@@ -101,6 +101,11 @@ class Goal extends HiveObject {
   int colorValue;
   DateTime createdAt;
   DateTime updatedAt;
+  // schema-only: future cross-linking fields
+  List<String> linkedHabitIds;
+  List<String> linkedTaskIds;
+  String? linkedFinanceId;
+  double progressPercent;
 
   Goal({
     required this.id,
@@ -119,12 +124,18 @@ class Goal extends HiveObject {
     this.colorValue = 0xFF6B9080,
     DateTime? createdAt,
     DateTime? updatedAt,
+    List<String>? linkedHabitIds,
+    List<String>? linkedTaskIds,
+    this.linkedFinanceId,
+    this.progressPercent = 0,
   })  : milestoneIds = milestoneIds ?? [],
         milestoneTitles = milestoneTitles ?? [],
         milestoneDone = milestoneDone ?? [],
         milestoneDates = milestoneDates ?? [],
         createdAt = createdAt ?? DateTime.now(),
-        updatedAt = updatedAt ?? DateTime.now();
+        updatedAt = updatedAt ?? DateTime.now(),
+        linkedHabitIds = linkedHabitIds ?? [],
+        linkedTaskIds = linkedTaskIds ?? [];
 
   /// Touch [updatedAt] to now. Called by repositories on every mutation.
   void touch() => updatedAt = DateTime.now();
@@ -187,13 +198,17 @@ class GoalAdapter extends TypeAdapter<Goal> {
       // updatedAt (field 15) — backward compatible: fall back to createdAt
       updatedAt:
           fields[15] as DateTime? ?? fields[14] as DateTime? ?? DateTime.now(),
+      linkedHabitIds: (fields[16] as List?)?.cast<String>() ?? [],
+      linkedTaskIds: (fields[17] as List?)?.cast<String>() ?? [],
+      linkedFinanceId: fields[18] as String?,
+      progressPercent: (fields[19] as num?)?.toDouble() ?? 0,
     );
   }
 
   @override
   void write(BinaryWriter writer, Goal obj) {
     writer
-      ..writeByte(16)
+      ..writeByte(20)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -225,6 +240,14 @@ class GoalAdapter extends TypeAdapter<Goal> {
       ..writeByte(14)
       ..write(obj.createdAt)
       ..writeByte(15)
-      ..write(obj.updatedAt);
+      ..write(obj.updatedAt)
+      ..writeByte(16)
+      ..write(obj.linkedHabitIds)
+      ..writeByte(17)
+      ..write(obj.linkedTaskIds)
+      ..writeByte(18)
+      ..write(obj.linkedFinanceId)
+      ..writeByte(19)
+      ..write(obj.progressPercent);
   }
 }

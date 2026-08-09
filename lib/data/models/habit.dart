@@ -77,10 +77,13 @@ class Habit extends HiveObject {
   HabitFrequency frequency;
   List<int> customDays;
   List<DateTime> completionLog;
+  List<DateTime> skipLog;
   DateTime createdAt;
   int iconIndex;
   int? colorValue;
   int targetStreak;
+  String? goalId;
+  String? linkedGoalId; // schema-only: future cross-linking
   DateTime updatedAt;
 
   Habit({
@@ -90,13 +93,17 @@ class Habit extends HiveObject {
     required this.frequency,
     List<int>? customDays,
     List<DateTime>? completionLog,
+    List<DateTime>? skipLog,
     DateTime? createdAt,
     this.iconIndex = 15, // HabitIcon.custom
     this.colorValue,
     this.targetStreak = 0,
+    this.goalId,
+    this.linkedGoalId,
     DateTime? updatedAt,
   })  : customDays = customDays ?? [],
         completionLog = completionLog ?? [],
+        skipLog = skipLog ?? [],
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
 
@@ -126,6 +133,17 @@ class Habit extends HiveObject {
   bool isCompletedOn(DateTime date) {
     final normalized = DateTime(date.year, date.month, date.day);
     return completionLog.any(
+      (d) =>
+          d.year == normalized.year &&
+          d.month == normalized.month &&
+          d.day == normalized.day,
+    );
+  }
+
+  /// Whether this habit was explicitly skipped on [date].
+  bool isSkippedOn(DateTime date) {
+    final normalized = DateTime(date.year, date.month, date.day);
+    return skipLog.any(
       (d) =>
           d.year == normalized.year &&
           d.month == normalized.month &&
@@ -199,7 +217,7 @@ class Habit extends HiveObject {
 
     while (!cursor.isBefore(firstDay)) {
       if (isDueOn(cursor)) {
-        if (isCompletedOn(cursor)) break;
+        if (isCompletedOn(cursor) || isSkippedOn(cursor)) break;
         misses++;
       }
       cursor = DateTime(cursor.year, cursor.month, cursor.day - 1);
@@ -208,6 +226,8 @@ class Habit extends HiveObject {
   }
 
   /// Completion rate over the last [days] days (0.0 - 1.0).
+  /// Skipped days are excluded from the denominator (intentional skip,
+  /// not a failure to act).
   double completionRate({int days = 30, DateTime? asOf}) {
     if (days <= 0) return 0;
     final value = asOf ?? DateTime.now();
@@ -219,8 +239,10 @@ class Habit extends HiveObject {
     var completedDays = 0;
     while (!cursor.isAfter(end)) {
       if (isDueOn(cursor)) {
-        dueDays++;
-        if (isCompletedOn(cursor)) completedDays++;
+        if (!isSkippedOn(cursor)) {
+          dueDays++;
+          if (isCompletedOn(cursor)) completedDays++;
+        }
       }
       cursor = DateTime(cursor.year, cursor.month, cursor.day + 1);
     }
@@ -258,13 +280,16 @@ class HabitAdapter extends TypeAdapter<Habit> {
       targetStreak: fields[9] as int? ?? 0,
       // updatedAt (field 10) — backward compatible: fall back to createdAt
       updatedAt: fields[10] as DateTime? ?? fields[6] as DateTime,
+      goalId: fields[11] as String?,
+      skipLog: (fields[12] as List?)?.cast<DateTime>() ?? [],
+      linkedGoalId: fields[13] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Habit obj) {
     writer
-      ..writeByte(11)
+      ..writeByte(14)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -286,6 +311,12 @@ class HabitAdapter extends TypeAdapter<Habit> {
       ..writeByte(9)
       ..write(obj.targetStreak)
       ..writeByte(10)
-      ..write(obj.updatedAt);
+      ..write(obj.updatedAt)
+      ..writeByte(11)
+      ..write(obj.goalId)
+      ..writeByte(12)
+      ..write(obj.skipLog)
+      ..writeByte(13)
+      ..write(obj.linkedGoalId);
   }
 }

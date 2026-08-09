@@ -69,83 +69,225 @@ class _HabitTile extends StatelessWidget {
     final state = context.read<AppState>();
     final theme = Theme.of(context);
     final done = habit.isCompletedOn(DateTime.now());
+    final skipped = habit.isSkippedOn(DateTime.now());
     final streak = habit.currentStreak();
     final color = habit.customColor ?? _categoryColor(habit.category);
+
+    // Subtle milestone feedback at 7/30/100-day streaks
+    String? milestone;
+    if (streak == 7) {
+      milestone = '7-day streak!';
+    } else if (streak == 30) {
+      milestone = '30-day milestone!';
+    } else if (streak == 100) {
+      milestone = '100-day milestone!';
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md, vertical: AppSpacing.xs + 2),
-      child: Card(
-        child: InkWell(
-          onTap: () => state.toggleHabit(habit.id),
-          onLongPress: () => Navigator.of(context).push(
-            MaterialPageRoute(
-                builder: (_) => HabitDetailScreen(habitId: habit.id)),
+      child: Dismissible(
+        key: ValueKey(habit.id),
+        // Swipe right = complete, swipe left = skip
+        confirmDismiss: (direction) async {
+          if (direction == DismissDirection.startToEnd) {
+            await state.toggleHabit(habit.id);
+          } else if (direction == DismissDirection.endToStart) {
+            await state.skipHabit(habit.id);
+          }
+          return false; // Don't actually remove the tile
+        },
+        background: Container(
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.only(left: AppSpacing.lg),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
           ),
-          borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Row(
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.15),
-                    borderRadius:
-                        BorderRadius.circular(AppSpacing.radiusMedium),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.check_circle, color: color),
+              const SizedBox(width: 8),
+              Text('Complete', style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+        secondaryBackground: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: AppSpacing.lg),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.skip_next, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+              const SizedBox(width: 8),
+              Text('Skip',
+                  style: TextStyle(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+        child: Card(
+          child: InkWell(
+            onTap: () => state.toggleHabit(habit.id),
+            onLongPress: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                  builder: (_) => HabitDetailScreen(habitId: habit.id)),
+            ),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.15),
+                      borderRadius:
+                          BorderRadius.circular(AppSpacing.radiusMedium),
+                    ),
+                    child: Icon(habit.icon.data, color: color, size: 24),
                   ),
-                  child: Icon(habit.icon.data, color: color, size: 24),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(habit.name,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                              decoration:
-                                  done ? TextDecoration.lineThrough : null,
-                              color: done
-                                  ? theme.colorScheme.onSurface
-                                      .withValues(alpha: 0.4)
-                                  : null)),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          if (streak > 0)
-                            PillChip(
-                              label: '$streak day streak',
-                              icon: Icons.local_fire_department_outlined,
-                              color: AppColors.lightAccent,
-                            )
-                          else
-                            PillChip(
-                              label: habit.frequency.name,
-                              color: color,
-                            ),
-                        ],
-                      ),
-                    ],
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(habit.name,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                                decoration:
+                                    done ? TextDecoration.lineThrough : null,
+                                color: done
+                                    ? theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.4)
+                                    : null)),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            if (streak > 0)
+                              PillChip(
+                                label: '$streak day streak',
+                                icon: Icons.local_fire_department_outlined,
+                                color: AppColors.lightAccent,
+                              )
+                            else if (skipped)
+                              const PillChip(
+                                label: 'Skipped today',
+                                icon: Icons.skip_next,
+                              )
+                            else
+                              PillChip(
+                                label: habit.frequency.name,
+                                color: color,
+                              ),
+                            if (habit.goalId != null) ...[
+                              const SizedBox(width: 6),
+                              const PillChip(
+                                label: 'Linked goal',
+                                icon: Icons.link,
+                              ),
+                            ],
+                            if (milestone != null) ...[
+                              const SizedBox(width: 6),
+                              PillChip(
+                                label: milestone,
+                                icon: Icons.celebration,
+                                color: AppColors.lightAccent,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: done ? color : Colors.transparent,
-                    border: Border.all(color: color, width: 2),
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusSmall),
+                  // Post-completion note "+" icon (optional, never forced)
+                  if (done)
+                    IconButton(
+                      icon: const Icon(Icons.add_circle_outline, size: 22),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      tooltip: 'Add completion note',
+                      onPressed: () => _showQuickNoteDialog(context, state, habit.id),
+                    ),
+                  const SizedBox(width: AppSpacing.xs),
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: done ? color : Colors.transparent,
+                      border: Border.all(color: color, width: 2),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSmall),
+                    ),
+                    child: done
+                        ? const Icon(Icons.check, color: Colors.white, size: 18)
+                        : skipped
+                            ? Icon(Icons.skip_next,
+                                color: color.withValues(alpha: 0.5), size: 18)
+                            : null,
                   ),
-                  child: done
-                      ? const Icon(Icons.check, color: Colors.white, size: 18)
-                      : null,
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  void _showQuickNoteDialog(BuildContext context, AppState state, String habitId) {
+    final titleController = TextEditingController();
+    final bodyController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Completion Note'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+                controller: titleController,
+                decoration: const InputDecoration(labelText: 'Title (optional)'),
+                autofocus: true),
+            const SizedBox(height: 8),
+            TextField(
+                controller: bodyController,
+                decoration: const InputDecoration(labelText: 'Note'),
+                maxLines: 3),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              final body = bodyController.text.trim();
+              final title = titleController.text.trim().isEmpty
+                  ? 'Completion note'
+                  : titleController.text.trim();
+              if (body.isEmpty) {
+                Navigator.pop(context);
+                return;
+              }
+              state.notesRepo.create(
+                  title: title,
+                  body: body,
+                  habitId: habitId,
+                  linkedEntityType: 'habit',
+                  linkedEntityId: habitId);
+              state.refresh();
+              Navigator.pop(context);
+            },
+            child: const Text('Save'),
+          ),
+        ],
       ),
     );
   }
@@ -175,6 +317,7 @@ class _AddHabitDialogState extends State<_AddHabitDialog> {
   int _frequencyIndex = 0;
   int _iconIndex = 0;
   int _colorIndex = 0;
+  String? _goalId;
 
   @override
   void dispose() {
@@ -214,6 +357,27 @@ class _AddHabitDialogState extends State<_AddHabitDialog> {
               ['Daily', 'Weekly', 'Custom'],
               _frequencyIndex,
               (i) => setState(() => _frequencyIndex = i),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            DropdownButtonFormField<String?>(
+              initialValue: _goalId,
+              decoration: const InputDecoration(
+                labelText: 'Contributes to goal (optional)',
+                prefixIcon: Icon(Icons.link),
+              ),
+              items: [
+                const DropdownMenuItem<String?>(
+                  value: null,
+                  child: Text('Standalone habit'),
+                ),
+                ...context.read<AppState>().goalsRepo.getActive().map(
+                      (goal) => DropdownMenuItem<String?>(
+                        value: goal.id,
+                        child: Text(goal.title),
+                      ),
+                    ),
+              ],
+              onChanged: (value) => setState(() => _goalId = value),
             ),
             const SizedBox(height: AppSpacing.md),
             // Icon picker
@@ -289,6 +453,7 @@ class _AddHabitDialogState extends State<_AddHabitDialog> {
                   iconIndex: _iconIndex,
                   colorValue:
                       AppColors.habitColorPalette[_colorIndex].toARGB32(),
+                  goalId: _goalId,
                 );
             Navigator.pop(context);
           },

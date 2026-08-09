@@ -17,6 +17,11 @@ class NotesRepository {
     return getAll().where((n) => n.habitId == habitId).toList();
   }
 
+  List<Note> getForEntity(String type, String id) => getAll()
+      .where((note) =>
+          note.linkedEntityType == type && note.linkedEntityId == id)
+      .toList();
+
   List<Note> getForDate(DateTime date) {
     return getAll().where((n) {
       if (n.linkedDate == null) return false;
@@ -32,7 +37,9 @@ class NotesRepository {
     final lower = query.toLowerCase();
     return getAll().where((n) {
       return n.title.toLowerCase().contains(lower) ||
-          n.body.toLowerCase().contains(lower);
+          n.body.toLowerCase().contains(lower) ||
+          n.tags.any((tag) => tag.toLowerCase().contains(lower)) ||
+          n.folder.toLowerCase().contains(lower);
     }).toList();
   }
 
@@ -52,6 +59,11 @@ class NotesRepository {
     String? habitId,
     DateTime? linkedDate,
     int moodIndex = -1,
+    String folder = 'Notes',
+    List<String> tags = const [],
+    List<String> attachmentPaths = const [],
+    String? linkedEntityType,
+    String? linkedEntityId,
   }) async {
     final note = Note(
       id: _uuid.v4(),
@@ -61,6 +73,11 @@ class NotesRepository {
       habitId: habitId,
       linkedDate: linkedDate,
       moodIndex: moodIndex,
+      folder: folder,
+      tags: List<String>.from(tags),
+      attachmentPaths: List<String>.from(attachmentPaths),
+      linkedEntityType: linkedEntityType,
+      linkedEntityId: linkedEntityId,
     );
     await _box.put(note.id, note);
     return note;

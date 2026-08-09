@@ -38,6 +38,7 @@ class HabitsRepository {
     int iconIndex = 15,
     int? colorValue,
     int targetStreak = 0,
+    String? goalId,
   }) async {
     final habit = Habit(
       id: _uuid.v4(),
@@ -48,6 +49,7 @@ class HabitsRepository {
       iconIndex: iconIndex,
       colorValue: colorValue,
       targetStreak: targetStreak,
+      goalId: goalId,
     );
     await _box.put(habit.id, habit);
     return habit;
@@ -79,6 +81,44 @@ class HabitsRepository {
       );
     } else {
       habit.completionLog.add(normalized);
+      // Remove from skip log if it was skipped before
+      habit.skipLog.removeWhere(
+        (d) =>
+            d.year == normalized.year &&
+            d.month == normalized.month &&
+            d.day == normalized.day,
+      );
+    }
+    habit.touch();
+    await _box.put(habit.id, habit);
+  }
+
+  /// Explicitly skip a habit for a given day.  Skipped days do not break
+  /// streaks and are excluded from the completion-rate denominator.
+  Future<void> skipDay(Habit habit, {DateTime? date}) async {
+    final target = date ?? DateTime.now();
+    final normalized = DateTime(target.year, target.month, target.day);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    if (normalized.isAfter(today) || !habit.isDueOn(normalized)) return;
+    final alreadySkipped = habit.isSkippedOn(normalized);
+
+    if (alreadySkipped) {
+      habit.skipLog.removeWhere(
+        (d) =>
+            d.year == normalized.year &&
+            d.month == normalized.month &&
+            d.day == normalized.day,
+      );
+    } else {
+      habit.skipLog.add(normalized);
+      // Remove from completion log if it was completed before
+      habit.completionLog.removeWhere(
+        (d) =>
+            d.year == normalized.year &&
+            d.month == normalized.month &&
+            d.day == normalized.day,
+      );
     }
     habit.touch();
     await _box.put(habit.id, habit);

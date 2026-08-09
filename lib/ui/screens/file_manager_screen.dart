@@ -55,7 +55,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
 
   Future<void> _initPermission() async {
     try {
-      final granted = await _service.ensurePermission();
+      final granted = await _service.hasPermission();
       if (!mounted) return;
       setState(() {
         _permissionGranted = granted;
@@ -68,7 +68,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = 'Storage is temporarily unavailable.';
         _loading = false;
       });
     }
@@ -84,7 +84,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = e.toString());
+      setState(() => _error = 'Storage locations could not be loaded.');
     }
   }
 
@@ -110,7 +110,7 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'Cannot access: $e';
+        _error = 'Folder unavailable. It may have moved or require permission.';
         _loading = false;
       });
     }
@@ -128,18 +128,29 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
   }
 
   void _goBack() {
-    if (_currentPath == null) return;
-    final parent = p.dirname(_currentPath!);
-    if (parent == _currentPath) {
-      // Reached root — go back to storage roots view
-      setState(() {
-        _currentPath = null;
-        _entries = [];
-        _breadcrumb.clear();
-      });
+    final currentPath = _currentPath;
+    if (currentPath == null) return;
+    final activeRoot = _roots
+        .where((root) =>
+            p.equals(root.path, currentPath) || p.isWithin(root.path, currentPath))
+        .firstOrNull;
+    final parent = p.dirname(currentPath);
+    if (activeRoot == null ||
+        p.equals(activeRoot.path, currentPath) ||
+        !p.isWithin(activeRoot.path, parent)) {
+      _showStorageRoots();
     } else {
       _navigateTo(parent);
     }
+  }
+
+  void _showStorageRoots() {
+    setState(() {
+      _currentPath = null;
+      _entries = [];
+      _breadcrumb.clear();
+      _error = null;
+    });
   }
 
   Future<void> _refresh() async {
@@ -160,7 +171,10 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
 
     if (!_permissionGranted) {
       return _PermissionView(
-        onRetry: _initPermission,
+        onRetry: () async {
+          await _service.ensurePermission();
+          await _initPermission();
+        },
         onOpenSettings: _service.openPermissionSettings,
       );
     }
@@ -198,11 +212,26 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
         if (!_fullStorageAccess) _buildLimitedAccessBanner(),
         _buildSearchBar(),
         if (_error != null)
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            color: theme.colorScheme.error.withValues(alpha: 0.1),
-            child:
-                Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
+          Card(
+            margin: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              0,
+              AppSpacing.md,
+              AppSpacing.sm,
+            ),
+            color: theme.colorScheme.errorContainer,
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              child: Row(
+                children: [
+                  const Icon(Icons.folder_off_outlined),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(child: Text(_error!)),
+                  TextButton(onPressed: _goBack, child: const Text('Go back')),
+                  TextButton(onPressed: _refresh, child: const Text('Retry')),
+                ],
+              ),
+            ),
           ),
         Expanded(
           child: _visibleEntries.isEmpty

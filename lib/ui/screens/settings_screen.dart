@@ -19,6 +19,16 @@ class SettingsScreen extends StatelessWidget {
       children: [
         const SizedBox(height: AppSpacing.lg),
 
+        const _SectionLabel('Account'),
+        Card(
+          child: ListTile(
+            leading: Icon(Icons.person_outline, color: theme.colorScheme.primary),
+            title: Text(state.settings.userName ?? 'Your profile'),
+            subtitle: const Text('Personal information and preferences'),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xl),
+
         // Appearance section
         const _SectionLabel('Appearance'),
         Card(
@@ -55,7 +65,7 @@ class SettingsScreen extends StatelessWidget {
 
         const SizedBox(height: AppSpacing.xl),
 
-        const _SectionLabel('Reminders'),
+        const _SectionLabel('Notifications'),
         Card(
           child: ListTile(
             leading: Icon(Icons.notifications_active_outlined,
@@ -82,6 +92,19 @@ class SettingsScreen extends StatelessWidget {
 
         const SizedBox(height: AppSpacing.xl),
 
+        const _SectionLabel('Privacy & Permissions'),
+        Card(
+          child: const ListTile(
+            leading: Icon(Icons.privacy_tip_outlined),
+            title: Text('Local-first privacy'),
+            subtitle: Text(
+              'Your data stays on this device. Storage access is requested only for files you choose to manage.',
+            ),
+          ),
+        ),
+
+        const SizedBox(height: AppSpacing.xl),
+
         // About section
         const _SectionLabel('About'),
         Card(
@@ -91,7 +114,7 @@ class SettingsScreen extends StatelessWidget {
                 leading:
                     Icon(Icons.info_outline, color: theme.colorScheme.primary),
                 title: const Text('Habit Tracker'),
-                subtitle: const Text('Version 1.0.0'),
+                subtitle: const Text('Version 2.0.0'),
               ),
               const Divider(height: 1),
               ListTile(
@@ -114,7 +137,7 @@ class SettingsScreen extends StatelessWidget {
         const SizedBox(height: AppSpacing.xl),
 
         // Data section
-        const _SectionLabel('Data Management'),
+        const _SectionLabel('Data & Backup'),
         Card(
           child: Column(
             children: [
@@ -122,7 +145,7 @@ class SettingsScreen extends StatelessWidget {
                 leading: Icon(Icons.download_outlined,
                     color: theme.colorScheme.primary),
                 title: const Text('Export All Data'),
-                subtitle: const Text('Download a JSON backup'),
+                subtitle: const Text('Create a local JSON file to download or share'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
                   Navigator.of(context).push(
