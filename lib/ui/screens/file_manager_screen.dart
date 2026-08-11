@@ -132,7 +132,8 @@ class _FileManagerScreenState extends State<FileManagerScreen> {
     if (currentPath == null) return;
     final activeRoot = _roots
         .where((root) =>
-            p.equals(root.path, currentPath) || p.isWithin(root.path, currentPath))
+            p.equals(root.path, currentPath) ||
+            p.isWithin(root.path, currentPath))
         .firstOrNull;
     final parent = p.dirname(currentPath);
     if (activeRoot == null ||

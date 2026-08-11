@@ -407,7 +407,8 @@ class _FinanceTile extends StatelessWidget {
                               color: entry.categoryColor),
                           if (entry.goalId != null) ...[
                             const SizedBox(width: 6),
-                            const PillChip(label: 'Savings goal', icon: Icons.link),
+                            const PillChip(
+                                label: 'Savings goal', icon: Icons.link),
                           ],
                           const SizedBox(width: 6),
                           Text(
@@ -437,6 +438,14 @@ class _FinanceTile extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Global dialog action — call from anywhere.
+void showAddFinanceDialog(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (_) => const _AddFinanceDialog(),
+  );
 }
 
 class _AddFinanceDialog extends StatefulWidget {
@@ -723,8 +732,8 @@ class _SavingsGoalsSection extends StatelessWidget {
             leading: Icon(Icons.savings_outlined,
                 color: Theme.of(context).colorScheme.primary),
             title: const Text('Savings Targets'),
-            subtitle: const Text(
-                'Set a target amount and daily contribution plan'),
+            subtitle:
+                const Text('Set a target amount and daily contribution plan'),
             trailing: IconButton(
               icon: const Icon(Icons.add),
               onPressed: () => _showAddSavingsGoalDialog(context),
@@ -794,7 +803,8 @@ class _SavingsGoalCard extends StatelessWidget {
               // Title + delete
               Row(
                 children: [
-                  Icon(Icons.savings, color: theme.colorScheme.primary, size: 20),
+                  Icon(Icons.savings,
+                      color: theme.colorScheme.primary, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(savingsGoal.title,
@@ -807,8 +817,7 @@ class _SavingsGoalCard extends StatelessWidget {
                     onPressed: () {
                       showDeleteConfirmation(context,
                               itemName: 'savings goal',
-                              message:
-                                  'Delete "${savingsGoal.title}"?')
+                              message: 'Delete "${savingsGoal.title}"?')
                           .then((confirmed) {
                         if (confirmed) state.deleteSavingsGoal(savingsGoal.id);
                       });
@@ -830,8 +839,7 @@ class _SavingsGoalCard extends StatelessWidget {
                   const SizedBox(width: AppSpacing.md),
                   _SavingsStat(
                       label: 'Remaining',
-                      value:
-                          '${savingsGoal.remainingDays}d'),
+                      value: '${savingsGoal.remainingDays}d'),
                 ],
               ),
               const SizedBox(height: AppSpacing.sm),
@@ -877,14 +885,14 @@ class _SavingsGoalCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 4),
                   Text(variance.label,
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: varianceColor, fontWeight: FontWeight.w600)),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                          color: varianceColor, fontWeight: FontWeight.w600)),
                   const Spacer(),
                   Text(
                     '${savingsGoal.confirmedCount}/${savingsGoal.expectedContributions} days',
                     style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface
-                            .withValues(alpha: 0.5)),
+                        color:
+                            theme.colorScheme.onSurface.withValues(alpha: 0.5)),
                   ),
                 ],
               ),
@@ -903,8 +911,8 @@ class _SavingsGoalCard extends StatelessWidget {
                           ? 'Confirmed today'
                           : 'Confirm ₱${savingsGoal.dailyAmount.toStringAsFixed(0)}'),
                       style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                            vertical: AppSpacing.sm),
+                        padding:
+                            const EdgeInsets.symmetric(vertical: AppSpacing.sm),
                       ),
                     ),
                   ),
@@ -915,8 +923,8 @@ class _SavingsGoalCard extends StatelessWidget {
                     icon: const Icon(Icons.refresh, size: 18),
                     label: const Text('Recalculate'),
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                          vertical: AppSpacing.sm),
+                      padding:
+                          const EdgeInsets.symmetric(vertical: AppSpacing.sm),
                     ),
                   ),
                 ],
@@ -1049,7 +1057,11 @@ class _AddSavingsGoalDialogState extends State<_AddSavingsGoalDialog> {
             final title = _titleController.text.trim();
             final target = double.tryParse(_targetController.text.trim());
             final days = int.tryParse(_daysController.text.trim());
-            if (title.isEmpty || target == null || target <= 0 || days == null || days <= 0) {
+            if (title.isEmpty ||
+                target == null ||
+                target <= 0 ||
+                days == null ||
+                days <= 0) {
               return;
             }
             context.read<AppState>().addSavingsGoal(

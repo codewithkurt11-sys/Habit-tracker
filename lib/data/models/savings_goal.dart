@@ -59,8 +59,7 @@ class SavingsGoal extends HiveObject {
   void touch() => updatedAt = DateTime.now();
 
   /// Total amount contributed so far.
-  double get totalContributed =>
-      contributionAmounts.fold(0.0, (s, a) => s + a);
+  double get totalContributed => contributionAmounts.fold(0.0, (s, a) => s + a);
 
   /// Remaining amount to reach [targetAmount].
   double get remainingAmount =>
@@ -100,7 +99,8 @@ class SavingsGoal extends HiveObject {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     return contributionDates.any(
-      (d) => d.year == today.year && d.month == today.month && d.day == today.day,
+      (d) =>
+          d.year == today.year && d.month == today.month && d.day == today.day,
     );
   }
 
@@ -142,10 +142,8 @@ class SavingsGoalAdapter extends TypeAdapter<SavingsGoal> {
       targetAmount: (fields[2] as num).toDouble(),
       targetDays: fields[3] as int,
       startDate: fields[4] as DateTime? ?? DateTime.now(),
-      contributionDates:
-          (fields[5] as List?)?.cast<DateTime>() ?? [],
-      contributionAmounts:
-          (fields[6] as List?)?.cast<double>() ?? [],
+      contributionDates: (fields[5] as List?)?.cast<DateTime>() ?? [],
+      contributionAmounts: (fields[6] as List?)?.cast<double>() ?? [],
       goalId: fields[7] as String?,
       createdAt: fields[8] as DateTime? ?? DateTime.now(),
       updatedAt: fields[9] as DateTime? ?? DateTime.now(),

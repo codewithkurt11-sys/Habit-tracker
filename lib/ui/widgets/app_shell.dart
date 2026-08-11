@@ -21,6 +21,7 @@ import '../screens/export_screen.dart';
 import '../screens/kanban_screen.dart';
 import '../screens/calendar_screen.dart';
 import '../screens/search_screen.dart';
+import '../screens/journal_screen.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -31,6 +32,7 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _bottomIndex = 0;
+  bool _showQuickCapture = false;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   final _bottomScreens = <Widget>[
@@ -228,6 +230,7 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       key: _scaffoldKey,
       drawer: Drawer(
@@ -248,11 +251,76 @@ class _AppShellState extends State<AppShell> {
         ),
       ),
       body: _bottomScreens[_bottomIndex],
-      floatingActionButton: FloatingActionButton.small(
-        heroTag: 'global-note',
-        tooltip: 'Quick capture note',
-        onPressed: () => showAddNoteDialog(context),
-        child: const Icon(Icons.edit_note),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          // ── Quick Capture row (above the existing Add button) ──
+          if (_showQuickCapture) ...[
+            Container(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHighest
+                    .withValues(alpha: 0.95),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              child: Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                alignment: WrapAlignment.end,
+                children: [
+                  _quickCaptureChip(context, Icons.check_circle, 'Task',
+                      () => showAddTaskDialog(context)),
+                  _quickCaptureChip(context, Icons.sticky_note_2_outlined,
+                      'Note', () => showAddNoteDialog(context)),
+                  _quickCaptureChip(context, Icons.book_outlined, 'Journal',
+                      () => showAddJournalDialog(context)),
+                  _quickCaptureChip(context, Icons.repeat_rounded, 'Habit',
+                      () => showAddHabitDialog(context)),
+                  _quickCaptureChip(context, Icons.track_changes_outlined,
+                      'Goal', () => showAddGoalDialog(context)),
+                  _quickCaptureChip(
+                      context,
+                      Icons.account_balance_wallet_outlined,
+                      'Finance',
+                      () => showAddFinanceDialog(context)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+          // ── Existing Add button (unchanged, now toggles Quick Capture) ──
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_showQuickCapture)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: FloatingActionButton.small(
+                    heroTag: 'quick-close',
+                    tooltip: 'Close',
+                    onPressed: () => setState(() => _showQuickCapture = false),
+                    child: const Icon(Icons.close),
+                  ),
+                ),
+              FloatingActionButton.small(
+                heroTag: 'global-note',
+                tooltip: _showQuickCapture ? 'Quick capture' : 'Quick capture',
+                onPressed: () =>
+                    setState(() => _showQuickCapture = !_showQuickCapture),
+                child:
+                    Icon(_showQuickCapture ? Icons.edit_note : Icons.flash_on),
+              ),
+            ],
+          ),
+        ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _bottomIndex,
@@ -265,6 +333,21 @@ class _AppShellState extends State<AppShell> {
           );
         }),
       ),
+    );
+  }
+
+  Widget _quickCaptureChip(
+      BuildContext context, IconData icon, String label, VoidCallback onTap) {
+    final theme = Theme.of(context);
+    return ActionChip(
+      avatar: Icon(icon, size: 16, color: theme.colorScheme.primary),
+      label: Text(label, style: theme.textTheme.labelSmall),
+      onPressed: () {
+        setState(() => _showQuickCapture = false);
+        onTap();
+      },
+      visualDensity: VisualDensity.compact,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
     );
   }
 }

@@ -44,8 +44,7 @@ class DashboardConfig {
         'showDailyQuote': showDailyQuote,
       };
 
-  factory DashboardConfig.fromMap(Map<dynamic, dynamic> map) =>
-      DashboardConfig(
+  factory DashboardConfig.fromMap(Map<dynamic, dynamic> map) => DashboardConfig(
         showDailyProgress: map['showDailyProgress'] as bool? ?? true,
         showQuickStats: map['showQuickStats'] as bool? ?? true,
         showQuickActions: map['showQuickActions'] as bool? ?? true,

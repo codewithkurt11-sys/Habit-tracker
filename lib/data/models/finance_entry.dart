@@ -220,12 +220,9 @@ class FinanceEntryAdapter extends TypeAdapter<FinanceEntry> {
       targetAmount: (fields[10] as num?)?.toDouble() ?? 0,
       targetDays: fields[11] as int? ?? 0,
       dailyAmount: (fields[12] as num?)?.toDouble() ?? 0,
-      contributionLogDates:
-          (fields[13] as List?)?.cast<DateTime>() ?? [],
-      contributionLogAmounts:
-          (fields[14] as List?)?.cast<double>() ?? [],
-      contributionLogConfirmed:
-          (fields[15] as List?)?.cast<bool>() ?? [],
+      contributionLogDates: (fields[13] as List?)?.cast<DateTime>() ?? [],
+      contributionLogAmounts: (fields[14] as List?)?.cast<double>() ?? [],
+      contributionLogConfirmed: (fields[15] as List?)?.cast<bool>() ?? [],
       linkedGoalId: fields[16] as String?,
     );
   }

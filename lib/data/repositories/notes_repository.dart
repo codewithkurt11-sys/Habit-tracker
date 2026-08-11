@@ -18,8 +18,8 @@ class NotesRepository {
   }
 
   List<Note> getForEntity(String type, String id) => getAll()
-      .where((note) =>
-          note.linkedEntityType == type && note.linkedEntityId == id)
+      .where(
+          (note) => note.linkedEntityType == type && note.linkedEntityId == id)
       .toList();
 
   List<Note> getForDate(DateTime date) {

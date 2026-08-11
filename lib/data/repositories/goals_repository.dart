@@ -75,6 +75,7 @@ class GoalsRepository {
     final safeTarget = goal.targetValue < 0 ? 0.0 : goal.targetValue;
     goal.currentValue = value.clamp(0.0, safeTarget).toDouble();
     goal.completed = _hasReachedTarget(goal) || _allMilestonesDone(goal);
+    goal.isAutoProgress = false; // manual update disables auto-sync
     goal.touch();
     await _box.put(goal.id, goal);
   }

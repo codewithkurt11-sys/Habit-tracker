@@ -22,7 +22,8 @@ class SettingsScreen extends StatelessWidget {
         const _SectionLabel('Account'),
         Card(
           child: ListTile(
-            leading: Icon(Icons.person_outline, color: theme.colorScheme.primary),
+            leading:
+                Icon(Icons.person_outline, color: theme.colorScheme.primary),
             title: Text(state.settings.userName ?? 'Your profile'),
             subtitle: const Text('Personal information and preferences'),
           ),
@@ -93,8 +94,8 @@ class SettingsScreen extends StatelessWidget {
         const SizedBox(height: AppSpacing.xl),
 
         const _SectionLabel('Privacy & Permissions'),
-        Card(
-          child: const ListTile(
+        const Card(
+          child: ListTile(
             leading: Icon(Icons.privacy_tip_outlined),
             title: Text('Local-first privacy'),
             subtitle: Text(
@@ -145,7 +146,8 @@ class SettingsScreen extends StatelessWidget {
                 leading: Icon(Icons.download_outlined,
                     color: theme.colorScheme.primary),
                 title: const Text('Export All Data'),
-                subtitle: const Text('Create a local JSON file to download or share'),
+                subtitle:
+                    const Text('Create a local JSON file to download or share'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
                   Navigator.of(context).push(

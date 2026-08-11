@@ -109,7 +109,8 @@ class _HabitTile extends StatelessWidget {
             children: [
               Icon(Icons.check_circle, color: color),
               const SizedBox(width: 8),
-              Text('Complete', style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+              Text('Complete',
+                  style: TextStyle(color: color, fontWeight: FontWeight.bold)),
             ],
           ),
         ),
@@ -123,7 +124,8 @@ class _HabitTile extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.skip_next, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+              Icon(Icons.skip_next,
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
               const SizedBox(width: 8),
               Text('Skip',
                   style: TextStyle(
@@ -213,7 +215,8 @@ class _HabitTile extends StatelessWidget {
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                       tooltip: 'Add completion note',
-                      onPressed: () => _showQuickNoteDialog(context, state, habit.id),
+                      onPressed: () =>
+                          _showQuickNoteDialog(context, state, habit.id),
                     ),
                   const SizedBox(width: AppSpacing.xs),
                   AnimatedContainer(
@@ -223,7 +226,8 @@ class _HabitTile extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: done ? color : Colors.transparent,
                       border: Border.all(color: color, width: 2),
-                      borderRadius: BorderRadius.circular(AppSpacing.radiusSmall),
+                      borderRadius:
+                          BorderRadius.circular(AppSpacing.radiusSmall),
                     ),
                     child: done
                         ? const Icon(Icons.check, color: Colors.white, size: 18)
@@ -241,7 +245,8 @@ class _HabitTile extends StatelessWidget {
     );
   }
 
-  void _showQuickNoteDialog(BuildContext context, AppState state, String habitId) {
+  void _showQuickNoteDialog(
+      BuildContext context, AppState state, String habitId) {
     final titleController = TextEditingController();
     final bodyController = TextEditingController();
     showDialog(
@@ -253,7 +258,8 @@ class _HabitTile extends StatelessWidget {
           children: [
             TextField(
                 controller: titleController,
-                decoration: const InputDecoration(labelText: 'Title (optional)'),
+                decoration:
+                    const InputDecoration(labelText: 'Title (optional)'),
                 autofocus: true),
             const SizedBox(height: 8),
             TextField(
@@ -302,6 +308,14 @@ class _HabitTile extends StatelessWidget {
         return AppColors.categoryOther;
     }
   }
+}
+
+/// Global dialog action — call from anywhere.
+void showAddHabitDialog(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (_) => const _AddHabitDialog(),
+  );
 }
 
 class _AddHabitDialog extends StatefulWidget {

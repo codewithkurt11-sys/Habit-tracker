@@ -4,8 +4,7 @@ import '../hive_boxes.dart';
 import '../models/savings_goal.dart';
 
 class SavingsGoalRepository {
-  Box<SavingsGoal> get _box =>
-      Hive.box<SavingsGoal>(HiveBoxes.savingsGoals);
+  Box<SavingsGoal> get _box => Hive.box<SavingsGoal>(HiveBoxes.savingsGoals);
   final _uuid = const Uuid();
 
   List<SavingsGoal> getAll() {
@@ -44,7 +43,8 @@ class SavingsGoalRepository {
     return goal;
   }
 
-  Future<void> confirmContribution(SavingsGoal goal, {DateTime? date, double? amount}) async {
+  Future<void> confirmContribution(SavingsGoal goal,
+      {DateTime? date, double? amount}) async {
     final target = date ?? DateTime.now();
     final d = DateTime(target.year, target.month, target.day);
     if (!goal.canConfirm(d)) return;
@@ -55,26 +55,20 @@ class SavingsGoalRepository {
     await _box.put(goal.id, goal);
   }
 
-  /// Recalculate targetDays: shrink the window to remaining days and
-  /// let [dailyAmount] be recomputed from the new remaining amount / days.
-  /// Persists the updated [targetDays] via the Hive box.
+  /// Recalculates the savings window: resets [startDate] to today and
+  /// sets [targetDays] to the remaining days from the original window.
+  /// This causes [dailyAmount] to recompute as remainingAmount / remainingDays,
+  /// effectively increasing the per-day requirement for missed days.
+  ///
+  /// Example: ₱500 / 5 days = ₱100/day.  After 1 elapsed day with ₱0
+  /// contributed: remainingWindow = 4, new dailyAmount = ₱500/4 = ₱125.
+  /// If ₱100 was contributed: dailyAmount = ₱400/4 = ₱100.
   Future<void> recalculate(SavingsGoal goal) async {
-    // remainingDays is already computed from daysElapsed vs targetDays.
-    // We set targetDays = daysElapsed so remainingDays becomes 1 (today
-    // still counts).  But the spec says: miss day 1, recalculate →
-    // remaining 4 days.  So we set targetDays so that remainingDays
-    // equals the actual days left *excluding today if already missed*.
-    //
-    // Simpler interpretation: after recalculating, the remaining window
-    // is (original targetDays - daysElapsed).  We store the new
-    // targetDays = daysElapsed + remainingWindow so that
-    // remainingDays == remainingWindow.
     final remainingWindow = goal.targetDays - goal.daysElapsed;
     if (remainingWindow <= 0) return;
-    // Keep startDate the same; set targetDays so that
-    // remainingDays = remainingWindow.
-    // remainingDays = targetDays - daysElapsed → targetDays = daysElapsed + remainingWindow
-    goal.targetDays = goal.daysElapsed + remainingWindow;
+    final now = DateTime.now();
+    goal.startDate = DateTime(now.year, now.month, now.day);
+    goal.targetDays = remainingWindow;
     goal.touch();
     await _box.put(goal.id, goal);
   }

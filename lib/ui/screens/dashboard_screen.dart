@@ -164,7 +164,8 @@ class DashboardScreen extends StatelessWidget {
                   ],
 
                   // Active goals summary
-                  if (dashConfig.showGoalProgress && activeGoals.isNotEmpty) ...[
+                  if (dashConfig.showGoalProgress &&
+                      activeGoals.isNotEmpty) ...[
                     _SectionHeader(
                         title: 'Goal Progress',
                         count: '${activeGoals.length} active'),
@@ -181,8 +182,8 @@ class DashboardScreen extends StatelessWidget {
                       count: '${savingsGoals.length} active',
                     ),
                     ...savingsGoals.take(2).map(
-                      (sg) => _DashboardSavingsTile(savingsGoal: sg),
-                    ),
+                          (sg) => _DashboardSavingsTile(savingsGoal: sg),
+                        ),
                     const SizedBox(height: AppSpacing.md),
                   ],
 
@@ -432,7 +433,6 @@ class _QuickActionsGrid extends StatelessWidget {
     showDialog(context: context, builder: (_) => const _QuickTaskDialog());
   }
 
-
   void _showFocusTimer(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const FocusScreen()),
@@ -539,7 +539,8 @@ class _DashboardSavingsTile extends StatelessWidget {
     final theme = Theme.of(context);
     final progress = savingsGoal.progressFraction;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 2),
+      padding:
+          const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 2),
       child: Card(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.md),
@@ -548,12 +549,14 @@ class _DashboardSavingsTile extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(Icons.savings, color: theme.colorScheme.primary, size: 18),
+                  Icon(Icons.savings,
+                      color: theme.colorScheme.primary, size: 18),
                   const SizedBox(width: 8),
                   Expanded(
                       child: Text(savingsGoal.title,
                           style: theme.textTheme.bodyMedium,
-                          maxLines: 1, overflow: TextOverflow.ellipsis)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis)),
                   Text('${(progress * 100).toStringAsFixed(0)}%',
                       style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.primary,
@@ -912,7 +915,8 @@ class _InsightBanner extends StatelessWidget {
           padding: const EdgeInsets.all(AppSpacing.md),
           child: Row(
             children: [
-              Icon(Icons.insights, size: 20,
+              Icon(Icons.insights,
+                  size: 20,
                   color: theme.colorScheme.primary.withValues(alpha: 0.6)),
               const SizedBox(width: AppSpacing.md),
               Expanded(

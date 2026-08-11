@@ -27,7 +27,9 @@ class ProfileScreen extends StatelessWidget {
     final habits = state.habitsRepo.getAll();
     final longestStreak = habits.isEmpty
         ? 0
-        : habits.map((habit) => habit.bestStreak()).reduce((a, b) => a > b ? a : b);
+        : habits
+            .map((habit) => habit.bestStreak())
+            .reduce((a, b) => a > b ? a : b);
     final totalCompletions =
         habits.fold<int>(0, (sum, habit) => sum + habit.totalCompletions);
     final goalsAchieved = state.goalsRepo.getCompleted().length;

@@ -435,5 +435,9 @@ class _HistoryDay {
   final bool isDue;
   final bool isDone;
   final bool isSkipped;
-  _HistoryDay({required this.date, required this.isDue, required this.isDone, this.isSkipped = false});
+  _HistoryDay(
+      {required this.date,
+      required this.isDue,
+      required this.isDone,
+      this.isSkipped = false});
 }

@@ -67,8 +67,10 @@ class _GoalTile extends StatelessWidget {
     final theme = Theme.of(context);
     final progress = goal.progressFraction;
     final milestones = goal.milestones;
-    final linkedHabits =
-        state.habitsRepo.getAll().where((habit) => habit.goalId == goal.id).toList();
+    final linkedHabits = state.habitsRepo
+        .getAll()
+        .where((habit) => habit.goalId == goal.id)
+        .toList();
     final linkedTasks = state.tasksRepo
         .getAll(includeArchived: true)
         .where((task) => task.goalId == goal.id)

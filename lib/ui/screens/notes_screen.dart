@@ -134,10 +134,10 @@ class _NoteTile extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: Text(note.title, style: theme.textTheme.titleSmall),
+                      child:
+                          Text(note.title, style: theme.textTheme.titleSmall),
                     ),
-                    if (note.mood != null)
-                      Icon(note.mood!.icon, size: 18),
+                    if (note.mood != null) Icon(note.mood!.icon, size: 18),
                   ],
                 ),
                 if (note.body.isNotEmpty) ...[
@@ -248,8 +248,10 @@ class _AddNoteDialogState extends State<_AddNoteDialog> {
 
   void _wrapSelection(String before, [String after = '']) {
     final value = _bodyController.value;
-    final start = value.selection.start < 0 ? value.text.length : value.selection.start;
-    final end = value.selection.end < 0 ? value.text.length : value.selection.end;
+    final start =
+        value.selection.start < 0 ? value.text.length : value.selection.start;
+    final end =
+        value.selection.end < 0 ? value.text.length : value.selection.end;
     final selected = value.text.substring(start, end);
     final replacement = '$before$selected$after';
     _bodyController.value = TextEditingValue(
@@ -363,7 +365,8 @@ class _AddNoteDialogState extends State<_AddNoteDialog> {
               DropdownButtonFormField<String>(
                 initialValue: _link ?? '',
                 isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Link to progress'),
+                decoration:
+                    const InputDecoration(labelText: 'Link to progress'),
                 items: links,
                 onChanged: (value) => _link = value,
               ),

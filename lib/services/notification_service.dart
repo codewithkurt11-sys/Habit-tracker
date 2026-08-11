@@ -50,11 +50,29 @@ class NotificationService {
     required List<ScheduleItem> schedule,
   }) async {
     await initialize();
+    // Collect all active notification IDs so we can cancel stale ones
+    final activeIds = <int>{};
     for (final task in tasks) {
+      final nid = _id('task:${task.id}');
+      activeIds.add(nid);
       await scheduleTask(task);
     }
     for (final item in schedule) {
+      final nid = _id('schedule:${item.id}');
+      activeIds.add(nid);
       await scheduleItem(item);
+    }
+    // Cancel notifications for tasks/schedule items that no longer exist
+    // (deleted items). We use pending notification queries if available.
+    try {
+      final pending = await _plugin.pendingNotificationRequests();
+      for (final p in pending) {
+        if (!activeIds.contains(p.id)) {
+          await _plugin.cancel(p.id);
+        }
+      }
+    } catch (_) {
+      // Best-effort cleanup; don't crash on failure
     }
   }
 

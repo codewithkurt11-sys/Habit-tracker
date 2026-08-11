@@ -142,11 +142,14 @@ class _TaskTile extends StatelessWidget {
                             icon: task.category.icon,
                           ),
                           if (task.goalId != null)
-                            const PillChip(label: 'Linked goal', icon: Icons.link),
+                            const PillChip(
+                                label: 'Linked goal', icon: Icons.link),
                           if (task.habitId != null)
-                            const PillChip(label: 'Linked habit', icon: Icons.repeat),
+                            const PillChip(
+                                label: 'Linked habit', icon: Icons.repeat),
                           if (task.isRecurring)
-                            const PillChip(label: 'Recurring', icon: Icons.repeat),
+                            const PillChip(
+                                label: 'Recurring', icon: Icons.repeat),
                         ],
                       ),
                     ],
@@ -390,7 +393,6 @@ class _AddTaskDialogState extends State<_AddTaskDialog> {
     );
   }
 }
-
 
 /// Global FAB action — call from the parent Scaffold.
 void showAddTaskDialog(BuildContext context) {

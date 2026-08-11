@@ -106,6 +106,7 @@ class Goal extends HiveObject {
   List<String> linkedTaskIds;
   String? linkedFinanceId;
   double progressPercent;
+  bool isAutoProgress;
 
   Goal({
     required this.id,
@@ -128,6 +129,7 @@ class Goal extends HiveObject {
     List<String>? linkedTaskIds,
     this.linkedFinanceId,
     this.progressPercent = 0,
+    this.isAutoProgress = true,
   })  : milestoneIds = milestoneIds ?? [],
         milestoneTitles = milestoneTitles ?? [],
         milestoneDone = milestoneDone ?? [],
@@ -202,13 +204,14 @@ class GoalAdapter extends TypeAdapter<Goal> {
       linkedTaskIds: (fields[17] as List?)?.cast<String>() ?? [],
       linkedFinanceId: fields[18] as String?,
       progressPercent: (fields[19] as num?)?.toDouble() ?? 0,
+      isAutoProgress: fields[20] as bool? ?? true,
     );
   }
 
   @override
   void write(BinaryWriter writer, Goal obj) {
     writer
-      ..writeByte(20)
+      ..writeByte(21)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -248,6 +251,8 @@ class GoalAdapter extends TypeAdapter<Goal> {
       ..writeByte(18)
       ..write(obj.linkedFinanceId)
       ..writeByte(19)
-      ..write(obj.progressPercent);
+      ..write(obj.progressPercent)
+      ..writeByte(20)
+      ..write(obj.isAutoProgress);
   }
 }

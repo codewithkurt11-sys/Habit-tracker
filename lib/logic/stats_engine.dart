@@ -114,8 +114,8 @@ class StatsEngine {
     final streakScore = (maxCurrentStreak * 30 / 30).round().clamp(0, 30);
 
     // Miss-streak penalty (0-10 points, reduces with more misses)
-    final maxMissStreak = habits.fold<int>(
-        0, (max, h) => h.currentMissStreak() > max ? h.currentMissStreak() : max);
+    final maxMissStreak = habits.fold<int>(0,
+        (max, h) => h.currentMissStreak() > max ? h.currentMissStreak() : max);
     final missPenalty = (maxMissStreak * 2).clamp(0, 10);
 
     final score = (completionScore + streakScore - missPenalty).clamp(0, 100);

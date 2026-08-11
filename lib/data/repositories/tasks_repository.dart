@@ -96,6 +96,149 @@ class TasksRepository {
     task.completedAt = DateTime.now();
     task.touch();
     await _box.put(task.id, task);
+    if (task.isRecurring && task.recurringPattern.isNotEmpty) {
+      await _generateNextOccurrence(task);
+    }
+  }
+
+  /// Generates the next occurrence of a recurring task after [original]
+  /// is completed. Prevents duplicates by checking if a task with the
+  /// same title + due date already exists.
+  Future<Task?> _generateNextOccurrence(Task original) async {
+    final baseDate = original.dueDate ?? original.completedAt ?? DateTime.now();
+    DateTime? nextDue;
+
+    switch (original.recurringPattern.toLowerCase()) {
+      case 'daily':
+        nextDue = baseDate.add(const Duration(days: 1));
+        break;
+      case 'weekly':
+        nextDue = baseDate.add(const Duration(days: 7));
+        break;
+      case 'monthly':
+        // Handle month-end safely: if original day is 31 and next month
+        // has 30 days, use the last day of the next month.
+        final nextMonth = baseDate.month == 12
+            ? DateTime(baseDate.year + 1, 1, 1)
+            : DateTime(baseDate.year, baseDate.month + 1, 1);
+        final lastDayNextMonth =
+            DateTime(nextMonth.year, nextMonth.month + 1, 0).day;
+        final targetDay = baseDate.day.clamp(1, lastDayNextMonth);
+        nextDue = DateTime(nextMonth.year, nextMonth.month, targetDay);
+        break;
+      default:
+        return null;
+    }
+
+    // Normalize to midnight
+    nextDue = DateTime(nextDue.year, nextDue.month, nextDue.day);
+
+    // Prevent duplicate: check if a task with same title and dueDate exists
+    final existing = _box.values.any((t) =>
+        !t.archived &&
+        t.title == original.title &&
+        t.dueDate != null &&
+        t.status != TaskStatus.done &&
+        t.dueDate!.year == nextDue!.year &&
+        t.dueDate!.month == nextDue.month &&
+        t.dueDate!.day == nextDue.day);
+    if (existing) return null;
+
+    final next = Task(
+      id: _uuid.v4(),
+      title: original.title,
+      description: original.description,
+      priority: original.priority,
+      status: TaskStatus.todo,
+      category: original.category,
+      dueDate: nextDue,
+      dueTime: original.dueTime,
+      tags: List.from(original.tags),
+      subtaskTitles: List.from(original.subtaskTitles),
+      subtaskDone: List.filled(original.subtaskTitles.length, false),
+      isRecurring: true,
+      recurringPattern: original.recurringPattern,
+      goalId: original.goalId,
+      habitId: original.habitId,
+    );
+    await _box.put(next.id, next);
+    return next;
+  }
+
+  /// Generates overdue occurrences for all recurring tasks that have
+  /// been completed but whose next occurrence was never created (e.g.
+  /// app was closed before markDone ran the generation). Should be
+  /// called on app startup.
+  Future<List<Task>> generateOverdueOccurrences() async {
+    final created = <Task>[];
+    final recurring = _box.values
+        .where((t) =>
+            t.isRecurring &&
+            t.recurringPattern.isNotEmpty &&
+            t.status == TaskStatus.done &&
+            !t.archived)
+        .toList();
+
+    for (final task in recurring) {
+      // Check if the next occurrence already exists
+      final baseDate = task.dueDate ?? task.completedAt ?? task.createdAt;
+      DateTime? expectedNext;
+      switch (task.recurringPattern.toLowerCase()) {
+        case 'daily':
+          expectedNext = baseDate.add(const Duration(days: 1));
+          break;
+        case 'weekly':
+          expectedNext = baseDate.add(const Duration(days: 7));
+          break;
+        case 'monthly':
+          final nm = baseDate.month == 12
+              ? DateTime(baseDate.year + 1, 1, 1)
+              : DateTime(baseDate.year, baseDate.month + 1, 1);
+          final lastDay = DateTime(nm.year, nm.month + 1, 0).day;
+          expectedNext =
+              DateTime(nm.year, nm.month, baseDate.day.clamp(1, lastDay));
+          break;
+        default:
+          continue;
+      }
+      expectedNext =
+          DateTime(expectedNext.year, expectedNext.month, expectedNext.day);
+
+      // Skip if expected next date is still in the future (not overdue)
+      final today = DateTime.now();
+      final todayNorm = DateTime(today.year, today.month, today.day);
+      if (expectedNext.isAfter(todayNorm)) continue;
+
+      // Check if a task with same title + dueDate already exists
+      final exists = _box.values.any((t) =>
+          t.title == task.title &&
+          t.dueDate != null &&
+          t.dueDate!.year == expectedNext!.year &&
+          t.dueDate!.month == expectedNext.month &&
+          t.dueDate!.day == expectedNext.day);
+      if (exists) continue;
+
+      final next = Task(
+        id: _uuid.v4(),
+        title: task.title,
+        description: task.description,
+        priority: task.priority,
+        status: TaskStatus.todo,
+        category: task.category,
+        dueDate: expectedNext,
+        dueTime: task.dueTime,
+        tags: List.from(task.tags),
+        subtaskTitles: List.from(task.subtaskTitles),
+        subtaskDone: List.filled(task.subtaskTitles.length, false),
+        isRecurring: true,
+        recurringPattern: task.recurringPattern,
+        goalId: task.goalId,
+        habitId: task.habitId,
+      );
+      await _box.put(next.id, next);
+      created.add(next);
+    }
+    return created;
   }
 
   Future<void> toggleSubtask(Task task, int index) async {

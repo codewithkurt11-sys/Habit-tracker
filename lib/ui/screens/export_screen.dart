@@ -186,7 +186,8 @@ class ExportScreen extends StatelessWidget {
       final jsonString = const JsonEncoder.withIndent('  ').convert(data);
       final timestamp = DateTime.now()
           .toIso8601String()
-          .split('.').first
+          .split('.')
+          .first
           .replaceAll(':', '-');
       final directory = await getTemporaryDirectory();
       final file = File('${directory.path}/yourself-backup-$timestamp.json');
@@ -336,7 +337,8 @@ class ExportScreen extends StatelessWidget {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Could not restore this file. Check that it is a valid v2 backup.'),
+          content: Text(
+              'Could not restore this file. Check that it is a valid v2 backup.'),
         ),
       );
     }

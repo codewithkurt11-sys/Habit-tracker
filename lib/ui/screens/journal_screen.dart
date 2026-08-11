@@ -126,6 +126,14 @@ class _JournalTile extends StatelessWidget {
   }
 }
 
+/// Global dialog action — call from anywhere.
+void showAddJournalDialog(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (_) => const _AddJournalDialog(),
+  );
+}
+
 class _AddJournalDialog extends StatefulWidget {
   const _AddJournalDialog();
 

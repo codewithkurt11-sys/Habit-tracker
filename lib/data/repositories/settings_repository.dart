@@ -31,6 +31,7 @@ class SettingsRepository {
     s.userName = updated.userName;
     s.themeMode = updated.themeMode;
     s.onboardingComplete = updated.onboardingComplete;
+    s.dashboardConfig = updated.dashboardConfig;
     await s.save();
   }
 

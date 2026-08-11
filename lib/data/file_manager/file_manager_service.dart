@@ -112,10 +112,11 @@ class FileManagerService {
               // Navigate up to the real external storage root.
               final parts = p.split(extDir.path);
               // Find 'emulated' and take everything up to the next segment (e.g. '0')
-              final emulatedIdx = parts.indexWhere((part) => part == 'emulated');
+              final emulatedIdx =
+                  parts.indexWhere((part) => part == 'emulated');
               if (emulatedIdx >= 0 && emulatedIdx + 1 < parts.length) {
-                primary = p.joinAll(
-                    ['/', ...parts.sublist(0, emulatedIdx + 2)]);
+                primary =
+                    p.joinAll(['/', ...parts.sublist(0, emulatedIdx + 2)]);
               } else {
                 primary = extDir.path;
               }
@@ -216,7 +217,8 @@ class FileManagerService {
     final normalized = p.normalize(value);
     // Fix: root path /storage/emulated resolves to /storage/emulated/0
     if (Platform.isAndroid) {
-      if (normalized == '/storage/emulated' || normalized == '/storage/emulated/') {
+      if (normalized == '/storage/emulated' ||
+          normalized == '/storage/emulated/') {
         return '/storage/emulated/0';
       }
     }
