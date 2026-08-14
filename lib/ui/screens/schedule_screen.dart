@@ -267,7 +267,12 @@ class _AddScheduleDialogState extends State<_AddScheduleDialog> {
         ElevatedButton(
           onPressed: () {
             final title = _titleController.text.trim();
-            if (title.isEmpty) return;
+            if (title.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Please enter a title')),
+              );
+              return;
+            }
             context.read<AppState>().addSchedule(
                   title: title,
                   dateTime: _dateTime,

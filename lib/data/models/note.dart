@@ -50,6 +50,7 @@ class Note extends HiveObject {
   List<String> attachmentPaths;
   String? linkedEntityType;
   String? linkedEntityId;
+  bool archived;
 
   Note({
     required this.id,
@@ -64,6 +65,7 @@ class Note extends HiveObject {
     List<String>? attachmentPaths,
     this.linkedEntityType,
     this.linkedEntityId,
+    this.archived = false,
   })  : tags = tags ?? [],
         attachmentPaths = attachmentPaths ?? [];
 
@@ -85,6 +87,7 @@ class Note extends HiveObject {
     List<String>? attachmentPaths,
     String? linkedEntityType,
     String? linkedEntityId,
+    bool? archived,
   }) {
     return Note(
       id: id,
@@ -100,6 +103,7 @@ class Note extends HiveObject {
           attachmentPaths ?? List<String>.from(this.attachmentPaths),
       linkedEntityType: linkedEntityType ?? this.linkedEntityType,
       linkedEntityId: linkedEntityId ?? this.linkedEntityId,
+      archived: archived ?? this.archived,
     );
   }
 }
@@ -127,13 +131,14 @@ class NoteAdapter extends TypeAdapter<Note> {
       attachmentPaths: (fields[9] as List?)?.cast<String>() ?? [],
       linkedEntityType: fields[10] as String?,
       linkedEntityId: fields[11] as String?,
+      archived: fields[12] as bool? ?? false,
     );
   }
 
   @override
   void write(BinaryWriter writer, Note obj) {
     writer
-      ..writeByte(12)
+      ..writeByte(13)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -157,6 +162,8 @@ class NoteAdapter extends TypeAdapter<Note> {
       ..writeByte(10)
       ..write(obj.linkedEntityType)
       ..writeByte(11)
-      ..write(obj.linkedEntityId);
+      ..write(obj.linkedEntityId)
+      ..writeByte(12)
+      ..write(obj.archived);
   }
 }

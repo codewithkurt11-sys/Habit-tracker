@@ -40,6 +40,12 @@ class HabitsRepository {
     int targetStreak = 0,
     String? goalId,
   }) async {
+    // Validate: custom frequency requires at least one weekday
+    if (frequency == HabitFrequency.custom &&
+        (customDays == null || customDays.isEmpty)) {
+      throw ArgumentError(
+          'Custom frequency habits require at least one selected day');
+    }
     final habit = Habit(
       id: _uuid.v4(),
       name: name,

@@ -165,6 +165,11 @@ class Habit extends HiveObject {
 
     while (!cursor.isBefore(firstDay)) {
       if (isDueOn(cursor)) {
+        // Skipped days don't break streaks — just skip over them
+        if (isSkippedOn(cursor)) {
+          cursor = DateTime(cursor.year, cursor.month, cursor.day - 1);
+          continue;
+        }
         if (!isCompletedOn(cursor)) break;
         streak++;
       }
@@ -191,6 +196,11 @@ class Habit extends HiveObject {
     final completed = completedDays.toSet();
     while (!cursor.isAfter(last)) {
       if (isDueOn(cursor)) {
+        // Skipped days don't break streaks — just skip over them
+        if (isSkippedOn(cursor)) {
+          cursor = DateTime(cursor.year, cursor.month, cursor.day + 1);
+          continue;
+        }
         if (completed.contains(cursor)) {
           current++;
           if (current > best) best = current;

@@ -133,12 +133,12 @@ class TasksRepository {
     // Normalize to midnight
     nextDue = DateTime(nextDue.year, nextDue.month, nextDue.day);
 
-    // Prevent duplicate: check if a task with same title and dueDate exists
+    // Prevent duplicate: check ALL tasks (regardless of status or archived
+    // state) for same title + dueDate. A completed/archived occurrence
+    // should still prevent a duplicate from being generated.
     final existing = _box.values.any((t) =>
-        !t.archived &&
         t.title == original.title &&
         t.dueDate != null &&
-        t.status != TaskStatus.done &&
         t.dueDate!.year == nextDue!.year &&
         t.dueDate!.month == nextDue.month &&
         t.dueDate!.day == nextDue.day);
@@ -209,7 +209,8 @@ class TasksRepository {
       final todayNorm = DateTime(today.year, today.month, today.day);
       if (expectedNext.isAfter(todayNorm)) continue;
 
-      // Check if a task with same title + dueDate already exists
+      // Check ALL tasks (regardless of status or archived state) for
+      // same title + dueDate to prevent duplicates.
       final exists = _box.values.any((t) =>
           t.title == task.title &&
           t.dueDate != null &&

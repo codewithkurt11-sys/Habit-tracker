@@ -166,7 +166,12 @@ class _KanbanScreenState extends State<KanbanScreen> {
             ElevatedButton(
               onPressed: () {
                 final title = _titleController.text.trim();
-                if (title.isEmpty) return;
+                if (title.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please enter a task title')),
+                  );
+                  return;
+                }
                 context.read<AppState>().addTask(
                     title: title,
                     description: _descController.text.trim(),
@@ -341,9 +346,7 @@ class _KanbanCard extends StatelessWidget {
               leading: const Icon(Icons.play_circle_outline),
               title: const Text('Move to In Progress'),
               onTap: () {
-                task.status = TaskStatus.inProgress;
-                state.tasksRepo.update(task);
-                state.refresh();
+                state.setTaskStatus(task.id, TaskStatus.inProgress);
                 Navigator.pop(ctx);
               },
             ),
@@ -359,10 +362,7 @@ class _KanbanCard extends StatelessWidget {
               leading: const Icon(Icons.undo),
               title: const Text('Move to To Do'),
               onTap: () {
-                task.status = TaskStatus.todo;
-                task.completedAt = null;
-                state.tasksRepo.update(task);
-                state.refresh();
+                state.setTaskStatus(task.id, TaskStatus.todo);
                 Navigator.pop(ctx);
               },
             ),

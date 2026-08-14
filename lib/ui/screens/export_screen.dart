@@ -24,7 +24,7 @@ class ExportScreen extends StatelessWidget {
     final tasksCount = state.tasksRepo.getAll(includeArchived: true).length;
     final goalsCount = state.goalsRepo.getAll(includeArchived: true).length;
     final journalCount = state.journalRepo.getAll().length;
-    final notesCount = state.notesRepo.getAll().length;
+    final notesCount = state.notesRepo.getAll(includeArchived: true).length;
     final financeCount = state.financeRepo.getAll().length;
     final focusCount = state.focusRepo.getAll().length;
     final scheduleCount = state.scheduleRepo.getAll().length;
