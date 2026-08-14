@@ -1243,7 +1243,12 @@ class AppState extends ChangeNotifier {
         isRecurring: item['isRecurring'] as bool? ?? false,
         recurringPattern: item['recurringPattern'] as String? ?? '',
         recurrenceSeriesId: item['recurrenceSeriesId'] as String? ??
-            (item['isRecurring'] as bool? ?? false ? 'legacy:${item['id']}' : null),
+            (item['isRecurring'] as bool? ?? false
+                ? Task.legacySeriesId(
+                    title: item['title'] as String? ?? '',
+                    recurringPattern: item['recurringPattern'] as String? ?? '',
+                  )
+                : null),
         createdAt: _date(item['createdAt']),
         completedAt: _date(item['completedAt']),
         archived: item['archived'] as bool? ?? false,

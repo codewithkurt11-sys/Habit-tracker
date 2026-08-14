@@ -9,7 +9,7 @@ void main() {
     draft.showTasks = false;
     draft.showQuickActions = false;
 
-    final rebuiltView = draft;
+    final rebuiltView = DashboardConfig.fromMap(draft.toMap());
     expect(rebuiltView.showTasks, isFalse);
     expect(rebuiltView.showQuickActions, isFalse);
 

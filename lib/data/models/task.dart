@@ -167,6 +167,25 @@ class Task extends HiveObject {
   /// Touch [updatedAt] to now. Called by repositories on every mutation.
   void touch() => updatedAt = DateTime.now();
 
+  /// Derives a stable series ID for legacy recurring tasks that predate
+  /// the [recurrenceSeriesId] field.
+  ///
+  /// Legacy occurrences belonging to the same recurring series share the
+  /// same title and recurrence pattern, so a deterministic hash of those
+  /// two fields produces a shared series identity.  This ensures the
+  /// duplicate-prevention logic in the tasks repository recognises legacy
+  /// occurrences as members of the same series.
+  ///
+  /// Different recurring series (different title or pattern) produce
+  /// different IDs, so they remain correctly separated.
+  static String legacySeriesId({
+    required String title,
+    required String recurringPattern,
+  }) {
+    final identity = '$title|$recurringPattern';
+    return 'legacy:${identity.hashCode}';
+  }
+
   double get progress {
     if (subtaskTitles.isEmpty) return status == TaskStatus.done ? 1.0 : 0.0;
     final done = subtaskDone.where((d) => d).length;
@@ -224,7 +243,13 @@ class TaskAdapter extends TypeAdapter<Task> {
       subtaskDone: (fields[10] as List?)?.cast<bool>() ?? [],
       isRecurring: fields[11] as bool? ?? false,
       recurringPattern: fields[12] as String? ?? '',
-      recurrenceSeriesId: fields[21] as String? ?? 'legacy:${fields[0] as String}',
+      recurrenceSeriesId: fields[21] as String? ??
+          (fields[11] as bool? ?? false
+              ? Task.legacySeriesId(
+                  title: fields[1] as String? ?? '',
+                  recurringPattern: fields[12] as String? ?? '',
+                )
+              : null),
       createdAt: fields[13] as DateTime? ?? DateTime.now(),
       completedAt: fields[14] as DateTime?,
       archived: fields[15] as bool? ?? false,
