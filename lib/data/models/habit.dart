@@ -101,11 +101,24 @@ class Habit extends HiveObject {
     this.goalId,
     this.linkedGoalId,
     DateTime? updatedAt,
-  })  : customDays = customDays ?? [],
+  })  : customDays = _validateCustomDays(frequency, customDays ?? []),
         completionLog = completionLog ?? [],
         skipLog = skipLog ?? [],
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
+
+  static List<int> _validateCustomDays(HabitFrequency frequency, List<int> days) {
+    if (frequency == HabitFrequency.custom && days.isEmpty) {
+      throw ArgumentError('Custom frequency habits require at least one selected day');
+    }
+    if (days.any((day) => day < 1 || day > 7)) {
+      throw ArgumentError('Habit weekdays must be ISO values from 1 to 7');
+    }
+    if (days.toSet().length != days.length) {
+      throw ArgumentError('Habit weekdays must not contain duplicates');
+    }
+    return List<int>.from(days);
+  }
 
   /// Touch [updatedAt] to now. Called by repositories on every mutation.
   void touch() => updatedAt = DateTime.now();

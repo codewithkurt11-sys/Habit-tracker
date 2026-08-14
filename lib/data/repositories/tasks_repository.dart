@@ -79,6 +79,7 @@ class TasksRepository {
       recurringPattern: recurringPattern,
       goalId: goalId,
       habitId: habitId,
+      recurrenceSeriesId: isRecurring ? _uuid.v4() : null,
     );
     await _box.put(task.id, task);
     return task;
@@ -91,19 +92,23 @@ class TasksRepository {
 
   Future<void> delete(String id) async => _box.delete(id);
 
-  Future<void> markDone(Task task) async {
+  /// The single authoritative completion path for tasks.
+  /// Recurring generation happens here so callers cannot accidentally bypass it.
+  Future<Task?> markDone(Task task) async {
+    if (task.status == TaskStatus.done) return null;
     task.status = TaskStatus.done;
     task.completedAt = DateTime.now();
     task.touch();
     await _box.put(task.id, task);
     if (task.isRecurring && task.recurringPattern.isNotEmpty) {
-      await _generateNextOccurrence(task);
+      return _generateNextOccurrence(task);
     }
+    return null;
   }
 
   /// Generates the next occurrence of a recurring task after [original]
   /// is completed. Prevents duplicates by checking if a task with the
-  /// same title + due date already exists.
+  /// same recurring series + occurrence date already exists.
   Future<Task?> _generateNextOccurrence(Task original) async {
     final baseDate = original.dueDate ?? original.completedAt ?? DateTime.now();
     DateTime? nextDue;
@@ -133,11 +138,13 @@ class TasksRepository {
     // Normalize to midnight
     nextDue = DateTime(nextDue.year, nextDue.month, nextDue.day);
 
-    // Prevent duplicate: check ALL tasks (regardless of status or archived
-    // state) for same title + dueDate. A completed/archived occurrence
-    // should still prevent a duplicate from being generated.
+    // Duplicate identity is the recurring series + occurrence date.
+    // Title is deliberately not part of the identity because two independent
+    // recurring series may legitimately have the same title.
+    final seriesId = original.recurrenceSeriesId;
+    if (seriesId == null || seriesId.isEmpty) return null;
     final existing = _box.values.any((t) =>
-        t.title == original.title &&
+        t.recurrenceSeriesId == seriesId &&
         t.dueDate != null &&
         t.dueDate!.year == nextDue!.year &&
         t.dueDate!.month == nextDue.month &&
@@ -160,6 +167,7 @@ class TasksRepository {
       recurringPattern: original.recurringPattern,
       goalId: original.goalId,
       habitId: original.habitId,
+      recurrenceSeriesId: seriesId,
     );
     await _box.put(next.id, next);
     return next;
@@ -209,10 +217,11 @@ class TasksRepository {
       final todayNorm = DateTime(today.year, today.month, today.day);
       if (expectedNext.isAfter(todayNorm)) continue;
 
-      // Check ALL tasks (regardless of status or archived state) for
-      // same title + dueDate to prevent duplicates.
+      final seriesId = task.recurrenceSeriesId;
+      if (seriesId == null || seriesId.isEmpty) continue;
+      // Duplicate identity is the series + occurrence date.
       final exists = _box.values.any((t) =>
-          t.title == task.title &&
+          t.recurrenceSeriesId == seriesId &&
           t.dueDate != null &&
           t.dueDate!.year == expectedNext!.year &&
           t.dueDate!.month == expectedNext.month &&
@@ -235,6 +244,7 @@ class TasksRepository {
         recurringPattern: task.recurringPattern,
         goalId: task.goalId,
         habitId: task.habitId,
+        recurrenceSeriesId: seriesId,
       );
       await _box.put(next.id, next);
       created.add(next);
@@ -242,14 +252,16 @@ class TasksRepository {
     return created;
   }
 
-  Future<void> toggleSubtask(Task task, int index) async {
-    if (index < 0 || index >= task.subtaskDone.length) return;
+  Future<Task?> toggleSubtask(Task task, int index) async {
+    if (index < 0 || index >= task.subtaskDone.length) return null;
 
     task.subtaskDone[index] = !task.subtaskDone[index];
     final allDone = task.subtaskDone.isNotEmpty &&
         task.subtaskDone.length >= task.subtaskTitles.length &&
         task.subtaskDone.take(task.subtaskTitles.length).every((done) => done);
+    var becameDone = false;
     if (allDone) {
+      becameDone = task.status != TaskStatus.done;
       task.status = TaskStatus.done;
       task.completedAt ??= DateTime.now();
     } else if (task.status == TaskStatus.done) {
@@ -258,6 +270,10 @@ class TasksRepository {
     }
     task.touch();
     await _box.put(task.id, task);
+    if (becameDone && task.isRecurring && task.recurringPattern.isNotEmpty) {
+      return _generateNextOccurrence(task);
+    }
+    return null;
   }
 
   Future<void> archive(Task task) async {

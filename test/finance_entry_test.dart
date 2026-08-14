@@ -65,6 +65,9 @@ void main() {
     });
 
     test('copyWith updates updatedAt', () {
+      // Use a deterministic old timestamp so the assertion cannot
+      // pass by coincidence when both run in the same millisecond.
+      final oldTimestamp = DateTime(2020, 1, 1);
       final entry = FinanceEntry(
         id: 'f5',
         title: 'Test',
@@ -72,18 +75,16 @@ void main() {
         typeIndex: 0,
         categoryIndex: 1,
         date: DateTime(2025, 1, 1),
+        updatedAt: oldTimestamp,
       );
-      // Wait a moment to ensure updatedAt is different
-      final originalUpdatedAt = entry.updatedAt;
-      Future.delayed(const Duration(milliseconds: 10), () {});
       final copied = entry.copyWith(title: 'Updated');
-      expect(copied.updatedAt.isAfter(originalUpdatedAt) ||
-          copied.updatedAt == originalUpdatedAt, true);
+      expect(copied.updatedAt, isNot(oldTimestamp));
     });
   });
 
   group('FinanceEntry touch', () {
     test('touch updates updatedAt', () {
+      final oldTimestamp = DateTime(2020, 1, 1);
       final entry = FinanceEntry(
         id: 'f6',
         title: 'Test',
@@ -91,11 +92,10 @@ void main() {
         typeIndex: 0,
         categoryIndex: 1,
         date: DateTime(2025, 1, 1),
+        updatedAt: oldTimestamp,
       );
-      final original = entry.updatedAt;
       entry.touch();
-      expect(entry.updatedAt.isAfter(original) ||
-          entry.updatedAt == original, true);
+      expect(entry.updatedAt, isNot(oldTimestamp));
     });
   });
 

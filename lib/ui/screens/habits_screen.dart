@@ -384,34 +384,17 @@ class _AddHabitDialogState extends State<_AddHabitDialog> {
                 children: List.generate(7, (i) {
                   final weekday = i + 1; // ISO: 1=Mon .. 7=Sun
                   final sel = _customDays.contains(weekday);
-                  return GestureDetector(
-                    onTap: () => setState(() {
-                      if (sel) {
-                        _customDays.remove(weekday);
-                      } else {
+                  return FilterChip(
+                    label: Text(_weekdayLabels[i]),
+                    selected: sel,
+                    showCheckmark: true,
+                    onSelected: (selected) => setState(() {
+                      if (selected) {
                         _customDays.add(weekday);
+                      } else {
+                        _customDays.remove(weekday);
                       }
                     }),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: sel
-                            ? theme.colorScheme.primary
-                            : theme.extension<AppThemeExtension>()!.surfaceMuted,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Center(
-                        child: Text(
-                          _weekdayLabels[i],
-                          style: TextStyle(
-                            color: sel ? Colors.white : theme.colorScheme.onSurface,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ),
                   );
                 }),
               ),

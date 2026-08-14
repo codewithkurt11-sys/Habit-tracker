@@ -123,6 +123,8 @@ class Task extends HiveObject {
   List<bool> subtaskDone;
   bool isRecurring;
   String recurringPattern; // 'daily','weekly','monthly'
+  /// Stable identity shared by every occurrence in a recurring series.
+  String? recurrenceSeriesId;
   DateTime createdAt;
   DateTime? completedAt;
   bool archived;
@@ -147,6 +149,7 @@ class Task extends HiveObject {
     List<bool>? subtaskDone,
     this.isRecurring = false,
     this.recurringPattern = '',
+    this.recurrenceSeriesId,
     DateTime? createdAt,
     this.completedAt,
     this.archived = false,
@@ -221,6 +224,7 @@ class TaskAdapter extends TypeAdapter<Task> {
       subtaskDone: (fields[10] as List?)?.cast<bool>() ?? [],
       isRecurring: fields[11] as bool? ?? false,
       recurringPattern: fields[12] as String? ?? '',
+      recurrenceSeriesId: fields[21] as String? ?? 'legacy:${fields[0] as String}',
       createdAt: fields[13] as DateTime? ?? DateTime.now(),
       completedAt: fields[14] as DateTime?,
       archived: fields[15] as bool? ?? false,
@@ -237,7 +241,7 @@ class TaskAdapter extends TypeAdapter<Task> {
   @override
   void write(BinaryWriter writer, Task obj) {
     writer
-      ..writeByte(21)
+      ..writeByte(22)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -279,6 +283,8 @@ class TaskAdapter extends TypeAdapter<Task> {
       ..writeByte(19)
       ..write(obj.linkedGoalId)
       ..writeByte(20)
-      ..write(obj.linkedHabitId);
+      ..write(obj.linkedHabitId)
+      ..writeByte(21)
+      ..write(obj.recurrenceSeriesId);
   }
 }

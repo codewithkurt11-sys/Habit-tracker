@@ -592,13 +592,13 @@ class _DashboardSavingsTile extends StatelessWidget {
 
 /// Dashboard customization dialog.
 void _showCustomizeDialog(BuildContext context, AppState state) {
+  // One draft for the entire dialog session. StatefulBuilder rebuilds must
+  // never recreate the draft and discard changes.
+  final draft = DashboardConfig.fromMap(state.settings.dashboardConfig.toMap());
   showDialog(
     context: context,
     builder: (dialogContext) => StatefulBuilder(
       builder: (ctx, setSt) {
-        // Work on a draft copy so Cancel discards changes.
-        final draft = DashboardConfig.fromMap(
-            state.settings.dashboardConfig.toMap());
         return AlertDialog(
           title: const Text('Customize Dashboard'),
           content: SizedBox(

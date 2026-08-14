@@ -158,18 +158,18 @@ void main() {
   });
 
   group('Habit custom frequency validation', () {
-    test('customDays with empty list on custom frequency should be validated at repo level', () {
-      // This test verifies the model accepts empty customDays (validation is at repo level)
-      final habit = Habit(
-        id: 'test9',
-        name: 'Test',
-        category: HabitCategory.other,
-        frequency: HabitFrequency.custom,
-        customDays: [],
+    test('customDays with empty list on custom frequency is rejected at model level', () {
+      // Validation is now at the model constructor (not repo level)
+      expect(
+        () => Habit(
+          id: 'test9',
+          name: 'Test',
+          category: HabitCategory.other,
+          frequency: HabitFrequency.custom,
+          customDays: [],
+        ),
+        throwsArgumentError,
       );
-      expect(habit.customDays, isEmpty);
-      // isDueOn should return false for all days when customDays is empty
-      expect(habit.isDueOn(DateTime.now()), false);
     });
 
     test('customDays with valid weekday numbers', () {
