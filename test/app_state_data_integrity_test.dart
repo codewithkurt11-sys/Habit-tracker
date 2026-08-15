@@ -115,7 +115,7 @@ void main() {
     );
   });
 
-  test('automatic progress sync preserves milestone completion', () async {
+  test('syncGoal preserves completion achieved through milestones', () async {
     final goal = Goal(
       id: 'goal-1',
       title: 'Milestone goal',
@@ -126,7 +126,7 @@ void main() {
     );
     await Hive.box<Goal>(HiveBoxes.goals).put(goal.id, goal);
 
-    await state.syncGoalProgress(goal.id);
+    await state.syncGoal(goal.id);
 
     final stored = Hive.box<Goal>(HiveBoxes.goals).get(goal.id)!;
     expect(stored.currentValue, 0);
