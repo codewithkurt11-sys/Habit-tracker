@@ -45,10 +45,16 @@ void main() {
     await repo.markDone(a);
     await repo.markDone(b);
 
-    expect(repo.getForDate(DateTime(2026, 8, 24)).where((t) => t.title == 'Push Ups').length, 2);
+    expect(
+        repo
+            .getForDate(DateTime(2026, 8, 24))
+            .where((t) => t.title == 'Push Ups')
+            .length,
+        2);
   });
 
-  test('same recurring series does not create a duplicate occurrence', () async {
+  test('same recurring series does not create a duplicate occurrence',
+      () async {
     final task = await repo.create(
       title: 'Push Ups',
       dueDate: DateTime(2026, 8, 17),
@@ -65,7 +71,8 @@ void main() {
     expect(countAfterSecond, 1);
   });
 
-  test('completion generates the next occurrence through the repository path', () async {
+  test('completion generates the next occurrence through the repository path',
+      () async {
     final task = await repo.create(
       title: 'Daily Push Ups',
       dueDate: DateTime(2026, 8, 14),
@@ -101,5 +108,52 @@ void main() {
     final created = await repo.generateOverdueOccurrences();
     expect(created, isNotEmpty);
     expect(created.first.recurrenceSeriesId, task.recurrenceSeriesId);
+  });
+
+  test('legacy series identity is stable and prevents duplicate occurrences',
+      () async {
+    final firstSeriesId = Task.legacySeriesId(
+      title: 'Legacy review',
+      recurringPattern: 'weekly',
+    );
+    final sameSeriesId = Task.legacySeriesId(
+      title: 'Legacy review',
+      recurringPattern: 'weekly',
+    );
+    final differentSeriesId = Task.legacySeriesId(
+      title: 'Different review',
+      recurringPattern: 'weekly',
+    );
+    expect(sameSeriesId, firstSeriesId);
+    expect(differentSeriesId, isNot(firstSeriesId));
+
+    final first = Task(
+      id: 'legacy-1',
+      title: 'Legacy review',
+      dueDate: DateTime(2026, 8, 17),
+      isRecurring: true,
+      recurringPattern: 'weekly',
+      recurrenceSeriesId: firstSeriesId,
+    );
+    final existingNext = Task(
+      id: 'legacy-2',
+      title: 'Legacy review',
+      dueDate: DateTime(2026, 8, 24),
+      isRecurring: true,
+      recurringPattern: 'weekly',
+      recurrenceSeriesId: sameSeriesId,
+    );
+    await Hive.box<Task>('tasks_box').putAll({
+      first.id: first,
+      existingNext.id: existingNext,
+    });
+
+    expect(await repo.markDone(first), isNull);
+    expect(
+      repo
+          .getForDate(DateTime(2026, 8, 24))
+          .where((task) => task.recurrenceSeriesId == firstSeriesId),
+      hasLength(1),
+    );
   });
 }
