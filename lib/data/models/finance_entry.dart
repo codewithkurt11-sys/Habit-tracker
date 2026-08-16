@@ -152,6 +152,7 @@ class FinanceEntry extends HiveObject {
   List<double> contributionLogAmounts;
   List<bool> contributionLogConfirmed;
   String? linkedGoalId;
+  DateTime updatedAt;
 
   FinanceEntry({
     required this.id,
@@ -171,7 +172,9 @@ class FinanceEntry extends HiveObject {
     List<double>? contributionLogAmounts,
     List<bool>? contributionLogConfirmed,
     this.linkedGoalId,
+    DateTime? updatedAt,
   })  : createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? DateTime.now(),
         contributionLogDates = contributionLogDates ?? [],
         contributionLogAmounts = contributionLogAmounts ?? [],
         contributionLogConfirmed = contributionLogConfirmed ?? [];
@@ -194,6 +197,43 @@ class FinanceEntry extends HiveObject {
 
   Color get categoryColor =>
       isIncome ? const Color(0xFF6B9080) : expenseCategory.color;
+
+  /// Touch [updatedAt] to now.
+  void touch() => updatedAt = DateTime.now();
+
+  FinanceEntry copyWith({
+    String? title,
+    double? amount,
+    int? typeIndex,
+    int? categoryIndex,
+    DateTime? date,
+    String? note,
+    String? goalId,
+    bool clearGoalId = false,
+    double? plannedAmount,
+    String? linkedGoalId,
+  }) {
+    return FinanceEntry(
+      id: id,
+      title: title ?? this.title,
+      amount: amount ?? this.amount,
+      typeIndex: typeIndex ?? this.typeIndex,
+      categoryIndex: categoryIndex ?? this.categoryIndex,
+      date: date ?? this.date,
+      note: note ?? this.note,
+      goalId: clearGoalId ? null : (goalId ?? this.goalId),
+      plannedAmount: plannedAmount ?? this.plannedAmount,
+      createdAt: createdAt,
+      targetAmount: targetAmount,
+      targetDays: targetDays,
+      dailyAmount: dailyAmount,
+      contributionLogDates: List<DateTime>.from(contributionLogDates),
+      contributionLogAmounts: List<double>.from(contributionLogAmounts),
+      contributionLogConfirmed: List<bool>.from(contributionLogConfirmed),
+      linkedGoalId: linkedGoalId ?? this.linkedGoalId,
+      updatedAt: DateTime.now(),
+    );
+  }
 }
 
 class FinanceEntryAdapter extends TypeAdapter<FinanceEntry> {
@@ -224,13 +264,15 @@ class FinanceEntryAdapter extends TypeAdapter<FinanceEntry> {
       contributionLogAmounts: (fields[14] as List?)?.cast<double>() ?? [],
       contributionLogConfirmed: (fields[15] as List?)?.cast<bool>() ?? [],
       linkedGoalId: fields[16] as String?,
+      updatedAt:
+          fields[17] as DateTime? ?? fields[7] as DateTime? ?? DateTime.now(),
     );
   }
 
   @override
   void write(BinaryWriter writer, FinanceEntry obj) {
     writer
-      ..writeByte(17)
+      ..writeByte(18)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -264,7 +306,9 @@ class FinanceEntryAdapter extends TypeAdapter<FinanceEntry> {
       ..writeByte(15)
       ..write(obj.contributionLogConfirmed)
       ..writeByte(16)
-      ..write(obj.linkedGoalId);
+      ..write(obj.linkedGoalId)
+      ..writeByte(17)
+      ..write(obj.updatedAt);
   }
 }
 

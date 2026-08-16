@@ -1,0 +1,7 @@
+# Copy this file to key.properties and fill in your signing credentials.
+# The keystore file path is relative to the android/ directory.
+#
+# keyAlias=upload
+# keyPassword=your-key-password
+# storeFile=release-key.jks
+# storePassword=your-store-password

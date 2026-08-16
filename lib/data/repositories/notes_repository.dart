@@ -7,8 +7,10 @@ class NotesRepository {
   Box<Note> get _box => Hive.box<Note>(HiveBoxes.notes);
   final _uuid = const Uuid();
 
-  List<Note> getAll() {
-    final list = _box.values.toList();
+  List<Note> getAll({bool includeArchived = false}) {
+    final list = includeArchived
+        ? _box.values.toList()
+        : _box.values.where((n) => !n.archived).toList();
     list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
     return list;
   }
@@ -81,6 +83,26 @@ class NotesRepository {
     );
     await _box.put(note.id, note);
     return note;
+  }
+
+  List<Note> getArchived() {
+    final list = _box.values.where((n) => n.archived).toList();
+    list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    return list;
+  }
+
+  Future<void> archive(String id) async {
+    final note = _box.get(id);
+    if (note == null) return;
+    note.archived = true;
+    await _box.put(note.id, note);
+  }
+
+  Future<void> unarchive(String id) async {
+    final note = _box.get(id);
+    if (note == null) return;
+    note.archived = false;
+    await _box.put(note.id, note);
   }
 
   Future<void> update(Note note) async {

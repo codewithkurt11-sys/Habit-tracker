@@ -26,8 +26,12 @@ class StatsEngine {
   }
 
   /// Completion rate for a single day (0.0–1.0). Returns 0 if no habits due.
+  /// Skipped habits are excluded from both numerator and denominator so
+  /// they don't penalize the completion rate.
   static double dayCompletionRate(List<Habit> habits, DateTime date) {
-    final dueHabits = habits.where((habit) => habit.isDueOn(date)).toList();
+    final dueHabits = habits
+        .where((habit) => habit.isDueOn(date) && !habit.isSkippedOn(date))
+        .toList();
     if (dueHabits.isEmpty) return 0;
     final completed =
         dueHabits.where((habit) => habit.isCompletedOn(date)).length;

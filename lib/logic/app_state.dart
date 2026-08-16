@@ -58,8 +58,14 @@ class AppState extends ChangeNotifier {
   Future<void> processRecurringTasks() async {
     final created = await tasksRepo.generateOverdueOccurrences();
     if (created.isNotEmpty) {
+      final affectedGoals = <String>{};
       for (final task in created) {
         await notificationService.scheduleTask(task);
+        final goalId = task.goalId ?? task.linkedGoalId;
+        if (goalId != null) affectedGoals.add(goalId);
+      }
+      for (final goalId in affectedGoals) {
+        await syncGoal(goalId);
       }
     }
   }
@@ -122,7 +128,7 @@ class AppState extends ChangeNotifier {
         targetStreak: targetStreak,
         goalId: goalId,
       );
-      if (goalId != null) await syncGoalProgress(goalId);
+      if (goalId != null) await syncGoal(goalId);
     } finally {
       _busy = false;
       notifyListeners();
@@ -133,7 +139,8 @@ class AppState extends ChangeNotifier {
     final h = habitsRepo.getById(id);
     if (h == null) return;
     await habitsRepo.toggleCompletion(h, date: date);
-    if (h.goalId != null) await syncGoalProgress(h.goalId!);
+    final goalId = h.goalId ?? h.linkedGoalId;
+    if (goalId != null) await syncGoal(goalId);
     notifyListeners();
   }
 
@@ -141,19 +148,34 @@ class AppState extends ChangeNotifier {
     final h = habitsRepo.getById(id);
     if (h == null) return;
     await habitsRepo.skipDay(h, date: date);
-    if (h.goalId != null) await syncGoalProgress(h.goalId!);
+    final goalId = h.goalId ?? h.linkedGoalId;
+    if (goalId != null) await syncGoal(goalId);
     notifyListeners();
   }
 
   Future<void> deleteHabit(String id) async {
     final habit = habitsRepo.getById(id);
     await habitsRepo.delete(id);
-    if (habit?.goalId != null) await syncGoalProgress(habit!.goalId!);
+    final goalId = habit?.goalId ?? habit?.linkedGoalId;
+    if (goalId != null) await syncGoal(goalId);
     notifyListeners();
   }
 
   Future<void> updateHabit(Habit habit) async {
+    final existing = habitsRepo.getById(habit.id);
+    final oldGoalId = existing?.goalId ?? existing?.linkedGoalId;
+    final newGoalId = habit.goalId ?? habit.linkedGoalId;
+    habit.goalId = newGoalId;
+    habit.linkedGoalId = null;
     await habitsRepo.update(habit);
+    // Reassignment must repair both the old and new reverse links.
+    final affectedGoals = <String>{};
+    if (oldGoalId != null) affectedGoals.add(oldGoalId);
+    if (newGoalId != null) affectedGoals.add(newGoalId);
+    for (final gid in affectedGoals) {
+      await syncGoalLinks(gid);
+      await syncGoalProgress(gid);
+    }
     notifyListeners();
   }
 
@@ -186,35 +208,84 @@ class AppState extends ChangeNotifier {
         habitId: habitId,
       );
       await notificationService.scheduleTask(task);
-      if (goalId != null) await syncGoalProgress(goalId);
+      if (goalId != null) await syncGoal(goalId);
     } finally {
       _busy = false;
       notifyListeners();
     }
   }
 
+  Future<void> updateTask(Task task) async {
+    final existing = tasksRepo.getById(task.id);
+    if (existing == null) return;
+    final affectedGoals = <String>{};
+    final oldGoal = existing.goalId ?? existing.linkedGoalId;
+    final newGoal = task.goalId ?? task.linkedGoalId;
+    if (oldGoal != null) affectedGoals.add(oldGoal);
+    if (newGoal != null) affectedGoals.add(newGoal);
+    // goalId is the canonical forward relationship.
+    task.goalId = newGoal;
+    task.linkedGoalId = null;
+    await tasksRepo.update(task);
+    for (final gid in affectedGoals) {
+      await syncGoal(gid);
+    }
+    notifyListeners();
+  }
+
+  /// Change a task's status through the AppState layer so goal progress
+  /// is synced.  This avoids direct repo writes from UI code.
+  Future<void> setTaskStatus(String id, TaskStatus status) async {
+    final t = tasksRepo.getById(id);
+    if (t == null) return;
+    final goalId = t.goalId ?? t.linkedGoalId;
+    Task? nextOccurrence;
+    if (status == TaskStatus.done) {
+      nextOccurrence = await tasksRepo.markDone(t);
+    } else {
+      t.status = status;
+      t.completedAt = null;
+      t.touch();
+      await tasksRepo.update(t);
+    }
+    await notificationService.scheduleTask(t);
+    if (nextOccurrence != null) {
+      await notificationService.scheduleTask(nextOccurrence);
+    }
+    if (goalId != null) await syncGoal(goalId);
+    notifyListeners();
+  }
+
   Future<void> toggleTaskDone(String id) async {
     final t = tasksRepo.getById(id);
     if (t == null) return;
+    final goalId = t.goalId ?? t.linkedGoalId;
+    Task? nextOccurrence;
     if (t.status == TaskStatus.done) {
-      t.status = _taskStatus(0); // back to todo
+      t.status = _taskStatus(0);
       t.completedAt = null;
+      t.touch();
+      await tasksRepo.update(t);
     } else {
-      t.status = _taskStatus(2); // done
-      t.completedAt = DateTime.now();
+      nextOccurrence = await tasksRepo.markDone(t);
     }
-    t.touch();
-    await tasksRepo.update(t);
     await notificationService.scheduleTask(t);
-    if (t.goalId != null) await syncGoalProgress(t.goalId!);
+    if (nextOccurrence != null) {
+      await notificationService.scheduleTask(nextOccurrence);
+    }
+    if (goalId != null) await syncGoal(goalId);
     notifyListeners();
   }
 
   Future<void> toggleSubtask(String taskId, int index) async {
     final t = tasksRepo.getById(taskId);
     if (t == null) return;
-    await tasksRepo.toggleSubtask(t, index);
-    if (t.goalId != null) await syncGoalProgress(t.goalId!);
+    final nextOccurrence = await tasksRepo.toggleSubtask(t, index);
+    if (nextOccurrence != null) {
+      await notificationService.scheduleTask(nextOccurrence);
+    }
+    final goalId = t.goalId ?? t.linkedGoalId;
+    if (goalId != null) await syncGoal(goalId);
     notifyListeners();
   }
 
@@ -222,7 +293,8 @@ class AppState extends ChangeNotifier {
     final task = tasksRepo.getById(id);
     await tasksRepo.delete(id);
     await notificationService.cancelTask(id);
-    if (task?.goalId != null) await syncGoalProgress(task!.goalId!);
+    final goalId = task?.goalId ?? task?.linkedGoalId;
+    if (goalId != null) await syncGoal(goalId);
     notifyListeners();
   }
 
@@ -284,7 +356,46 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> deleteGoal(String id) async {
+    // Clean up child entity references before deleting the goal.
+    // Habits: clear goalId and linkedGoalId
+    for (final h in habitsRepo.getAll()) {
+      if (h.goalId == id || h.linkedGoalId == id) {
+        if (h.goalId == id) h.goalId = null;
+        if (h.linkedGoalId == id) h.linkedGoalId = null;
+        h.touch();
+        await habitsRepo.update(h);
+      }
+    }
+    // Tasks: clear goalId and linkedGoalId
+    for (final t in tasksRepo.getAll(includeArchived: true)) {
+      if (t.goalId == id || t.linkedGoalId == id) {
+        if (t.goalId == id) t.goalId = null;
+        if (t.linkedGoalId == id) t.linkedGoalId = null;
+        t.touch();
+        await tasksRepo.update(t);
+      }
+    }
+    // Finance entries: clear goalId and linkedGoalId
+    for (final f in financeRepo.getAll()) {
+      if (f.goalId == id || f.linkedGoalId == id) {
+        if (f.goalId == id) f.goalId = null;
+        if (f.linkedGoalId == id) f.linkedGoalId = null;
+        f.touch();
+        await financeRepo.update(f);
+      }
+    }
+    // Savings goals: clear goalId
+    for (final sg in savingsGoalsRepo.getAll()) {
+      if (sg.goalId == id) {
+        sg.goalId = null;
+        sg.touch();
+        await savingsGoalsRepo.update(sg);
+      }
+    }
     await goalsRepo.delete(id);
+    for (final remaining in goalsRepo.getAll(includeArchived: true)) {
+      await syncGoal(remaining.id);
+    }
     notifyListeners();
   }
 
@@ -359,6 +470,21 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> archiveNote(String id) async {
+    await notesRepo.archive(id);
+    notifyListeners();
+  }
+
+  Future<void> unarchiveNote(String id) async {
+    await notesRepo.unarchive(id);
+    notifyListeners();
+  }
+
+  Future<void> updateNote(Note note) async {
+    await notesRepo.update(note);
+    notifyListeners();
+  }
+
   // ---------- finance ----------
   Future<void> addFinance({
     required String title,
@@ -383,7 +509,7 @@ class AppState extends ChangeNotifier {
         goalId: goalId,
         plannedAmount: plannedAmount,
       );
-      if (goalId != null) await syncGoalProgress(goalId);
+      if (goalId != null) await syncGoal(goalId);
     } finally {
       _busy = false;
       notifyListeners();
@@ -394,8 +520,86 @@ class AppState extends ChangeNotifier {
     final entry =
         financeRepo.getAll().where((item) => item.id == id).firstOrNull;
     await financeRepo.delete(id);
-    if (entry?.goalId != null) await syncGoalProgress(entry!.goalId!);
+    final goalId = entry?.goalId ?? entry?.linkedGoalId;
+    if (goalId != null) await syncGoal(goalId);
     notifyListeners();
+  }
+
+  /// Normalizes every goal relationship to the canonical forward field
+  /// [goalId], then rebuilds every goal's reverse links from those fields.
+  /// This is intentionally centralized so create/update/reassign/delete and
+  /// import paths cannot leave the two sides of a relationship inconsistent.
+  Future<void> _normalizeGoalRelationships() async {
+    for (final habit in habitsRepo.getAll()) {
+      if (habit.goalId == null && habit.linkedGoalId != null) {
+        habit.goalId = habit.linkedGoalId;
+      }
+      if (habit.linkedGoalId != null) {
+        habit.linkedGoalId = null;
+        habit.touch();
+        await habitsRepo.update(habit);
+      }
+    }
+    for (final task in tasksRepo.getAll(includeArchived: true)) {
+      if (task.goalId == null && task.linkedGoalId != null) {
+        task.goalId = task.linkedGoalId;
+      }
+      if (task.linkedGoalId != null) {
+        task.linkedGoalId = null;
+        task.touch();
+        await tasksRepo.update(task);
+      }
+    }
+    for (final finance in financeRepo.getAll()) {
+      if (finance.goalId == null && finance.linkedGoalId != null) {
+        finance.goalId = finance.linkedGoalId;
+      }
+      if (finance.linkedGoalId != null) {
+        finance.linkedGoalId = null;
+        finance.touch();
+        await financeRepo.update(finance);
+      }
+    }
+  }
+
+  Future<void> syncGoalLinks(String goalId) async {
+    final goal = goalsRepo
+        .getAll(includeArchived: true)
+        .where((item) => item.id == goalId)
+        .firstOrNull;
+    if (goal == null) return;
+
+    final habitIds = habitsRepo
+        .getAll()
+        .where((h) => h.goalId == goalId)
+        .map((h) => h.id)
+        .toList();
+    final taskIds = tasksRepo
+        .getAll(includeArchived: true)
+        .where((t) => t.goalId == goalId)
+        .map((t) => t.id)
+        .toList();
+    final finance =
+        financeRepo.getAll().where((f) => f.goalId == goalId).firstOrNull;
+    final financeId = finance?.id;
+
+    if (!_listEquals(goal.linkedHabitIds, habitIds) ||
+        !_listEquals(goal.linkedTaskIds, taskIds) ||
+        goal.linkedFinanceId != financeId) {
+      goal.linkedHabitIds = habitIds;
+      goal.linkedTaskIds = taskIds;
+      goal.linkedFinanceId = financeId;
+      goal.touch();
+      await goalsRepo.update(goal);
+    }
+  }
+
+  bool _listEquals(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   /// Recalculates a goal's progress from all linked habits, tasks, finance
@@ -410,13 +614,79 @@ class AppState extends ChangeNotifier {
     if (goal == null) return;
     if (!goal.isAutoProgress) return;
     final pct = computeGoalProgress(goalId);
-    final linkedValue = pct * goal.targetValue;
+    final safeTarget = goal.targetValue < 0 ? 0.0 : goal.targetValue;
+    final linkedValue = pct * safeTarget;
     // Directly set value without flipping isAutoProgress (unlike updateProgress)
-    goal.currentValue = linkedValue.clamp(0.0, goal.targetValue).toDouble();
-    goal.completed =
-        goal.targetValue > 0 && goal.currentValue >= goal.targetValue;
+    goal.currentValue =
+        safeTarget > 0 ? linkedValue.clamp(0.0, safeTarget).toDouble() : 0.0;
+    goal.completed = _areAllMilestonesComplete(goal) ||
+        (safeTarget > 0 && goal.currentValue >= safeTarget);
     goal.touch();
     await goalsRepo.update(goal);
+  }
+
+  /// Combined sync that updates both reverse-link arrays and progress
+  /// in a single repository write, avoiding redundant writes when both
+  /// need to be updated.
+  Future<void> syncGoal(String goalId) async {
+    final goal = goalsRepo
+        .getAll(includeArchived: true)
+        .where((item) => item.id == goalId)
+        .firstOrNull;
+    if (goal == null) return;
+
+    // ── Reverse-link sync ──
+    // Reuse these filtered collections for progress below so synchronizing one
+    // goal does not scan each repository a second time.
+    final habits =
+        habitsRepo.getAll().where((h) => h.goalId == goalId).toList();
+    final tasks = tasksRepo
+        .getAll(includeArchived: true)
+        .where((t) => t.goalId == goalId)
+        .toList();
+    final financeEntries = financeRepo.getForGoal(goalId);
+    final savingsGoals = savingsGoalsRepo.getForGoal(goalId);
+    final habitIds = habits.map((h) => h.id).toList();
+    final taskIds = tasks.map((t) => t.id).toList();
+    final financeId = financeEntries.firstOrNull?.id;
+    final linksChanged = !_listEquals(goal.linkedHabitIds, habitIds) ||
+        !_listEquals(goal.linkedTaskIds, taskIds) ||
+        goal.linkedFinanceId != financeId;
+    if (linksChanged) {
+      goal.linkedHabitIds = habitIds;
+      goal.linkedTaskIds = taskIds;
+      goal.linkedFinanceId = financeId;
+    }
+
+    // ── Progress sync (only for auto-progress goals) ──
+    var progressChanged = false;
+    if (goal.isAutoProgress) {
+      final pct = _computeGoalProgress(
+        goal,
+        habits,
+        tasks,
+        financeEntries,
+        savingsGoals,
+      );
+      final safeTarget = goal.targetValue < 0 ? 0.0 : goal.targetValue;
+      final linkedValue = pct * safeTarget;
+      final newCurrentValue =
+          safeTarget > 0 ? linkedValue.clamp(0.0, safeTarget).toDouble() : 0.0;
+      final newCompleted = _areAllMilestonesComplete(goal) ||
+          (safeTarget > 0 && newCurrentValue >= safeTarget);
+      if (goal.currentValue != newCurrentValue ||
+          goal.completed != newCompleted) {
+        goal.currentValue = newCurrentValue;
+        goal.completed = newCompleted;
+        progressChanged = true;
+      }
+    }
+
+    // ── Single write if anything changed ──
+    if (linksChanged || progressChanged) {
+      goal.touch();
+      await goalsRepo.update(goal);
+    }
   }
 
   /// Computes the auto-calculated progress percentage (0.0–1.0) for a goal
@@ -426,6 +696,14 @@ class AppState extends ChangeNotifier {
   ///   - finance progress fraction (contributed / target)
   ///   - savings goal progress fraction (average across linked savings goals)
   /// All three fractions are equally weighted when present.
+  bool _areAllMilestonesComplete(Goal goal) {
+    return goal.milestoneTitles.isNotEmpty &&
+        goal.milestoneDone.length >= goal.milestoneTitles.length &&
+        goal.milestoneDone
+            .take(goal.milestoneTitles.length)
+            .every((done) => done);
+  }
+
   double computeGoalProgress(String goalId) {
     final goal = goalsRepo
         .getAll(includeArchived: true)
@@ -433,14 +711,25 @@ class AppState extends ChangeNotifier {
         .firstOrNull;
     if (goal == null) return 0;
 
-    final habits =
-        habitsRepo.getAll().where((h) => h.goalId == goalId).toList();
-    final tasks = tasksRepo
-        .getAll(includeArchived: true)
-        .where((t) => t.goalId == goalId)
-        .toList();
-    final savingsGoals = savingsGoalsRepo.getForGoal(goalId);
+    return _computeGoalProgress(
+      goal,
+      habitsRepo.getAll().where((h) => h.goalId == goalId).toList(),
+      tasksRepo
+          .getAll(includeArchived: true)
+          .where((t) => t.goalId == goalId)
+          .toList(),
+      financeRepo.getForGoal(goalId),
+      savingsGoalsRepo.getForGoal(goalId),
+    );
+  }
 
+  double _computeGoalProgress(
+    Goal goal,
+    List<Habit> habits,
+    List<Task> tasks,
+    List<FinanceEntry> financeEntries,
+    List<SavingsGoal> savingsGoals,
+  ) {
     final fractions = <double>[];
 
     // 30-day habit completion rate
@@ -457,17 +746,18 @@ class AppState extends ChangeNotifier {
       fractions.add(taskFrac);
     }
 
-    // Finance / savings progress fraction
-    if (goal.category == GoalCategory.finance) {
-      final financeTotal = financeRepo.contributedToGoal(goalId);
-      if (savingsGoals.isNotEmpty) {
-        final savingsFrac =
-            savingsGoals.fold(0.0, (s, sg) => s + sg.progressFraction) /
-                savingsGoals.length;
-        fractions.add(savingsFrac);
-      } else if (goal.targetValue > 0) {
-        fractions.add((financeTotal / goal.targetValue).clamp(0.0, 1.0));
-      }
+    // Finance / savings progress fraction — contributes regardless of
+    // goal.category so mixed-mode goals (e.g. health + finance) get credit.
+    final financeTotal = financeEntries
+        .where((entry) => entry.isIncome)
+        .fold(0.0, (sum, entry) => sum + entry.amount);
+    if (savingsGoals.isNotEmpty) {
+      final savingsFrac =
+          savingsGoals.fold(0.0, (s, sg) => s + sg.progressFraction) /
+              savingsGoals.length;
+      fractions.add(savingsFrac);
+    } else if (financeTotal > 0 && goal.targetValue > 0) {
+      fractions.add((financeTotal / goal.targetValue).clamp(0.0, 1.0));
     }
 
     if (fractions.isEmpty) return 0;
@@ -492,7 +782,10 @@ class AppState extends ChangeNotifier {
         targetDays: targetDays,
         goalId: goalId,
       );
-      if (goalId != null) await syncGoalProgress(goalId);
+      if (goalId != null) {
+        await syncGoalLinks(goalId);
+        await syncGoalProgress(goalId);
+      }
     } finally {
       _busy = false;
       notifyListeners();
@@ -661,6 +954,7 @@ class AppState extends ChangeNotifier {
                       }),
               'isRecurring': t.isRecurring,
               'recurringPattern': t.recurringPattern,
+              'recurrenceSeriesId': t.recurrenceSeriesId,
               'createdAt': t.createdAt.toIso8601String(),
               'completedAt': t.completedAt?.toIso8601String(),
               'archived': t.archived,
@@ -730,7 +1024,7 @@ class AppState extends ChangeNotifier {
 
     // notes
     data['notes'] = notesRepo
-        .getAll()
+        .getAll(includeArchived: true)
         .map((n) => {
               'id': n.id,
               'title': n.title,
@@ -744,6 +1038,7 @@ class AppState extends ChangeNotifier {
               'attachmentPaths': n.attachmentPaths,
               'linkedEntityType': n.linkedEntityType,
               'linkedEntityId': n.linkedEntityId,
+              'archived': n.archived,
             })
         .toList();
 
@@ -772,6 +1067,7 @@ class AppState extends ChangeNotifier {
               'contributionLogAmounts': f.contributionLogAmounts,
               'contributionLogConfirmed': f.contributionLogConfirmed,
               'linkedGoalId': f.linkedGoalId,
+              'updatedAt': f.updatedAt.toIso8601String(),
             })
         .toList();
 
@@ -845,7 +1141,7 @@ class AppState extends ChangeNotifier {
       'tasksCount': tasksRepo.getAll(includeArchived: true).length,
       'goalsCount': goalsRepo.getAll(includeArchived: true).length,
       'journalCount': journalRepo.getAll().length,
-      'notesCount': notesRepo.getAll().length,
+      'notesCount': notesRepo.getAll(includeArchived: true).length,
       'financeEntriesCount': financeRepo.getAll().length,
       'focusSessionsCount': focusRepo.getAll().length,
       'scheduleItemsCount': scheduleRepo.getAll().length,
@@ -972,6 +1268,13 @@ class AppState extends ChangeNotifier {
             subtasks.map((item) => item['done'] as bool? ?? false).toList(),
         isRecurring: item['isRecurring'] as bool? ?? false,
         recurringPattern: item['recurringPattern'] as String? ?? '',
+        recurrenceSeriesId: item['recurrenceSeriesId'] as String? ??
+            (item['isRecurring'] as bool? ?? false
+                ? Task.legacySeriesId(
+                    title: item['title'] as String? ?? '',
+                    recurringPattern: item['recurringPattern'] as String? ?? '',
+                  )
+                : null),
         createdAt: _date(item['createdAt']),
         completedAt: _date(item['completedAt']),
         archived: item['archived'] as bool? ?? false,
@@ -999,6 +1302,7 @@ class AppState extends ChangeNotifier {
             (item['attachmentPaths'] as List?)?.cast<String>() ?? [],
         linkedEntityType: item['linkedEntityType'] as String?,
         linkedEntityId: item['linkedEntityId'] as String?,
+        archived: item['archived'] as bool? ?? false,
       ));
     }
 
@@ -1045,6 +1349,7 @@ class AppState extends ChangeNotifier {
         contributionLogConfirmed:
             (item['contributionLogConfirmed'] as List?)?.cast<bool>() ?? [],
         linkedGoalId: item['linkedGoalId'] as String?,
+        updatedAt: _date(item['updatedAt']),
       ));
     }
 
@@ -1225,9 +1530,11 @@ class AppState extends ChangeNotifier {
       await budgetBox.put('budget', newBudget);
     }
 
-    // Re-sync goal progress for auto goals after import
+    // Imported reverse links are untrusted derived data. Normalize legacy
+    // forward fields once, then use the standard relationship/progress sync.
+    await _normalizeGoalRelationships();
     for (final g in goals) {
-      if (g.isAutoProgress) await syncGoalProgress(g.id);
+      await syncGoal(g.id);
     }
 
     notifyListeners();

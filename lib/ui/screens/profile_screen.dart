@@ -167,31 +167,50 @@ class ProfileScreen extends StatelessWidget {
     final controller = TextEditingController(text: currentName);
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Edit Name'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(labelText: 'Your name'),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final name = controller.text.trim();
-              if (name.isNotEmpty) {
-                context.read<AppState>().completeOnboarding(name);
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
+      // Dispose the controller when the dialog is dismissed by any means.
+      builder: (_) => StatefulBuilder(
+        builder: (dialogContext, setSt) {
+          return AlertDialog(
+            title: const Text('Edit Name'),
+            content: TextField(
+              controller: controller,
+              decoration: const InputDecoration(labelText: 'Your name'),
+              autofocus: true,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  controller.dispose();
+                  Navigator.pop(dialogContext);
+                },
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  final name = controller.text.trim();
+                  if (name.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please enter a name.'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                    return;
+                  }
+                  context.read<AppState>().completeOnboarding(name);
+                  controller.dispose();
+                  Navigator.pop(dialogContext);
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          );
+        },
       ),
-    );
+    ).then((_) {
+      // Ensure disposal if dialog was dismissed by barrier tap or back button.
+      controller.dispose();
+    });
   }
 }
 

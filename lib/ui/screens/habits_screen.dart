@@ -332,6 +332,17 @@ class _AddHabitDialogState extends State<_AddHabitDialog> {
   int _iconIndex = 0;
   int _colorIndex = 0;
   String? _goalId;
+  final Set<int> _customDays = {};
+
+  static const _weekdayLabels = [
+    'Mon',
+    'Tue',
+    'Wed',
+    'Thu',
+    'Fri',
+    'Sat',
+    'Sun'
+  ];
 
   @override
   void dispose() {
@@ -372,6 +383,30 @@ class _AddHabitDialogState extends State<_AddHabitDialog> {
               _frequencyIndex,
               (i) => setState(() => _frequencyIndex = i),
             ),
+            if (_frequencyIndex == 2) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Text('Days of week', style: theme.textTheme.labelLarge),
+              const SizedBox(height: AppSpacing.xs),
+              Wrap(
+                spacing: 6,
+                children: List.generate(7, (i) {
+                  final weekday = i + 1; // ISO: 1=Mon .. 7=Sun
+                  final sel = _customDays.contains(weekday);
+                  return FilterChip(
+                    label: Text(_weekdayLabels[i]),
+                    selected: sel,
+                    showCheckmark: true,
+                    onSelected: (selected) => setState(() {
+                      if (selected) {
+                        _customDays.add(weekday);
+                      } else {
+                        _customDays.remove(weekday);
+                      }
+                    }),
+                  );
+                }),
+              ),
+            ],
             const SizedBox(height: AppSpacing.md),
             DropdownButtonFormField<String?>(
               initialValue: _goalId,
@@ -459,11 +494,35 @@ class _AddHabitDialogState extends State<_AddHabitDialog> {
         ElevatedButton(
           onPressed: () {
             final name = _nameController.text.trim();
-            if (name.isEmpty) return;
+            if (name.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Please enter a habit name.'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+              return;
+            }
+            if (_frequencyIndex == 2 && _customDays.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                      'Please select at least one day for custom frequency.'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+              return;
+            }
+            List<int>? customDaysList;
+            if (_frequencyIndex == 2) {
+              customDaysList = _customDays.toList();
+              customDaysList.sort();
+            }
             context.read<AppState>().addHabit(
                   name: name,
                   categoryIndex: _categoryIndex,
                   frequencyIndex: _frequencyIndex,
+                  customDays: customDaysList,
                   iconIndex: _iconIndex,
                   colorValue:
                       AppColors.habitColorPalette[_colorIndex].toARGB32(),

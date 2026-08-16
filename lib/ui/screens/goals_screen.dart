@@ -69,11 +69,12 @@ class _GoalTile extends StatelessWidget {
     final milestones = goal.milestones;
     final linkedHabits = state.habitsRepo
         .getAll()
-        .where((habit) => habit.goalId == goal.id)
+        .where(
+            (habit) => habit.goalId == goal.id || habit.linkedGoalId == goal.id)
         .toList();
     final linkedTasks = state.tasksRepo
         .getAll(includeArchived: true)
-        .where((task) => task.goalId == goal.id)
+        .where((task) => task.goalId == goal.id || task.linkedGoalId == goal.id)
         .toList();
     final contributions = state.financeRepo.getForGoal(goal.id);
     final linkedNotes = state.notesRepo.getForEntity('goal', goal.id);
@@ -377,7 +378,20 @@ class _AddGoalDialogState extends State<_AddGoalDialog> {
           onPressed: () {
             final title = _titleController.text.trim();
             final target = double.tryParse(_targetController.text.trim());
-            if (title.isEmpty || target == null || target <= 0) return;
+            if (title.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Please enter a goal title')),
+              );
+              return;
+            }
+            if (target == null || target <= 0) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                    content: Text(
+                        'Please enter a valid target value greater than 0')),
+              );
+              return;
+            }
             context.read<AppState>().addGoal(
                   title: title,
                   description: _descController.text.trim(),

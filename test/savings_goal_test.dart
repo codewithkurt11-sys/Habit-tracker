@@ -44,7 +44,9 @@ void main() {
         targetAmount: 500,
         targetDays: 5,
         startDate: yesterday,
-        contributionDates: [DateTime(yesterday.year, yesterday.month, yesterday.day)],
+        contributionDates: [
+          DateTime(yesterday.year, yesterday.month, yesterday.day)
+        ],
         contributionAmounts: [100],
       );
       expect(sg.totalContributed, 100);

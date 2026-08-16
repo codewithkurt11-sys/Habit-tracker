@@ -40,6 +40,18 @@ class HabitsRepository {
     int targetStreak = 0,
     String? goalId,
   }) async {
+    // Validate: custom frequency requires at least one weekday
+    if (frequency == HabitFrequency.custom &&
+        (customDays == null || customDays.isEmpty)) {
+      throw ArgumentError(
+          'Custom frequency habits require at least one selected day');
+    }
+    if (customDays != null && customDays.any((day) => day < 1 || day > 7)) {
+      throw ArgumentError('Habit weekdays must be ISO values from 1 to 7');
+    }
+    if (customDays != null && customDays.toSet().length != customDays.length) {
+      throw ArgumentError('Habit weekdays must not contain duplicates');
+    }
     final habit = Habit(
       id: _uuid.v4(),
       name: name,
@@ -56,6 +68,16 @@ class HabitsRepository {
   }
 
   Future<void> update(Habit habit) async {
+    if (habit.customDays.any((day) => day < 1 || day > 7)) {
+      throw ArgumentError('Habit weekdays must be ISO values from 1 to 7');
+    }
+    if (habit.frequency == HabitFrequency.custom && habit.customDays.isEmpty) {
+      throw ArgumentError(
+          'Custom frequency habits require at least one selected day');
+    }
+    if (habit.customDays.toSet().length != habit.customDays.length) {
+      throw ArgumentError('Habit weekdays must not contain duplicates');
+    }
     habit.touch();
     await _box.put(habit.id, habit);
   }

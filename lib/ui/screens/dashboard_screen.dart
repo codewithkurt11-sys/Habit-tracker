@@ -8,6 +8,7 @@ import '../../data/models/task.dart';
 import '../../data/models/goal.dart';
 import '../../data/models/quote.dart';
 import '../../data/models/savings_goal.dart';
+import '../../data/models/user_settings.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
@@ -591,11 +592,13 @@ class _DashboardSavingsTile extends StatelessWidget {
 
 /// Dashboard customization dialog.
 void _showCustomizeDialog(BuildContext context, AppState state) {
+  // One draft for the entire dialog session. StatefulBuilder rebuilds must
+  // never recreate the draft and discard changes.
+  final draft = DashboardConfig.fromMap(state.settings.dashboardConfig.toMap());
   showDialog(
     context: context,
     builder: (dialogContext) => StatefulBuilder(
       builder: (ctx, setSt) {
-        final cfg = state.settings.dashboardConfig;
         return AlertDialog(
           title: const Text('Customize Dashboard'),
           content: SizedBox(
@@ -606,69 +609,69 @@ void _showCustomizeDialog(BuildContext context, AppState state) {
                 children: [
                   _DashboardToggle(
                       label: 'Daily Progress',
-                      value: cfg.showDailyProgress,
+                      value: draft.showDailyProgress,
                       onChanged: (v) {
-                        setSt(() => cfg.showDailyProgress = v);
+                        setSt(() => draft.showDailyProgress = v);
                       }),
                   _DashboardToggle(
                       label: 'Quick Stats',
-                      value: cfg.showQuickStats,
+                      value: draft.showQuickStats,
                       onChanged: (v) {
-                        setSt(() => cfg.showQuickStats = v);
+                        setSt(() => draft.showQuickStats = v);
                       }),
                   _DashboardToggle(
                       label: 'Quick Actions',
-                      value: cfg.showQuickActions,
+                      value: draft.showQuickActions,
                       onChanged: (v) {
-                        setSt(() => cfg.showQuickActions = v);
+                        setSt(() => draft.showQuickActions = v);
                       }),
                   _DashboardToggle(
                       label: "Today's Habits",
-                      value: cfg.showTodayHabits,
+                      value: draft.showTodayHabits,
                       onChanged: (v) {
-                        setSt(() => cfg.showTodayHabits = v);
+                        setSt(() => draft.showTodayHabits = v);
                       }),
                   _DashboardToggle(
                       label: 'Tasks',
-                      value: cfg.showTasks,
+                      value: draft.showTasks,
                       onChanged: (v) {
-                        setSt(() => cfg.showTasks = v);
+                        setSt(() => draft.showTasks = v);
                       }),
                   _DashboardToggle(
                       label: 'Schedule',
-                      value: cfg.showSchedule,
+                      value: draft.showSchedule,
                       onChanged: (v) {
-                        setSt(() => cfg.showSchedule = v);
+                        setSt(() => draft.showSchedule = v);
                       }),
                   _DashboardToggle(
                       label: 'Goal Progress',
-                      value: cfg.showGoalProgress,
+                      value: draft.showGoalProgress,
                       onChanged: (v) {
-                        setSt(() => cfg.showGoalProgress = v);
+                        setSt(() => draft.showGoalProgress = v);
                       }),
                   _DashboardToggle(
                       label: 'Savings Targets',
-                      value: cfg.showSavingsTargets,
+                      value: draft.showSavingsTargets,
                       onChanged: (v) {
-                        setSt(() => cfg.showSavingsTargets = v);
+                        setSt(() => draft.showSavingsTargets = v);
                       }),
                   _DashboardToggle(
                       label: 'Recent Notes',
-                      value: cfg.showRecentNotes,
+                      value: draft.showRecentNotes,
                       onChanged: (v) {
-                        setSt(() => cfg.showRecentNotes = v);
+                        setSt(() => draft.showRecentNotes = v);
                       }),
                   _DashboardToggle(
                       label: 'Insight',
-                      value: cfg.showInsight,
+                      value: draft.showInsight,
                       onChanged: (v) {
-                        setSt(() => cfg.showInsight = v);
+                        setSt(() => draft.showInsight = v);
                       }),
                   _DashboardToggle(
                       label: 'Daily Quote',
-                      value: cfg.showDailyQuote,
+                      value: draft.showDailyQuote,
                       onChanged: (v) {
-                        setSt(() => cfg.showDailyQuote = v);
+                        setSt(() => draft.showDailyQuote = v);
                       }),
                 ],
               ),
@@ -681,7 +684,7 @@ void _showCustomizeDialog(BuildContext context, AppState state) {
             ),
             ElevatedButton(
               onPressed: () {
-                state.setDashboardConfig(cfg);
+                state.setDashboardConfig(draft);
                 Navigator.pop(dialogContext);
               },
               child: const Text('Save'),
