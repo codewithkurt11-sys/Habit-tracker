@@ -158,7 +158,9 @@ void main() {
   });
 
   group('Habit custom frequency validation', () {
-    test('customDays with empty list on custom frequency is rejected at model level', () {
+    test(
+        'customDays with empty list on custom frequency is rejected at model level',
+        () {
       // Validation is now at the model constructor (not repo level)
       expect(
         () => Habit(

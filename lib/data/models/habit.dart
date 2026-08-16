@@ -107,9 +107,11 @@ class Habit extends HiveObject {
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
 
-  static List<int> _validateCustomDays(HabitFrequency frequency, List<int> days) {
+  static List<int> _validateCustomDays(
+      HabitFrequency frequency, List<int> days) {
     if (frequency == HabitFrequency.custom && days.isEmpty) {
-      throw ArgumentError('Custom frequency habits require at least one selected day');
+      throw ArgumentError(
+          'Custom frequency habits require at least one selected day');
     }
     if (days.any((day) => day < 1 || day > 7)) {
       throw ArgumentError('Habit weekdays must be ISO values from 1 to 7');

@@ -2,7 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_app/data/models/user_settings.dart';
 
 void main() {
-  test('dashboard customization draft survives repeated rebuild-style copies', () {
+  test('dashboard customization draft survives repeated rebuild-style copies',
+      () {
     final saved = DashboardConfig();
     final draft = DashboardConfig.fromMap(saved.toMap());
 

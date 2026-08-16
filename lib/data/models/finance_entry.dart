@@ -264,7 +264,8 @@ class FinanceEntryAdapter extends TypeAdapter<FinanceEntry> {
       contributionLogAmounts: (fields[14] as List?)?.cast<double>() ?? [],
       contributionLogConfirmed: (fields[15] as List?)?.cast<bool>() ?? [],
       linkedGoalId: fields[16] as String?,
-      updatedAt: fields[17] as DateTime? ?? fields[7] as DateTime? ?? DateTime.now(),
+      updatedAt:
+          fields[17] as DateTime? ?? fields[7] as DateTime? ?? DateTime.now(),
     );
   }
 

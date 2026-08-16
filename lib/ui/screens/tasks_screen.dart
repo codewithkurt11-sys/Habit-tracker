@@ -13,7 +13,11 @@ class TasksScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final tasks = state.tasksRepo.getActive();
+    // Show completed tasks too, otherwise ticking the checkbox makes the task
+    // disappear from the list on the same frame: it never renders as checked
+    // and can never be un-ticked. Done tasks are listed after active ones.
+    final active = state.tasksRepo.getActive();
+    final tasks = [...active, ...state.tasksRepo.getDone()];
 
     return Scaffold(
       body: SafeArea(
@@ -21,14 +25,14 @@ class TasksScreen extends StatelessWidget {
           children: [
             ScreenTitleBar(
               title: 'Tasks',
-              subtitle: '${tasks.length} active',
+              subtitle: '${active.length} active',
               onMenuTap: () => Scaffold.of(context).openDrawer(),
             ),
             Expanded(
               child: tasks.isEmpty
                   ? EmptyState(
                       icon: Icons.check_circle_outline,
-                      title: 'No active tasks',
+                      title: 'No tasks yet',
                       subtitle: 'Add a task to stay organized.',
                       actionLabel: 'Add Task',
                       onAction: () => showDialog(

@@ -69,7 +69,8 @@ class _GoalTile extends StatelessWidget {
     final milestones = goal.milestones;
     final linkedHabits = state.habitsRepo
         .getAll()
-        .where((habit) => habit.goalId == goal.id || habit.linkedGoalId == goal.id)
+        .where(
+            (habit) => habit.goalId == goal.id || habit.linkedGoalId == goal.id)
         .toList();
     final linkedTasks = state.tasksRepo
         .getAll(includeArchived: true)
@@ -385,7 +386,9 @@ class _AddGoalDialogState extends State<_AddGoalDialog> {
             }
             if (target == null || target <= 0) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Please enter a valid target value greater than 0')),
+                const SnackBar(
+                    content: Text(
+                        'Please enter a valid target value greater than 0')),
               );
               return;
             }

@@ -72,7 +72,8 @@ class HabitsRepository {
       throw ArgumentError('Habit weekdays must be ISO values from 1 to 7');
     }
     if (habit.frequency == HabitFrequency.custom && habit.customDays.isEmpty) {
-      throw ArgumentError('Custom frequency habits require at least one selected day');
+      throw ArgumentError(
+          'Custom frequency habits require at least one selected day');
     }
     if (habit.customDays.toSet().length != habit.customDays.length) {
       throw ArgumentError('Habit weekdays must not contain duplicates');

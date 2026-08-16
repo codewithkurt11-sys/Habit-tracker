@@ -334,7 +334,15 @@ class _AddHabitDialogState extends State<_AddHabitDialog> {
   String? _goalId;
   final Set<int> _customDays = {};
 
-  static const _weekdayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  static const _weekdayLabels = [
+    'Mon',
+    'Tue',
+    'Wed',
+    'Thu',
+    'Fri',
+    'Sat',
+    'Sun'
+  ];
 
   @override
   void dispose() {
@@ -498,7 +506,8 @@ class _AddHabitDialogState extends State<_AddHabitDialog> {
             if (_frequencyIndex == 2 && _customDays.isEmpty) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Please select at least one day for custom frequency.'),
+                  content: Text(
+                      'Please select at least one day for custom frequency.'),
                   duration: Duration(seconds: 2),
                 ),
               );
