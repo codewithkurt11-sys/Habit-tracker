@@ -8,24 +8,25 @@ class NotesRepository {
   final _uuid = const Uuid();
 
   List<Note> getAll({bool includeArchived = false}) {
-    final list = includeArchived
-        ? _box.values.toList()
-        : _box.values.where((n) => !n.archived).toList();
-    list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    final list = (includeArchived ? _box.values : _box.values.where((n) => !n.isArchived)).toList();
+    list.sort((a, b) {
+      if (a.isPinned != b.isPinned) return a.isPinned ? -1 : 1;
+      return b.updatedAt.compareTo(a.updatedAt);
+    });
     return list;
   }
 
   List<Note> getForHabit(String habitId) {
-    return getAll().where((n) => n.habitId == habitId).toList();
+    return getAll(includeArchived: true).where((n) => n.habitId == habitId).toList();
   }
 
-  List<Note> getForEntity(String type, String id) => getAll()
+  List<Note> getForEntity(String type, String id) => getAll(includeArchived: true)
       .where(
           (note) => note.linkedEntityType == type && note.linkedEntityId == id)
       .toList();
 
   List<Note> getForDate(DateTime date) {
-    return getAll().where((n) {
+    return getAll(includeArchived: true).where((n) {
       if (n.linkedDate == null) return false;
       return n.linkedDate!.year == date.year &&
           n.linkedDate!.month == date.month &&
@@ -85,27 +86,20 @@ class NotesRepository {
     return note;
   }
 
-  List<Note> getArchived() {
-    final list = _box.values.where((n) => n.archived).toList();
-    list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-    return list;
-  }
-
-  Future<void> archive(String id) async {
-    final note = _box.get(id);
-    if (note == null) return;
-    note.archived = true;
-    await _box.put(note.id, note);
-  }
-
-  Future<void> unarchive(String id) async {
-    final note = _box.get(id);
-    if (note == null) return;
-    note.archived = false;
-    await _box.put(note.id, note);
-  }
-
   Future<void> update(Note note) async {
+    note.updatedAt = DateTime.now();
+    await _box.put(note.id, note);
+  }
+
+  Future<void> setPinned(Note note, bool pinned) async {
+    note.isPinned = pinned;
+    note.updatedAt = DateTime.now();
+    await _box.put(note.id, note);
+  }
+
+  Future<void> setArchived(Note note, bool archived) async {
+    note.isArchived = archived;
+    note.updatedAt = DateTime.now();
     await _box.put(note.id, note);
   }
 

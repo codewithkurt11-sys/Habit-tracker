@@ -13,11 +13,7 @@ class TasksScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    // Show completed tasks too, otherwise ticking the checkbox makes the task
-    // disappear from the list on the same frame: it never renders as checked
-    // and can never be un-ticked. Done tasks are listed after active ones.
-    final active = state.tasksRepo.getActive();
-    final tasks = [...active, ...state.tasksRepo.getDone()];
+    final tasks = state.tasksRepo.getActive();
 
     return Scaffold(
       body: SafeArea(
@@ -25,19 +21,27 @@ class TasksScreen extends StatelessWidget {
           children: [
             ScreenTitleBar(
               title: 'Tasks',
-              subtitle: '${active.length} active',
-              onMenuTap: () => Scaffold.of(context).openDrawer(),
+              subtitle: '${tasks.length} active',
+              onMenuTap: null,
+              trailing: IconButton(
+                tooltip: 'Add task',
+                icon: const Icon(Icons.add_circle_outline),
+                onPressed: () {
+                  context.read<AppState>().hideQuickCapture();
+                  showAddTaskDialog(context);
+                },
+              ),
             ),
             Expanded(
               child: tasks.isEmpty
                   ? EmptyState(
                       icon: Icons.check_circle_outline,
-                      title: 'No tasks yet',
+                      title: 'No active tasks',
                       subtitle: 'Add a task to stay organized.',
                       actionLabel: 'Add Task',
                       onAction: () => showDialog(
                         context: context,
-                        builder: (_) => const _AddTaskDialog(),
+                        builder: (_) => const _TaskEditorDialog(),
                       ),
                     )
                   : ListView.builder(
@@ -49,13 +53,6 @@ class TasksScreen extends StatelessWidget {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => showDialog(
-          context: context,
-          builder: (_) => const _AddTaskDialog(),
-        ),
-        child: const Icon(Icons.add),
-      ),
     );
   }
 }
@@ -66,9 +63,12 @@ class _TaskTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.read<AppState>();
+    final state = context.watch<AppState>();
     final theme = Theme.of(context);
-    final done = task.status == TaskStatus.done;
+    // Re-read the task from state so checkbox toggles reflect immediately.
+    final freshTask = state.tasksRepo.getAll(includeArchived: true)
+        .where((t) => t.id == task.id).firstOrNull ?? task;
+    final done = freshTask.status == TaskStatus.done;
 
     return Dismissible(
       key: ValueKey(task.id),
@@ -89,77 +89,70 @@ class _TaskTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.md, vertical: AppSpacing.xs + 2),
         child: Card(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                GestureDetector(
-                  onTap: () => state.toggleTaskDone(task.id),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    width: 24,
-                    height: 24,
-                    margin: const EdgeInsets.only(top: 2),
-                    decoration: BoxDecoration(
-                      color: done ? task.priority.color : Colors.transparent,
-                      border: Border.all(color: task.priority.color, width: 2),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: done
-                        ? const Icon(Icons.check, color: Colors.white, size: 16)
-                        : null,
+          child: InkWell(
+            onTap: () => showEditTaskDialog(context, freshTask),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Checkbox(
+                    value: done,
+                    activeColor: freshTask.priority.color,
+                    visualDensity: VisualDensity.compact,
+                    onChanged: (_) => state.toggleTaskDone(freshTask.id),
                   ),
-                ),
-                const SizedBox(width: AppSpacing.sm + 4),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(task.title,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                              decoration:
-                                  done ? TextDecoration.lineThrough : null,
-                              color: done
-                                  ? theme.colorScheme.onSurface
-                                      .withValues(alpha: 0.4)
-                                  : null)),
-                      if (task.description.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(task.description,
-                            style: theme.textTheme.bodySmall,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis),
-                      ],
-                      const SizedBox(height: AppSpacing.sm),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 4,
-                        children: [
-                          PillChip(
-                            label: task.priority.label,
-                            icon: task.priority.icon,
-                            color: task.priority.color,
-                          ),
-                          PillChip(
-                            label: task.category.label,
-                            icon: task.category.icon,
-                          ),
-                          if (task.goalId != null)
-                            const PillChip(
-                                label: 'Linked goal', icon: Icons.link),
-                          if (task.habitId != null)
-                            const PillChip(
-                                label: 'Linked habit', icon: Icons.repeat),
-                          if (task.isRecurring)
-                            const PillChip(
-                                label: 'Recurring', icon: Icons.repeat),
+                  const SizedBox(width: AppSpacing.sm + 4),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(freshTask.title,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                                decoration:
+                                    done ? TextDecoration.lineThrough : null,
+                                color: done
+                                    ? theme.colorScheme.onSurface
+                                        .withValues(alpha: 0.4)
+                                    : null)),
+                        if (freshTask.description.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(freshTask.description,
+                              style: theme.textTheme.bodySmall,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis),
                         ],
-                      ),
-                    ],
+                        const SizedBox(height: AppSpacing.sm),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: [
+                            PillChip(
+                              label: freshTask.priority.label,
+                              icon: freshTask.priority.icon,
+                              color: freshTask.priority.color,
+                            ),
+                            PillChip(
+                              label: freshTask.category.label,
+                              icon: freshTask.category.icon,
+                            ),
+                            if (freshTask.goalId != null)
+                              const PillChip(
+                                  label: 'Linked goal', icon: Icons.link),
+                            if (freshTask.habitId != null)
+                              const PillChip(
+                                  label: 'Linked habit', icon: Icons.repeat),
+                            if (freshTask.isRecurring)
+                              const PillChip(
+                                  label: 'Recurring', icon: Icons.repeat),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -168,240 +161,282 @@ class _TaskTile extends StatelessWidget {
   }
 }
 
-class _AddTaskDialog extends StatefulWidget {
-  const _AddTaskDialog();
+class _TaskEditorDialog extends StatefulWidget {
+  final Task? task;
+  const _TaskEditorDialog({this.task});
 
   @override
-  State<_AddTaskDialog> createState() => _AddTaskDialogState();
+  State<_TaskEditorDialog> createState() => _TaskEditorDialogState();
 }
 
-class _AddTaskDialogState extends State<_AddTaskDialog> {
-  final _titleController = TextEditingController();
-  final _descController = TextEditingController();
-  int _priorityIndex = 1;
-  int _categoryIndex = 1;
+class _TaskEditorDialogState extends State<_TaskEditorDialog> {
+  late final TextEditingController _title;
+  late final TextEditingController _description;
+  late final TextEditingController _tags;
+  late final TextEditingController _subtasks;
+  late int _priority;
+  late int _category;
   DateTime? _dueDate;
+  TimeOfDay? _dueTime;
   String? _goalId;
   String? _habitId;
   bool _recurring = false;
+  String _pattern = 'daily';
+
+  bool get editing => widget.task != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final t = widget.task;
+    _title = TextEditingController(text: t?.title ?? '');
+    _description = TextEditingController(text: t?.description ?? '');
+    _tags = TextEditingController(text: t?.tags.join(', ') ?? '');
+    _subtasks = TextEditingController(text: t?.subtaskTitles.join('\n') ?? '');
+    _priority = t?.priority.index ?? 1;
+    _category = t?.category.index ?? 1;
+    _dueDate = t?.dueDate;
+    _dueTime = t?.dueTime == null ? null : TimeOfDay.fromDateTime(t!.dueTime!);
+    _goalId = t?.goalId;
+    _habitId = t?.habitId;
+    _recurring = t?.isRecurring ?? false;
+    _pattern =
+        t?.recurringPattern.isNotEmpty == true ? t!.recurringPattern : 'daily';
+  }
 
   @override
   void dispose() {
-    _titleController.dispose();
-    _descController.dispose();
+    _title.dispose();
+    _description.dispose();
+    _tags.dispose();
+    _subtasks.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _dueDate ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+    );
+    if (picked != null) setState(() => _dueDate = picked);
+  }
+
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _dueTime ?? TimeOfDay.now(),
+    );
+    if (picked != null) setState(() => _dueTime = picked);
+  }
+
+  Future<void> _save() async {
+    final title = _title.text.trim();
+    if (title.isEmpty) return;
+    final state = context.read<AppState>();
+    final tags = _tags.text
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList();
+    final subtaskTitles = _subtasks.text
+        .split('\n')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    final dueTime = _dueDate == null || _dueTime == null
+        ? null
+        : DateTime(_dueDate!.year, _dueDate!.month, _dueDate!.day,
+            _dueTime!.hour, _dueTime!.minute);
+    if (editing) {
+      final t = widget.task!;
+      t.title = title;
+      t.description = _description.text.trim();
+      t.priority = TaskPriority.values[_priority];
+      t.category = TaskCategory.values[_category];
+      t.dueDate = _dueDate == null
+          ? null
+          : DateTime(_dueDate!.year, _dueDate!.month, _dueDate!.day);
+      t.dueTime = dueTime;
+      t.tags = tags;
+      final oldDone = List<bool>.from(t.subtaskDone);
+      t.subtaskTitles = subtaskTitles;
+      t.subtaskDone = List<bool>.generate(
+          subtaskTitles.length, (i) => i < oldDone.length ? oldDone[i] : false);
+      t.goalId = _goalId;
+      t.habitId = _habitId;
+      t.isRecurring = _recurring;
+      t.recurringPattern = _recurring ? _pattern : '';
+      await state.updateTask(t);
+    } else {
+      await state.addTask(
+        title: title,
+        description: _description.text.trim(),
+        priorityIndex: _priority,
+        categoryIndex: _category,
+        dueDate: _dueDate,
+        dueTime: dueTime,
+        tags: tags,
+        subtaskTitles: subtaskTitles,
+        isRecurring: _recurring,
+        recurringPattern: _recurring ? _pattern : '',
+        goalId: _goalId,
+        habitId: _habitId,
+      );
+      // Tags are only available on edit in the legacy data path; create a
+      // second pass is intentionally avoided so the dialog remains instant.
+    }
+    if (mounted) Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final ext = theme.extension<AppThemeExtension>()!;
+    final state = context.watch<AppState>();
     return AlertDialog(
-      title: const Text('New Task'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+      title: Text(editing ? 'Edit Task' : 'New Task'),
+      content: SizedBox(
+        width: 520,
+        child: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
             TextField(
-              controller: _titleController,
-              decoration: const InputDecoration(
-                labelText: 'Task title',
-                hintText: 'e.g. Finish project report',
-              ),
-              autofocus: true,
-            ),
+                controller: _title,
+                decoration: const InputDecoration(labelText: 'Task title'),
+                autofocus: !editing),
             const SizedBox(height: AppSpacing.sm),
             TextField(
-              controller: _descController,
-              decoration: const InputDecoration(
-                labelText: 'Description (optional)',
-              ),
-              maxLines: 2,
-            ),
+                controller: _description,
+                decoration: const InputDecoration(labelText: 'Description'),
+                maxLines: 3),
+            const SizedBox(height: AppSpacing.sm),
+            TextField(
+                controller: _tags,
+                decoration: const InputDecoration(
+                    labelText: 'Tags', hintText: 'school, work, urgent')),
+            const SizedBox(height: AppSpacing.sm),
+            TextField(
+                controller: _subtasks,
+                decoration: const InputDecoration(
+                    labelText: 'Subtasks', hintText: 'One subtask per line'),
+                minLines: 2,
+                maxLines: 5),
             const SizedBox(height: AppSpacing.md),
-            // Priority
             Align(
-              alignment: Alignment.centerLeft,
-              child: Text('Priority', style: theme.textTheme.labelLarge),
-            ),
-            const SizedBox(height: AppSpacing.xs),
+                alignment: Alignment.centerLeft,
+                child: Text('Priority', style: theme.textTheme.labelLarge)),
+            const SizedBox(height: 6),
             Wrap(
-              spacing: 8,
-              children: List.generate(TaskPriority.values.length, (i) {
-                final sel = i == _priorityIndex;
-                final p = TaskPriority.values[i];
-                return GestureDetector(
-                  onTap: () => setState(() => _priorityIndex = i),
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: sel ? p.color : ext.surfaceMuted,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(p.label,
-                        style: TextStyle(
-                          color:
-                              sel ? Colors.white : theme.colorScheme.onSurface,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        )),
-                  ),
-                );
-              }),
-            ),
+                spacing: 6,
+                children: List.generate(TaskPriority.values.length, (i) {
+                  final p = TaskPriority.values[i];
+                  return ChoiceChip(
+                      label: Text(p.label),
+                      selected: _priority == i,
+                      onSelected: (_) => setState(() => _priority = i));
+                })),
             const SizedBox(height: AppSpacing.md),
-            // Category
             Align(
-              alignment: Alignment.centerLeft,
-              child: Text('Category', style: theme.textTheme.labelLarge),
-            ),
-            const SizedBox(height: AppSpacing.xs),
+                alignment: Alignment.centerLeft,
+                child: Text('Category', style: theme.textTheme.labelLarge)),
+            const SizedBox(height: 6),
             Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: List.generate(TaskCategory.values.length, (i) {
-                final sel = i == _categoryIndex;
-                final c = TaskCategory.values[i];
-                return GestureDetector(
-                  onTap: () => setState(() => _categoryIndex = i),
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: sel ? theme.colorScheme.primary : ext.surfaceMuted,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(c.icon,
-                            size: 14,
-                            color: sel
-                                ? Colors.white
-                                : theme.colorScheme.onSurface),
-                        const SizedBox(width: 4),
-                        Text(c.label,
-                            style: TextStyle(
-                              color: sel
-                                  ? Colors.white
-                                  : theme.colorScheme.onSurface,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 12,
-                            )),
-                      ],
-                    ),
-                  ),
-                );
-              }),
-            ),
+                spacing: 6,
+                runSpacing: 6,
+                children: List.generate(TaskCategory.values.length, (i) {
+                  final c = TaskCategory.values[i];
+                  return ChoiceChip(
+                      label: Text(c.label),
+                      selected: _category == i,
+                      avatar: Icon(c.icon, size: 15),
+                      onSelected: (_) => setState(() => _category = i));
+                })),
             const SizedBox(height: AppSpacing.md),
+            Row(children: [
+              Expanded(
+                  child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.event_outlined),
+                      title: const Text('Due date'),
+                      subtitle: Text(_dueDate == null
+                          ? 'None'
+                          : '${_dueDate!.month}/${_dueDate!.day}/${_dueDate!.year}'),
+                      onTap: _pickDate)),
+              Expanded(
+                  child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.schedule_outlined),
+                      title: const Text('Time'),
+                      subtitle: Text(_dueTime == null
+                          ? 'None'
+                          : _dueTime!.format(context)),
+                      onTap: _pickTime))
+            ]),
             DropdownButtonFormField<String?>(
-              initialValue: _goalId,
-              decoration: const InputDecoration(
-                labelText: 'Contributes to goal (optional)',
-                prefixIcon: Icon(Icons.link),
-              ),
-              items: [
-                const DropdownMenuItem<String?>(
-                  value: null,
-                  child: Text('Standalone task'),
-                ),
-                ...context.read<AppState>().goalsRepo.getActive().map(
-                      (goal) => DropdownMenuItem<String?>(
-                        value: goal.id,
-                        child: Text(goal.title),
-                      ),
-                    ),
-              ],
-              onChanged: (value) => setState(() => _goalId = value),
-            ),
+                initialValue: _goalId,
+                decoration: const InputDecoration(
+                    labelText: 'Connected goal',
+                    prefixIcon: Icon(Icons.track_changes_outlined)),
+                items: [
+                  const DropdownMenuItem<String?>(
+                      value: null, child: Text('No goal')),
+                  ...state.goalsRepo.getActive().map((g) =>
+                      DropdownMenuItem<String?>(
+                          value: g.id, child: Text(g.title)))
+                ],
+                onChanged: (v) => setState(() => _goalId = v)),
             const SizedBox(height: AppSpacing.sm),
             DropdownButtonFormField<String?>(
-              initialValue: _habitId,
-              decoration: const InputDecoration(
-                labelText: 'Linked habit (optional)',
-                prefixIcon: Icon(Icons.repeat),
-              ),
-              items: [
-                const DropdownMenuItem<String?>(
-                  value: null,
-                  child: Text('No linked habit'),
-                ),
-                ...context.read<AppState>().habitsRepo.getAll().map(
-                      (habit) => DropdownMenuItem<String?>(
-                        value: habit.id,
-                        child: Text(habit.name),
-                      ),
-                    ),
-              ],
-              onChanged: (value) => setState(() => _habitId = value),
-            ),
+                initialValue: _habitId,
+                decoration: const InputDecoration(
+                    labelText: 'Connected habit',
+                    prefixIcon: Icon(Icons.repeat)),
+                items: [
+                  const DropdownMenuItem<String?>(
+                      value: null, child: Text('No habit')),
+                  ...state.habitsRepo.getAll().map((h) =>
+                      DropdownMenuItem<String?>(
+                          value: h.id, child: Text(h.name)))
+                ],
+                onChanged: (v) => setState(() => _habitId = v)),
             SwitchListTile.adaptive(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Repeat daily'),
-              subtitle: const Text('Keep this action in your routine'),
-              value: _recurring,
-              onChanged: (value) => setState(() => _recurring = value),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            // Due date
-            Row(
-              children: [
-                Text('Due: ', style: theme.textTheme.labelLarge),
-                TextButton(
-                  onPressed: () async {
-                    final d = await showDatePicker(
-                      context: context,
-                      initialDate: DateTime.now(),
-                      firstDate: DateTime.now(),
-                      lastDate:
-                          DateTime.now().add(const Duration(days: 365 * 3)),
-                    );
-                    if (d != null) setState(() => _dueDate = d);
-                  },
-                  child: Text(_dueDate == null
-                      ? 'Select date'
-                      : '${_dueDate!.month}/${_dueDate!.day}/${_dueDate!.year}'),
-                ),
-              ],
-            ),
-          ],
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Recurring'),
+                subtitle: const Text(
+                    'Automatically create the next occurrence when completed'),
+                value: _recurring,
+                onChanged: (v) => setState(() => _recurring = v)),
+            if (_recurring)
+              DropdownButtonFormField<String>(
+                  initialValue: _pattern,
+                  decoration: const InputDecoration(labelText: 'Repeat'),
+                  items: const [
+                    DropdownMenuItem(value: 'daily', child: Text('Daily')),
+                    DropdownMenuItem(value: 'weekly', child: Text('Weekly')),
+                    DropdownMenuItem(value: 'monthly', child: Text('Monthly'))
+                  ],
+                  onChanged: (v) => setState(() => _pattern = v ?? 'daily')),
+            const SizedBox(height: 4),
+            Text('Completing this task updates connected goals immediately.',
+                style: theme.textTheme.bodySmall?.copyWith(color: ext.success)),
+          ]),
         ),
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            final title = _titleController.text.trim();
-            if (title.isEmpty) return;
-            context.read<AppState>().addTask(
-                  title: title,
-                  description: _descController.text.trim(),
-                  priorityIndex: _priorityIndex,
-                  categoryIndex: _categoryIndex,
-                  dueDate: _dueDate,
-                  goalId: _goalId,
-                  habitId: _habitId,
-                  isRecurring: _recurring,
-                  recurringPattern: _recurring ? 'daily' : '',
-                );
-            Navigator.pop(context);
-          },
-          child: const Text('Add'),
-        ),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel')),
+        FilledButton(
+            onPressed: _save,
+            child: Text(editing ? 'Save changes' : 'Add task'))
       ],
     );
   }
 }
 
-/// Global FAB action — call from the parent Scaffold.
-void showAddTaskDialog(BuildContext context) {
-  showDialog(
-    context: context,
-    builder: (_) => const _AddTaskDialog(),
-  );
-}
+void showAddTaskDialog(BuildContext context) =>
+    showDialog(context: context, builder: (_) => const _TaskEditorDialog());
+void showEditTaskDialog(BuildContext context, Task task) =>
+    showDialog(context: context, builder: (_) => _TaskEditorDialog(task: task));

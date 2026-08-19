@@ -6,6 +6,9 @@ import '../../data/models/habit.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../widgets/shared_widgets.dart';
+import 'habits_screen.dart';
+import 'tasks_screen.dart';
+import '../../data/models/task.dart';
 
 class HabitDetailScreen extends StatelessWidget {
   final String habitId;
@@ -31,6 +34,7 @@ class HabitDetailScreen extends StatelessWidget {
     final totalCompletions = habit.totalCompletions;
     final missStreak = habit.currentMissStreak();
     final notes = state.notesRepo.getForHabit(habitId);
+    final linkedTasks = state.tasksRepo.getAll(includeArchived: true).where((t) => t.habitId == habitId || t.linkedHabitId == habitId).toList();
 
     // Last 30 days history
     final now = DateTime.now();
@@ -58,6 +62,11 @@ class HabitDetailScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text(habit.name),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: 'Edit habit',
+            onPressed: () => showEditHabitDialog(context, habit),
+          ),
           IconButton(
             icon: const Icon(Icons.delete_outline),
             onPressed: () => _confirmDelete(context, state, habitId),
@@ -247,6 +256,13 @@ class HabitDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.md),
           ],
+
+          const _SectionLabel('Connected Tasks'),
+          if (linkedTasks.isEmpty)
+            Card(child: Padding(padding: const EdgeInsets.all(AppSpacing.md), child: Text('No tasks connected to this habit.', style: theme.textTheme.bodySmall)))
+          else
+            ...linkedTasks.take(10).map((task) => Card(child: ListTile(contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md), leading: Checkbox(value: task.status == TaskStatus.done, onChanged: (_) => state.toggleTaskDone(task.id)), title: Text(task.title), subtitle: Text(task.goalId == null ? 'Task' : 'Task · connected goal'), onTap: () => showEditTaskDialog(context, task)))),
+          const SizedBox(height: AppSpacing.md),
 
           // Notes
           _SectionLabel('Notes (${notes.length})'),

@@ -24,7 +24,12 @@ class HabitsScreen extends StatelessWidget {
             ScreenTitleBar(
               title: 'Habits',
               subtitle: '${habits.length} due today',
-              onMenuTap: () => Scaffold.of(context).openDrawer(),
+              onMenuTap: null,
+              trailing: IconButton(
+                tooltip: 'Add habit',
+                icon: const Icon(Icons.add_circle_outline),
+                onPressed: () => _showAddHabitDialog(context),
+              ),
             ),
             Expanded(
               child: habits.isEmpty
@@ -44,10 +49,6 @@ class HabitsScreen extends StatelessWidget {
             ),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddHabitDialog(context),
-        child: const Icon(Icons.add),
       ),
     );
   }
@@ -312,14 +313,16 @@ class _HabitTile extends StatelessWidget {
 
 /// Global dialog action — call from anywhere.
 void showAddHabitDialog(BuildContext context) {
-  showDialog(
-    context: context,
-    builder: (_) => const _AddHabitDialog(),
-  );
+  showDialog(context: context, builder: (_) => const _AddHabitDialog());
+}
+
+void showEditHabitDialog(BuildContext context, Habit habit) {
+  showDialog(context: context, builder: (_) => _AddHabitDialog(habit: habit));
 }
 
 class _AddHabitDialog extends StatefulWidget {
-  const _AddHabitDialog();
+  final Habit? habit;
+  const _AddHabitDialog({this.habit});
 
   @override
   State<_AddHabitDialog> createState() => _AddHabitDialogState();
@@ -332,17 +335,25 @@ class _AddHabitDialogState extends State<_AddHabitDialog> {
   int _iconIndex = 0;
   int _colorIndex = 0;
   String? _goalId;
-  final Set<int> _customDays = {};
+  Set<int> _customDays = {1, 2, 3, 4, 5, 6, 7};
 
-  static const _weekdayLabels = [
-    'Mon',
-    'Tue',
-    'Wed',
-    'Thu',
-    'Fri',
-    'Sat',
-    'Sun'
-  ];
+  @override
+  void initState() {
+    super.initState();
+    final h = widget.habit;
+    if (h != null) {
+      _nameController.text = h.name;
+      _categoryIndex = h.category.index;
+      _frequencyIndex = h.frequency.index;
+      _iconIndex = h.iconIndex.clamp(0, HabitIcon.values.length - 1);
+      final palette = AppColors.habitColorPalette;
+      _colorIndex = h.colorValue == null ? 0 : palette.indexWhere((c) => c.toARGB32() == h.colorValue);
+      if (_colorIndex < 0) _colorIndex = 0;
+      _goalId = h.goalId;
+      _customDays = {...h.customDays};
+      if (_customDays.isEmpty) _customDays = {1, 2, 3, 4, 5, 6, 7};
+    }
+  }
 
   @override
   void dispose() {
@@ -354,7 +365,7 @@ class _AddHabitDialogState extends State<_AddHabitDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return AlertDialog(
-      title: const Text('New Habit'),
+      title: Text(widget.habit == null ? 'New Habit' : 'Edit Habit'),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -383,29 +394,14 @@ class _AddHabitDialogState extends State<_AddHabitDialog> {
               _frequencyIndex,
               (i) => setState(() => _frequencyIndex = i),
             ),
-            if (_frequencyIndex == 2) ...[
+            if (_frequencyIndex == HabitFrequency.custom.index) ...[
               const SizedBox(height: AppSpacing.sm),
-              Text('Days of week', style: theme.textTheme.labelLarge),
-              const SizedBox(height: AppSpacing.xs),
-              Wrap(
-                spacing: 6,
-                children: List.generate(7, (i) {
-                  final weekday = i + 1; // ISO: 1=Mon .. 7=Sun
-                  final sel = _customDays.contains(weekday);
-                  return FilterChip(
-                    label: Text(_weekdayLabels[i]),
-                    selected: sel,
-                    showCheckmark: true,
-                    onSelected: (selected) => setState(() {
-                      if (selected) {
-                        _customDays.add(weekday);
-                      } else {
-                        _customDays.remove(weekday);
-                      }
-                    }),
-                  );
-                }),
-              ),
+              Align(alignment: Alignment.centerLeft, child: Text('Days', style: theme.textTheme.labelLarge)),
+              const SizedBox(height: 4),
+              Wrap(spacing: 6, children: List.generate(7, (i) {
+                final day = i + 1;
+                return FilterChip(label: Text(['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][i]), selected: _customDays.contains(day), onSelected: (v) => setState(() => v ? _customDays.add(day) : _customDays.remove(day)));
+              })),
             ],
             const SizedBox(height: AppSpacing.md),
             DropdownButtonFormField<String?>(
@@ -492,42 +488,28 @@ class _AddHabitDialogState extends State<_AddHabitDialog> {
           child: const Text('Cancel'),
         ),
         ElevatedButton(
-          onPressed: () {
+          onPressed: () async {
             final name = _nameController.text.trim();
-            if (name.isEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Please enter a habit name.'),
-                  duration: Duration(seconds: 2),
-                ),
+            if (name.isEmpty) return;
+            final state = context.read<AppState>();
+            if (widget.habit == null) {
+              await state.addHabit(
+                name: name, categoryIndex: _categoryIndex, frequencyIndex: _frequencyIndex, customDays: _frequencyIndex == HabitFrequency.custom.index ? _customDays.toList() : const [],
+                iconIndex: _iconIndex, colorValue: AppColors.habitColorPalette[_colorIndex].toARGB32(), goalId: _goalId,
               );
-              return;
+            } else {
+              final habit = widget.habit!;
+              habit.name = name;
+              habit.category = HabitCategory.values[_categoryIndex];
+              habit.frequency = HabitFrequency.values[_frequencyIndex];
+              habit.customDays = _frequencyIndex == HabitFrequency.custom.index ? _customDays.toList() : [];
+              habit.iconIndex = _iconIndex;
+              habit.colorValue = AppColors.habitColorPalette[_colorIndex].toARGB32();
+              habit.goalId = _goalId;
+              habit.linkedGoalId = null;
+              await state.updateHabit(habit);
+
             }
-            if (_frequencyIndex == 2 && _customDays.isEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                      'Please select at least one day for custom frequency.'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
-              return;
-            }
-            List<int>? customDaysList;
-            if (_frequencyIndex == 2) {
-              customDaysList = _customDays.toList();
-              customDaysList.sort();
-            }
-            context.read<AppState>().addHabit(
-                  name: name,
-                  categoryIndex: _categoryIndex,
-                  frequencyIndex: _frequencyIndex,
-                  customDays: customDaysList,
-                  iconIndex: _iconIndex,
-                  colorValue:
-                      AppColors.habitColorPalette[_colorIndex].toARGB32(),
-                  goalId: _goalId,
-                );
             Navigator.pop(context);
           },
           child: const Text('Add'),

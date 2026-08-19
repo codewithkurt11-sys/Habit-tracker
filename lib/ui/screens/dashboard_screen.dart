@@ -8,7 +8,6 @@ import '../../data/models/task.dart';
 import '../../data/models/goal.dart';
 import '../../data/models/quote.dart';
 import '../../data/models/savings_goal.dart';
-import '../../data/models/user_settings.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
@@ -68,7 +67,7 @@ class DashboardScreen extends StatelessWidget {
             ScreenTitleBar(
               title: 'Hi, $userName',
               subtitle: _greeting(),
-              onMenuTap: () => Scaffold.of(context).openDrawer(),
+              onMenuTap: null,
             ),
             Expanded(
               child: ListView(
@@ -122,7 +121,7 @@ class DashboardScreen extends StatelessWidget {
                   ],
 
                   if (dashConfig.showQuickActions) ...[
-                    _QuickActionsGrid(state: state),
+                    _QuickActionHint(state: state),
                     const SizedBox(height: AppSpacing.md),
                   ],
 
@@ -385,6 +384,27 @@ class _QuickStat extends StatelessWidget {
   }
 }
 
+class _QuickActionHint extends StatelessWidget {
+  final AppState state;
+  const _QuickActionHint({required this.state});
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      child: Card(
+        child: ListTile(
+          leading: CircleAvatar(backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.12), child: Icon(Icons.add, color: theme.colorScheme.primary)),
+          title: const Text('Quick action'),
+          subtitle: const Text('Create a habit, task, goal, note, journal entry or more.'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: state.toggleQuickCapture,
+        ),
+      ),
+    );
+  }
+}
+
 class _QuickActionsGrid extends StatelessWidget {
   final AppState state;
   const _QuickActionsGrid({required this.state});
@@ -592,13 +612,11 @@ class _DashboardSavingsTile extends StatelessWidget {
 
 /// Dashboard customization dialog.
 void _showCustomizeDialog(BuildContext context, AppState state) {
-  // One draft for the entire dialog session. StatefulBuilder rebuilds must
-  // never recreate the draft and discard changes.
-  final draft = DashboardConfig.fromMap(state.settings.dashboardConfig.toMap());
   showDialog(
     context: context,
     builder: (dialogContext) => StatefulBuilder(
       builder: (ctx, setSt) {
+        final cfg = state.settings.dashboardConfig;
         return AlertDialog(
           title: const Text('Customize Dashboard'),
           content: SizedBox(
@@ -609,69 +627,69 @@ void _showCustomizeDialog(BuildContext context, AppState state) {
                 children: [
                   _DashboardToggle(
                       label: 'Daily Progress',
-                      value: draft.showDailyProgress,
+                      value: cfg.showDailyProgress,
                       onChanged: (v) {
-                        setSt(() => draft.showDailyProgress = v);
+                        setSt(() => cfg.showDailyProgress = v);
                       }),
                   _DashboardToggle(
                       label: 'Quick Stats',
-                      value: draft.showQuickStats,
+                      value: cfg.showQuickStats,
                       onChanged: (v) {
-                        setSt(() => draft.showQuickStats = v);
+                        setSt(() => cfg.showQuickStats = v);
                       }),
                   _DashboardToggle(
                       label: 'Quick Actions',
-                      value: draft.showQuickActions,
+                      value: cfg.showQuickActions,
                       onChanged: (v) {
-                        setSt(() => draft.showQuickActions = v);
+                        setSt(() => cfg.showQuickActions = v);
                       }),
                   _DashboardToggle(
                       label: "Today's Habits",
-                      value: draft.showTodayHabits,
+                      value: cfg.showTodayHabits,
                       onChanged: (v) {
-                        setSt(() => draft.showTodayHabits = v);
+                        setSt(() => cfg.showTodayHabits = v);
                       }),
                   _DashboardToggle(
                       label: 'Tasks',
-                      value: draft.showTasks,
+                      value: cfg.showTasks,
                       onChanged: (v) {
-                        setSt(() => draft.showTasks = v);
+                        setSt(() => cfg.showTasks = v);
                       }),
                   _DashboardToggle(
                       label: 'Schedule',
-                      value: draft.showSchedule,
+                      value: cfg.showSchedule,
                       onChanged: (v) {
-                        setSt(() => draft.showSchedule = v);
+                        setSt(() => cfg.showSchedule = v);
                       }),
                   _DashboardToggle(
                       label: 'Goal Progress',
-                      value: draft.showGoalProgress,
+                      value: cfg.showGoalProgress,
                       onChanged: (v) {
-                        setSt(() => draft.showGoalProgress = v);
+                        setSt(() => cfg.showGoalProgress = v);
                       }),
                   _DashboardToggle(
                       label: 'Savings Targets',
-                      value: draft.showSavingsTargets,
+                      value: cfg.showSavingsTargets,
                       onChanged: (v) {
-                        setSt(() => draft.showSavingsTargets = v);
+                        setSt(() => cfg.showSavingsTargets = v);
                       }),
                   _DashboardToggle(
                       label: 'Recent Notes',
-                      value: draft.showRecentNotes,
+                      value: cfg.showRecentNotes,
                       onChanged: (v) {
-                        setSt(() => draft.showRecentNotes = v);
+                        setSt(() => cfg.showRecentNotes = v);
                       }),
                   _DashboardToggle(
                       label: 'Insight',
-                      value: draft.showInsight,
+                      value: cfg.showInsight,
                       onChanged: (v) {
-                        setSt(() => draft.showInsight = v);
+                        setSt(() => cfg.showInsight = v);
                       }),
                   _DashboardToggle(
                       label: 'Daily Quote',
-                      value: draft.showDailyQuote,
+                      value: cfg.showDailyQuote,
                       onChanged: (v) {
-                        setSt(() => draft.showDailyQuote = v);
+                        setSt(() => cfg.showDailyQuote = v);
                       }),
                 ],
               ),
@@ -684,7 +702,7 @@ void _showCustomizeDialog(BuildContext context, AppState state) {
             ),
             ElevatedButton(
               onPressed: () {
-                state.setDashboardConfig(draft);
+                state.setDashboardConfig(cfg);
                 Navigator.pop(dialogContext);
               },
               child: const Text('Save'),
@@ -862,9 +880,9 @@ class _DashboardGoalTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final progress = state.computeGoalProgress(goal.id);
     return Padding(
-      padding:
-          const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 2),
       child: Card(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.md),
@@ -880,7 +898,7 @@ class _DashboardGoalTile extends StatelessWidget {
                           style: theme.textTheme.bodyMedium,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis)),
-                  Text('${(goal.progressFraction * 100).toStringAsFixed(0)}%',
+                  Text('${(progress * 100).toStringAsFixed(0)}%',
                       style: theme.textTheme.bodySmall?.copyWith(
                           color: goal.color, fontWeight: FontWeight.bold)),
                 ],
@@ -889,7 +907,7 @@ class _DashboardGoalTile extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
                 child: LinearProgressIndicator(
-                  value: goal.progressFraction,
+                  value: progress,
                   minHeight: 6,
                   backgroundColor:
                       theme.colorScheme.onSurface.withValues(alpha: 0.08),

@@ -26,12 +26,8 @@ class StatsEngine {
   }
 
   /// Completion rate for a single day (0.0–1.0). Returns 0 if no habits due.
-  /// Skipped habits are excluded from both numerator and denominator so
-  /// they don't penalize the completion rate.
   static double dayCompletionRate(List<Habit> habits, DateTime date) {
-    final dueHabits = habits
-        .where((habit) => habit.isDueOn(date) && !habit.isSkippedOn(date))
-        .toList();
+    final dueHabits = habits.where((habit) => habit.isDueOn(date)).toList();
     if (dueHabits.isEmpty) return 0;
     final completed =
         dueHabits.where((habit) => habit.isCompletedOn(date)).length;
@@ -96,11 +92,9 @@ class StatsEngine {
   /// Overall completion rate across all habits (last 30 days).
   static double overallCompletionRate(List<Habit> habits) {
     if (habits.isEmpty) return 0;
-    var total = 0.0;
-    for (final h in habits) {
-      total += h.completionRate(days: 30);
-    }
-    return total / habits.length;
+    final stats = habitWindowStats(habits, days: 30);
+    if (stats.due == 0) return 0;
+    return stats.completed / stats.due;
   }
 
   /// Consistency score (0–100): a composite measure combining 30-day
@@ -114,13 +108,16 @@ class StatsEngine {
     final completionScore = (completionRate * 60).round();
 
     // Current streak component (0-30 points, capped at 30 days)
-    final maxCurrentStreak = currentStreakAcross(habits);
-    final streakScore = (maxCurrentStreak * 30 / 30).round().clamp(0, 30);
+    final averageCurrentStreak = habits.isEmpty
+        ? 0.0
+        : habits.map((h) => h.currentStreak()).reduce((a, b) => a + b) / habits.length;
+    final streakScore = (averageCurrentStreak.clamp(0, 30) / 30 * 30).round().clamp(0, 30);
 
     // Miss-streak penalty (0-10 points, reduces with more misses)
-    final maxMissStreak = habits.fold<int>(0,
-        (max, h) => h.currentMissStreak() > max ? h.currentMissStreak() : max);
-    final missPenalty = (maxMissStreak * 2).clamp(0, 10);
+    final averageMissStreak = habits.isEmpty
+        ? 0.0
+        : habits.map((h) => h.currentMissStreak()).reduce((a, b) => a + b) / habits.length;
+    final missPenalty = (averageMissStreak * 2).round().clamp(0, 10);
 
     final score = (completionScore + streakScore - missPenalty).clamp(0, 100);
     return score;
@@ -205,6 +202,47 @@ class StatsEngine {
       }
     }
     return map;
+  }
+
+  /// Completion rate for tasks with a meaningful lifecycle (done / all non-archived).
+  static double taskCompletionRate(List<Task> tasks) {
+    final visible = tasks.where((t) => !t.archived).toList();
+    if (visible.isEmpty) return 0;
+    return visible.where((t) => t.status == TaskStatus.done).length / visible.length;
+  }
+
+  /// Returns a due/completed/skipped snapshot for a habit window.
+  static ({int due, int completed, int skipped, int missed}) habitWindowStats(
+      List<Habit> habits, {int days = 30, DateTime? asOf}) {
+    final value = asOf ?? DateTime.now();
+    final end = DateTime(value.year, value.month, value.day);
+    final start = end.subtract(Duration(days: days - 1));
+    var due = 0, completed = 0, skipped = 0;
+    for (final habit in habits) {
+      var cursor = start.isAfter(DateTime(habit.createdAt.year, habit.createdAt.month, habit.createdAt.day))
+          ? start
+          : DateTime(habit.createdAt.year, habit.createdAt.month, habit.createdAt.day);
+      while (!cursor.isAfter(end)) {
+        if (habit.isDueOn(cursor)) {
+          due++;
+          if (habit.isCompletedOn(cursor)) {
+            completed++;
+          } else if (habit.isSkippedOn(cursor)) {
+            skipped++;
+          }
+        }
+        cursor = cursor.add(const Duration(days: 1));
+      }
+    }
+    return (due: due, completed: completed, skipped: skipped, missed: due - completed - skipped);
+  }
+
+  /// Goals completed divided by goals created/active, useful as a simple
+  /// outcome metric rather than averaging progress percentages.
+  static double goalCompletionRate(List<Goal> goals) {
+    final visible = goals.where((g) => !g.archived).toList();
+    if (visible.isEmpty) return 0;
+    return visible.where((g) => g.completed).length / visible.length;
   }
 
   // ─── Focus Statistics ───────────────────────────────────────────

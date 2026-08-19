@@ -95,9 +95,8 @@ class FinanceRepository {
     return entry;
   }
 
-  List<FinanceEntry> getForGoal(String goalId) => getAll()
-      .where((entry) => entry.goalId == goalId || entry.linkedGoalId == goalId)
-      .toList();
+  List<FinanceEntry> getForGoal(String goalId) =>
+      getAll().where((entry) => entry.goalId == goalId || entry.linkedGoalId == goalId).toList();
 
   double contributedToGoal(String goalId) => getForGoal(goalId)
       .where((entry) => entry.isIncome)

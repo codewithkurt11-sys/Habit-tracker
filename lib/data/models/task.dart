@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 
@@ -123,17 +126,16 @@ class Task extends HiveObject {
   List<bool> subtaskDone;
   bool isRecurring;
   String recurringPattern; // 'daily','weekly','monthly'
-  /// Stable identity shared by every occurrence in a recurring series.
-  String? recurrenceSeriesId;
   DateTime createdAt;
   DateTime? completedAt;
   bool archived;
   String? goalId;
   String? habitId;
-  // schema-only: future cross-linking fields
+  // Legacy-compatible relationship fields; AppState keeps them synchronized.
   String? linkedGoalId;
   String? linkedHabitId;
   DateTime updatedAt;
+  String? recurrenceSeriesId;
 
   Task({
     required this.id,
@@ -149,7 +151,6 @@ class Task extends HiveObject {
     List<bool>? subtaskDone,
     this.isRecurring = false,
     this.recurringPattern = '',
-    this.recurrenceSeriesId,
     DateTime? createdAt,
     this.completedAt,
     this.archived = false,
@@ -158,6 +159,7 @@ class Task extends HiveObject {
     this.linkedGoalId,
     this.linkedHabitId,
     DateTime? updatedAt,
+    this.recurrenceSeriesId,
   })  : tags = tags ?? [],
         subtaskTitles = subtaskTitles ?? [],
         subtaskDone = subtaskDone ?? [],
@@ -167,23 +169,11 @@ class Task extends HiveObject {
   /// Touch [updatedAt] to now. Called by repositories on every mutation.
   void touch() => updatedAt = DateTime.now();
 
-  /// Derives a stable series ID for legacy recurring tasks that predate
-  /// the [recurrenceSeriesId] field.
-  ///
-  /// Legacy occurrences belonging to the same recurring series share the
-  /// same title and recurrence pattern, so a deterministic hash of those
-  /// two fields produces a shared series identity.  This ensures the
-  /// duplicate-prevention logic in the tasks repository recognises legacy
-  /// occurrences as members of the same series.
-  ///
-  /// Different recurring series (different title or pattern) produce
-  /// different IDs, so they remain correctly separated.
-  static String legacySeriesId({
-    required String title,
-    required String recurringPattern,
-  }) {
-    final identity = '$title|$recurringPattern';
-    return 'legacy:${identity.hashCode}';
+  /// Stable legacy series identifier derived from title + recurrence pattern.
+  static String legacySeriesId(
+      {required String title, required String recurringPattern}) {
+    final bytes = utf8.encode('${title.trim().toLowerCase()}|${recurringPattern.trim().toLowerCase()}');
+    return sha256.convert(bytes).toString().substring(0, 16);
   }
 
   double get progress {
@@ -243,13 +233,6 @@ class TaskAdapter extends TypeAdapter<Task> {
       subtaskDone: (fields[10] as List?)?.cast<bool>() ?? [],
       isRecurring: fields[11] as bool? ?? false,
       recurringPattern: fields[12] as String? ?? '',
-      recurrenceSeriesId: fields[21] as String? ??
-          (fields[11] as bool? ?? false
-              ? Task.legacySeriesId(
-                  title: fields[1] as String? ?? '',
-                  recurringPattern: fields[12] as String? ?? '',
-                )
-              : null),
       createdAt: fields[13] as DateTime? ?? DateTime.now(),
       completedAt: fields[14] as DateTime?,
       archived: fields[15] as bool? ?? false,
@@ -260,6 +243,7 @@ class TaskAdapter extends TypeAdapter<Task> {
       habitId: fields[18] as String?,
       linkedGoalId: fields[19] as String?,
       linkedHabitId: fields[20] as String?,
+      recurrenceSeriesId: fields[21] as String?,
     );
   }
 

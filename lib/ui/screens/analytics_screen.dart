@@ -5,7 +5,6 @@ import '../../logic/app_state.dart';
 import '../../logic/stats_engine.dart';
 import '../../data/models/habit.dart';
 import '../../data/models/task.dart';
-import '../../data/models/focus_session.dart';
 import '../../data/models/goal.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
@@ -55,7 +54,7 @@ class AnalyticsScreen extends StatelessWidget {
             ScreenTitleBar(
               title: 'Analytics',
               subtitle: 'Your productivity insights',
-              onMenuTap: () => Scaffold.of(context).openDrawer(),
+              onMenuTap: null,
             ),
             Expanded(
               child: ListView(
@@ -64,8 +63,16 @@ class AnalyticsScreen extends StatelessWidget {
                   // Key metrics row
                   _KeyMetricsRow(
                       habits: habits,
-                      tasks: tasks,
-                      focusSessions: focusSessions),
+                      tasks: tasks),
+                  const SizedBox(height: AppSpacing.sm),
+                  _OutcomeMetricsRow(
+                    goalRate: StatsEngine.goalCompletionRate(goals),
+                    focusMinutes: StatsEngine.totalFocusMinutes(focusSessions),
+                    journalEntries: state.journalRepo.getAll().length,
+                    notes: state.notesRepo.getAll().length,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  _HabitOutcomeCard(habits: habits),
                   const SizedBox(height: AppSpacing.md),
 
                   // Insights cards
@@ -135,7 +142,7 @@ class AnalyticsScreen extends StatelessWidget {
 
                   // Goals progress
                   const _SectionLabel('Goals Progress'),
-                  _GoalsProgressCard(goals: goals),
+                  _GoalsProgressCard(goals: goals, state: state),
                   const SizedBox(height: AppSpacing.md),
 
                   // Heatmap link
@@ -216,9 +223,7 @@ class _SectionLabel extends StatelessWidget {
 class _KeyMetricsRow extends StatelessWidget {
   final List<Habit> habits;
   final List<Task> tasks;
-  final List<FocusSession> focusSessions;
-  const _KeyMetricsRow(
-      {required this.habits, required this.tasks, required this.focusSessions});
+  const _KeyMetricsRow({required this.habits, required this.tasks});
 
   @override
   Widget build(BuildContext context) {
@@ -226,9 +231,9 @@ class _KeyMetricsRow extends StatelessWidget {
     final ext = theme.extension<AppThemeExtension>()!;
 
     final bestStreak = StatsEngine.bestStreakAcross(habits);
-    final currentStreak = StatsEngine.currentStreakAcross(habits);
     final completionRate = StatsEngine.overallCompletionRate(habits);
-    final totalFocus = StatsEngine.totalFocusMinutes(focusSessions);
+    final taskRate = StatsEngine.taskCompletionRate(tasks);
+    final consistency = StatsEngine.consistencyScore(habits);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
@@ -245,10 +250,10 @@ class _KeyMetricsRow extends StatelessWidget {
           const SizedBox(width: AppSpacing.sm),
           Expanded(
               child: _MetricCard(
-            icon: Icons.bolt,
-            label: 'Current',
-            value: '$currentStreak',
-            sub: 'days',
+            icon: Icons.task_alt,
+            label: 'Task Completion',
+            value: '${(taskRate * 100).round()}',
+            sub: '%',
             color: const Color(0xFFE8C56F),
           )),
           const SizedBox(width: AppSpacing.sm),
@@ -263,13 +268,85 @@ class _KeyMetricsRow extends StatelessWidget {
           const SizedBox(width: AppSpacing.sm),
           Expanded(
               child: _MetricCard(
-            icon: Icons.timer_outlined,
-            label: 'Focus',
-            value: (totalFocus / 60).toStringAsFixed(1),
-            sub: 'hrs',
+            icon: Icons.speed_outlined,
+            label: 'Consistency',
+            value: '$consistency',
+            sub: '/100',
             color: ext.success,
           )),
         ],
+      ),
+    );
+  }
+}
+
+class _HabitOutcomeCard extends StatelessWidget {
+  final List<Habit> habits;
+  const _HabitOutcomeCard({required this.habits});
+  @override
+  Widget build(BuildContext context) {
+    final stats = StatsEngine.habitWindowStats(habits, days: 30);
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      child: Card(child: Padding(padding: const EdgeInsets.all(AppSpacing.md), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('30-day Habit Outcomes', style: theme.textTheme.titleMedium),
+        const SizedBox(height: 8),
+        Row(children: [
+          Expanded(child: _OutcomeCell(label: 'Due', value: '${stats.due}', icon: Icons.event_available_outlined)),
+          Expanded(child: _OutcomeCell(label: 'Completed', value: '${stats.completed}', icon: Icons.check_circle_outline)),
+          Expanded(child: _OutcomeCell(label: 'Skipped', value: '${stats.skipped}', icon: Icons.skip_next_outlined)),
+          Expanded(child: _OutcomeCell(label: 'Missed', value: '${stats.missed}', icon: Icons.warning_amber_outlined)),
+        ]),
+      ]))),
+    );
+  }
+}
+
+class _OutcomeCell extends StatelessWidget {
+  final String label; final String value; final IconData icon;
+  const _OutcomeCell({required this.label, required this.value, required this.icon});
+  @override
+  Widget build(BuildContext context) => Column(children: [Icon(icon, size: 18), const SizedBox(height: 3), Text(value, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)), Text(label, style: Theme.of(context).textTheme.bodySmall)]);
+}
+
+class _OutcomeMetricsRow extends StatelessWidget {
+  final double goalRate;
+  final int focusMinutes;
+  final int journalEntries;
+  final int notes;
+  const _OutcomeMetricsRow({required this.goalRate, required this.focusMinutes, required this.journalEntries, required this.notes});
+
+  @override
+  Widget build(BuildContext context) {
+    final ext = Theme.of(context).extension<AppThemeExtension>()!;
+    final items = [
+      ('Goal outcomes', '${(goalRate * 100).round()}%', Icons.flag_outlined),
+      ('Focus', '${(focusMinutes / 60).toStringAsFixed(1)}h', Icons.timer_outlined),
+      ('Journal', '$journalEntries', Icons.book_outlined),
+      ('Notes', '$notes', Icons.sticky_note_2_outlined),
+    ];
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      child: Row(
+        children: items.map((item) => Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 3),
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                child: Column(
+                  children: [
+                    Icon(item.$3, size: 18, color: ext.categoryLifestyle),
+                    const SizedBox(height: 3),
+                    Text(item.$2, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                    Text(item.$1, style: Theme.of(context).textTheme.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        )).toList(),
       ),
     );
   }
@@ -657,14 +734,16 @@ class _FinanceMiniStat extends StatelessWidget {
 
 class _GoalsProgressCard extends StatelessWidget {
   final List<Goal> goals;
-  const _GoalsProgressCard({required this.goals});
+  final AppState state;
+  const _GoalsProgressCard({required this.goals, required this.state});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final active = goals.where((g) => !g.completed && !g.archived).toList();
-    final avgProgress = StatsEngine.averageGoalProgress(goals);
-    final completedCount = StatsEngine.completedGoals(goals);
+    final activeProgress = active.isEmpty ? 0.0 : active.map((g) => state.computeGoalProgress(g.id)).reduce((a, b) => a + b) / active.length;
+    final avgProgress = activeProgress;
+    final completedCount = goals.where((g) => g.completed && !g.archived).length;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
@@ -716,7 +795,7 @@ class _GoalsProgressCard extends StatelessWidget {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis)),
                           Text(
-                              '${(g.progressFraction * 100).toStringAsFixed(0)}%',
+                              '${(state.computeGoalProgress(g.id) * 100).toStringAsFixed(0)}%',
                               style: theme.textTheme.bodySmall?.copyWith(
                                   color: g.color, fontWeight: FontWeight.bold)),
                         ],

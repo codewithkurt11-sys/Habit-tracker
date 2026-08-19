@@ -31,6 +31,8 @@ class GoalsRepository {
     DateTime? deadline,
     double targetValue = 100,
     int colorValue = 0xFF6B9080,
+    DateTime? startDate,
+    GoalProgressMode progressMode = GoalProgressMode.auto,
   }) async {
     final goal = Goal(
       id: _uuid.v4(),
@@ -40,6 +42,8 @@ class GoalsRepository {
       deadline: deadline,
       targetValue: targetValue,
       colorValue: colorValue,
+      startDate: startDate,
+      progressMode: progressMode,
     );
     await _box.put(goal.id, goal);
     return goal;
@@ -76,6 +80,7 @@ class GoalsRepository {
     goal.currentValue = value.clamp(0.0, safeTarget).toDouble();
     goal.completed = _hasReachedTarget(goal) || _allMilestonesDone(goal);
     goal.isAutoProgress = false; // manual update disables auto-sync
+    goal.progressMode = GoalProgressMode.manual;
     goal.touch();
     await _box.put(goal.id, goal);
   }

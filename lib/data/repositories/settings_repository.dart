@@ -20,6 +20,13 @@ class SettingsRepository {
     await s.save();
   }
 
+  Future<void> setProfile({String? emoji, String? bio}) async {
+    final s = current;
+    if (emoji != null) s.profileEmoji = emoji;
+    if (bio != null) s.profileBio = bio;
+    await s.save();
+  }
+
   Future<void> setThemeMode(AppThemeMode mode) async {
     final s = current;
     s.themeMode = mode;
@@ -32,6 +39,8 @@ class SettingsRepository {
     s.themeMode = updated.themeMode;
     s.onboardingComplete = updated.onboardingComplete;
     s.dashboardConfig = updated.dashboardConfig;
+    s.profileEmoji = updated.profileEmoji;
+    s.profileBio = updated.profileBio;
     await s.save();
   }
 

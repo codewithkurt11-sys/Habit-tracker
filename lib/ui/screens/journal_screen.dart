@@ -6,14 +6,28 @@ import '../../data/models/journal_entry.dart';
 import '../../core/theme/app_spacing.dart';
 import '../widgets/shared_widgets.dart';
 
-class JournalScreen extends StatelessWidget {
+class JournalScreen extends StatefulWidget {
   const JournalScreen({super.key});
+
+  @override
+  State<JournalScreen> createState() => _JournalScreenState();
+}
+
+class _JournalScreenState extends State<JournalScreen> {
+  final _search = TextEditingController();
+  bool _favoritesOnly = false;
+
+  @override
+  void dispose() { _search.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final entries = state.journalRepo.getAll()
-      ..sort((a, b) => b.date.compareTo(a.date));
+    final q = _search.text.trim().toLowerCase();
+    final entries = state.journalRepo.getAll().where((e) {
+      final matches = q.isEmpty || e.title.toLowerCase().contains(q) || e.body.toLowerCase().contains(q) || e.tags.any((t) => t.toLowerCase().contains(q));
+      return matches && (!_favoritesOnly || e.isFavorite);
+    }).toList();
 
     return Scaffold(
       body: SafeArea(
@@ -22,15 +36,24 @@ class JournalScreen extends StatelessWidget {
             ScreenTitleBar(
               title: 'Journal',
               subtitle: '${entries.length} entries',
-              onMenuTap: () => Scaffold.of(context).openDrawer(),
+              onMenuTap: null,
+              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                IconButton(tooltip: _favoritesOnly ? 'Show all' : 'Favorites only', icon: Icon(_favoritesOnly ? Icons.star : Icons.star_border), onPressed: () => setState(() => _favoritesOnly = !_favoritesOnly)),
+                IconButton(tooltip: 'New entry', icon: const Icon(Icons.add_circle_outline), onPressed: () => showAddJournalDialog(context)),
+              ]),
             ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+              child: TextField(controller: _search, onChanged: (_) => setState(() {}), decoration: const InputDecoration(hintText: 'Search journal', prefixIcon: Icon(Icons.search))),
+              ),
             Expanded(
               child: entries.isEmpty
-                  ? const EmptyState(
+                  ? EmptyState(
                       icon: Icons.book_outlined,
                       title: 'No journal entries',
                       subtitle: 'Start writing to reflect on your day',
                       actionLabel: 'Write Entry',
+                      onAction: () => showAddJournalDialog(context),
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
@@ -40,13 +63,6 @@ class JournalScreen extends StatelessWidget {
             ),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => showDialog(
-          context: context,
-          builder: (_) => const _AddJournalDialog(),
-        ),
-        child: const Icon(Icons.add),
       ),
     );
   }
@@ -70,13 +86,19 @@ class _JournalTile extends StatelessWidget {
         color: theme.colorScheme.error,
         child: const Icon(Icons.delete, color: Colors.white),
       ),
+      confirmDismiss: (_) => showDeleteConfirmation(
+        context,
+        itemName: 'journal entry',
+        message: 'Delete "${entry.title}"? This cannot be undone.',
+      ),
       onDismissed: (_) => state.deleteJournal(entry.id),
       child: Padding(
         padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.md, vertical: AppSpacing.xs + 2),
         child: Card(
           child: InkWell(
-            onTap: () {},
+            onTap: () => showEditJournalDialog(context, entry),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
             child: Padding(
               padding: const EdgeInsets.all(AppSpacing.md),
               child: Column(
@@ -92,6 +114,7 @@ class _JournalTile extends StatelessWidget {
                         Text(entry.mood!.emoji,
                             style: const TextStyle(fontSize: 20)),
                       IconButton(
+                        tooltip: entry.isFavorite ? 'Unfavorite' : 'Favorite',
                         icon: Icon(
                           entry.isFavorite
                               ? Icons.star_rounded
@@ -111,6 +134,18 @@ class _JournalTile extends StatelessWidget {
                       style: theme.textTheme.bodyMedium,
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis),
+                  if (entry.tags.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: entry.tags.take(5).map((tag) => Chip(
+                        label: Text('#$tag'),
+                        visualDensity: VisualDensity.compact,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      )).toList(),
+                    ),
+                  ],
                   const SizedBox(height: AppSpacing.sm),
                   Text(
                     '${entry.date.month}/${entry.date.day}/${entry.date.year}',
@@ -126,38 +161,103 @@ class _JournalTile extends StatelessWidget {
   }
 }
 
-/// Global dialog action — call from anywhere.
 void showAddJournalDialog(BuildContext context) {
+  showDialog(context: context, builder: (_) => const _JournalEditorDialog());
+}
+
+void showEditJournalDialog(BuildContext context, JournalEntry entry) {
   showDialog(
     context: context,
-    builder: (_) => const _AddJournalDialog(),
+    builder: (_) => _JournalEditorDialog(entry: entry),
   );
 }
 
-class _AddJournalDialog extends StatefulWidget {
-  const _AddJournalDialog();
+class _JournalEditorDialog extends StatefulWidget {
+  final JournalEntry? entry;
+  const _JournalEditorDialog({this.entry});
 
   @override
-  State<_AddJournalDialog> createState() => _AddJournalDialogState();
+  State<_JournalEditorDialog> createState() => _JournalEditorDialogState();
 }
 
-class _AddJournalDialogState extends State<_AddJournalDialog> {
-  final _titleController = TextEditingController();
-  final _bodyController = TextEditingController();
-  int _moodIndex = -1; // -1 = no mood
+class _JournalEditorDialogState extends State<_JournalEditorDialog> {
+  late final TextEditingController _titleController;
+  late final TextEditingController _bodyController;
+  late final TextEditingController _tagsController;
+  late int _moodIndex;
+  late DateTime _date;
+
+  bool get _editing => widget.entry != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.entry;
+    _titleController = TextEditingController(text: e?.title ?? '');
+    _bodyController = TextEditingController(text: e?.body ?? '');
+    _tagsController = TextEditingController(text: e?.tags.join(', ') ?? '');
+    _moodIndex = e?.moodIndex ?? -1;
+    _date = e?.date ?? DateTime.now();
+  }
 
   @override
   void dispose() {
     _titleController.dispose();
     _bodyController.dispose();
+    _tagsController.dispose();
     super.dispose();
+  }
+
+  List<String> _tags() => _tagsController.text
+      .split(',')
+      .map((e) => e.trim().replaceFirst(RegExp(r'^#'), ''))
+      .where((e) => e.isNotEmpty)
+      .toSet()
+      .toList();
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _date,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) setState(() => _date = picked);
+  }
+
+  Future<void> _save() async {
+    final title = _titleController.text.trim();
+    final body = _bodyController.text.trim();
+    if (title.isEmpty) return;
+
+    final state = context.read<AppState>();
+    final tags = _tags();
+    if (_editing) {
+      final updated = widget.entry!.copyWith(
+        title: title,
+        body: body,
+        moodIndex: _moodIndex,
+        date: _date,
+        tags: tags,
+      );
+      await state.updateJournal(updated);
+    } else {
+      await state.addJournal(
+        title: title,
+        body: body,
+        moodIndex: _moodIndex,
+        date: _date,
+        tags: tags,
+      );
+    }
+    if (mounted) Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return AlertDialog(
-      title: const Text('New Journal Entry'),
+      title: Text(_editing ? 'Edit Journal Entry' : 'New Journal Entry'),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -168,17 +268,39 @@ class _AddJournalDialogState extends State<_AddJournalDialog> {
                 labelText: 'Title',
                 hintText: 'Give your entry a title',
               ),
-              autofocus: true,
+              autofocus: !_editing,
+              textCapitalization: TextCapitalization.sentences,
             ),
             const SizedBox(height: AppSpacing.sm),
             TextField(
               controller: _bodyController,
               decoration: const InputDecoration(
                 labelText: 'What happened today?',
+                alignLabelWithHint: true,
               ),
-              maxLines: 5,
+              maxLines: 7,
+              textCapitalization: TextCapitalization.sentences,
             ),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.sm),
+            TextField(
+              controller: _tagsController,
+              decoration: const InputDecoration(
+                labelText: 'Tags',
+                hintText: 'school, reflection, goals',
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.event_outlined),
+              title: const Text('Entry date'),
+              subtitle: Text('${_date.month}/${_date.day}/${_date.year}'),
+              trailing: TextButton(
+                onPressed: _pickDate,
+                child: const Text('Change'),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
             Align(
               alignment: Alignment.centerLeft,
               child: Text('Mood', style: theme.textTheme.labelLarge),
@@ -186,54 +308,29 @@ class _AddJournalDialogState extends State<_AddJournalDialog> {
             const SizedBox(height: AppSpacing.xs),
             Wrap(
               spacing: 8,
-              children: List.generate(JournalMood.values.length, (i) {
-                final sel = i == _moodIndex;
-                final m = JournalMood.values[i];
-                return GestureDetector(
-                  onTap: () => setState(() => _moodIndex = i),
-                  child: Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: sel ? m.color.withValues(alpha: 0.2) : null,
-                      border: Border.all(
-                        color: sel
-                            ? m.color
-                            : theme.colorScheme.onSurface
-                                .withValues(alpha: 0.15),
-                        width: sel ? 2 : 1,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Center(
-                        child: Text(m.emoji,
-                            style: const TextStyle(fontSize: 22))),
-                  ),
-                );
-              }),
+              children: [
+                ChoiceChip(
+                  label: const Text('None'),
+                  selected: _moodIndex == -1,
+                  onSelected: (_) => setState(() => _moodIndex = -1),
+                ),
+                ...List.generate(JournalMood.values.length, (i) {
+                  final m = JournalMood.values[i];
+                  return ChoiceChip(
+                    label: Text(m.emoji),
+                    tooltip: m.label,
+                    selected: _moodIndex == i,
+                    onSelected: (_) => setState(() => _moodIndex = i),
+                  );
+                }),
+              ],
             ),
           ],
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            final title = _titleController.text.trim();
-            if (title.isEmpty) return;
-            context.read<AppState>().addJournal(
-                  title: title,
-                  body: _bodyController.text.trim(),
-                  moodIndex: _moodIndex,
-                  date: DateTime.now(),
-                );
-            Navigator.pop(context);
-          },
-          child: const Text('Save'),
-        ),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        ElevatedButton(onPressed: _save, child: Text(_editing ? 'Save Changes' : 'Save')),
       ],
     );
   }

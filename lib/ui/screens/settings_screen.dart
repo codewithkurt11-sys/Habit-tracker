@@ -3,8 +3,10 @@ import 'package:provider/provider.dart';
 
 import '../../logic/app_state.dart';
 import '../../data/models/user_settings.dart';
+import 'profile_screen.dart';
 import '../../core/theme/app_spacing.dart';
 import 'export_screen.dart';
+import '../../ui/widgets/shared_widgets.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -17,15 +19,17 @@ class SettingsScreen extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.md),
       children: [
-        const SizedBox(height: AppSpacing.lg),
+        ScreenTitleBar(title: 'Settings', onMenuTap: null),
+        const SizedBox(height: AppSpacing.sm),
 
         const _SectionLabel('Account'),
         Card(
           child: ListTile(
-            leading:
-                Icon(Icons.person_outline, color: theme.colorScheme.primary),
+            leading: CircleAvatar(child: Text(state.settings.profileEmoji.isEmpty ? '🙂' : state.settings.profileEmoji)),
             title: Text(state.settings.userName ?? 'Your profile'),
-            subtitle: const Text('Personal information and preferences'),
+            subtitle: Text(state.settings.profileBio.isEmpty ? 'Personal information and preferences' : state.settings.profileBio),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => Scaffold(appBar: AppBar(title: const Text('Profile')), body: const ProfileScreen()))),
           ),
         ),
         const SizedBox(height: AppSpacing.xl),
@@ -62,6 +66,21 @@ class SettingsScreen extends StatelessWidget {
               ],
             ),
           ),
+        ),
+
+        const SizedBox(height: AppSpacing.xl),
+
+        const _SectionLabel('Dashboard'),
+        Card(
+          child: Column(children: [
+            _DashboardSwitch(label: 'Daily progress', value: state.settings.dashboardConfig.showDailyProgress, onChanged: (v) => _setDashboard(context, state, (c) => c.showDailyProgress = v)),
+            _DashboardSwitch(label: 'Quick stats', value: state.settings.dashboardConfig.showQuickStats, onChanged: (v) => _setDashboard(context, state, (c) => c.showQuickStats = v)),
+            _DashboardSwitch(label: 'Today habits', value: state.settings.dashboardConfig.showTodayHabits, onChanged: (v) => _setDashboard(context, state, (c) => c.showTodayHabits = v)),
+            _DashboardSwitch(label: 'Tasks', value: state.settings.dashboardConfig.showTasks, onChanged: (v) => _setDashboard(context, state, (c) => c.showTasks = v)),
+            _DashboardSwitch(label: 'Goal progress', value: state.settings.dashboardConfig.showGoalProgress, onChanged: (v) => _setDashboard(context, state, (c) => c.showGoalProgress = v)),
+            _DashboardSwitch(label: 'Recent notes', value: state.settings.dashboardConfig.showRecentNotes, onChanged: (v) => _setDashboard(context, state, (c) => c.showRecentNotes = v)),
+            _DashboardSwitch(label: 'Daily quote', value: state.settings.dashboardConfig.showDailyQuote, onChanged: (v) => _setDashboard(context, state, (c) => c.showDailyQuote = v)),
+          ]),
         ),
 
         const SizedBox(height: AppSpacing.xl),
@@ -114,8 +133,8 @@ class SettingsScreen extends StatelessWidget {
               ListTile(
                 leading:
                     Icon(Icons.info_outline, color: theme.colorScheme.primary),
-                title: const Text('Habit Tracker'),
-                subtitle: const Text('Version 2.0.0'),
+                title: const Text('Yourself'),
+                subtitle: const Text('Version 2.0.0+5'),
               ),
               const Divider(height: 1),
               ListTile(
@@ -179,6 +198,13 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
+  void _setDashboard(BuildContext context, AppState state, void Function(DashboardConfig) change) {
+    final current = state.settings.dashboardConfig;
+    final updated = DashboardConfig.fromMap(current.toMap());
+    change(updated);
+    state.setDashboardConfig(updated);
+  }
+
   String _themeModeLabel(AppThemeMode mode) {
     switch (mode) {
       case AppThemeMode.system:
@@ -211,6 +237,15 @@ class SettingsScreen extends StatelessWidget {
         return 'Always dark theme';
     }
   }
+}
+
+class _DashboardSwitch extends StatelessWidget {
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  const _DashboardSwitch({required this.label, required this.value, required this.onChanged});
+  @override
+  Widget build(BuildContext context) => SwitchListTile.adaptive(contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md), title: Text(label), value: value, onChanged: onChanged);
 }
 
 class _SectionLabel extends StatelessWidget {

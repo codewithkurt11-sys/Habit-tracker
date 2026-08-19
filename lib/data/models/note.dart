@@ -50,7 +50,9 @@ class Note extends HiveObject {
   List<String> attachmentPaths;
   String? linkedEntityType;
   String? linkedEntityId;
-  bool archived;
+  bool isPinned;
+  bool isArchived;
+  DateTime updatedAt;
 
   Note({
     required this.id,
@@ -65,13 +67,19 @@ class Note extends HiveObject {
     List<String>? attachmentPaths,
     this.linkedEntityType,
     this.linkedEntityId,
-    this.archived = false,
-  })  : tags = tags ?? [],
-        attachmentPaths = attachmentPaths ?? [];
+    this.isPinned = false,
+    bool? archived,
+    DateTime? updatedAt,
+  }) : tags = tags ?? [],
+        attachmentPaths = attachmentPaths ?? [],
+        isArchived = archived ?? false,
+        updatedAt = updatedAt ?? timestamp;
 
   Mood? get mood => moodIndex >= 0 && moodIndex < Mood.values.length
       ? Mood.values[moodIndex]
       : null;
+
+  bool get archived => isArchived;
 
   Note copyWith({
     String? title,
@@ -87,7 +95,9 @@ class Note extends HiveObject {
     List<String>? attachmentPaths,
     String? linkedEntityType,
     String? linkedEntityId,
+    bool clearLinkedEntity = false,
     bool? archived,
+    bool? isArchived,
   }) {
     return Note(
       id: id,
@@ -101,9 +111,13 @@ class Note extends HiveObject {
       tags: tags ?? List<String>.from(this.tags),
       attachmentPaths:
           attachmentPaths ?? List<String>.from(this.attachmentPaths),
-      linkedEntityType: linkedEntityType ?? this.linkedEntityType,
-      linkedEntityId: linkedEntityId ?? this.linkedEntityId,
-      archived: archived ?? this.archived,
+      linkedEntityType: clearLinkedEntity ? null : (linkedEntityType ?? this.linkedEntityType),
+      linkedEntityId: clearLinkedEntity ? null : (linkedEntityId ?? this.linkedEntityId),
+      // ignore: unnecessary_this
+      isPinned: this.isPinned,
+      // ignore: unnecessary_this
+      archived: isArchived ?? archived ?? this.isArchived,
+      updatedAt: DateTime.now(),
     );
   }
 }
@@ -131,14 +145,16 @@ class NoteAdapter extends TypeAdapter<Note> {
       attachmentPaths: (fields[9] as List?)?.cast<String>() ?? [],
       linkedEntityType: fields[10] as String?,
       linkedEntityId: fields[11] as String?,
-      archived: fields[12] as bool? ?? false,
+      isPinned: fields[12] as bool? ?? false,
+      archived: fields[13] as bool? ?? false,
+      updatedAt: fields[14] as DateTime? ?? fields[3] as DateTime,
     );
   }
 
   @override
   void write(BinaryWriter writer, Note obj) {
     writer
-      ..writeByte(13)
+      ..writeByte(15)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -164,6 +180,10 @@ class NoteAdapter extends TypeAdapter<Note> {
       ..writeByte(11)
       ..write(obj.linkedEntityId)
       ..writeByte(12)
-      ..write(obj.archived);
+      ..write(obj.isPinned)
+      ..writeByte(13)
+      ..write(obj.isArchived)
+      ..writeByte(14)
+      ..write(obj.updatedAt);
   }
 }

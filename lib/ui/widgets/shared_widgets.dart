@@ -191,11 +191,29 @@ class PillChip extends StatelessWidget {
 }
 
 /// Screen title bar shown at the top of each main screen.
+
+class AppDrawerScope extends InheritedWidget {
+  final VoidCallback onOpen;
+
+  const AppDrawerScope({
+    super.key,
+    required this.onOpen,
+    required super.child,
+  });
+
+  static AppDrawerScope? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<AppDrawerScope>();
+
+  @override
+  bool updateShouldNotify(AppDrawerScope oldWidget) => onOpen != oldWidget.onOpen;
+}
+
 class ScreenTitleBar extends StatelessWidget {
   final String title;
   final String? subtitle;
   final IconData menuIcon;
   final VoidCallback? onMenuTap;
+  final Widget? trailing;
 
   const ScreenTitleBar({
     super.key,
@@ -203,6 +221,7 @@ class ScreenTitleBar extends StatelessWidget {
     this.subtitle,
     this.menuIcon = Icons.menu,
     this.onMenuTap,
+    this.trailing,
   });
 
   @override
@@ -215,7 +234,7 @@ class ScreenTitleBar extends StatelessWidget {
         children: [
           IconButton(
             icon: Icon(menuIcon),
-            onPressed: onMenuTap ?? () => Scaffold.of(context).openDrawer(),
+            onPressed: onMenuTap ?? AppDrawerScope.maybeOf(context)?.onOpen ?? () => Scaffold.of(context).openDrawer(),
             tooltip: 'More',
           ),
           const SizedBox(width: AppSpacing.xs),
@@ -229,6 +248,7 @@ class ScreenTitleBar extends StatelessWidget {
               ],
             ),
           ),
+          if (trailing != null) trailing!,
         ],
       ),
     );

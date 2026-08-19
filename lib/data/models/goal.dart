@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 
+enum GoalProgressMode { auto, habitDays, taskCount, financeAmount, manual, mixed }
+
 enum GoalCategory {
   health,
   career,
@@ -101,12 +103,14 @@ class Goal extends HiveObject {
   int colorValue;
   DateTime createdAt;
   DateTime updatedAt;
-  // schema-only: future cross-linking fields
+  // Legacy-compatible relationship fields; AppState keeps them synchronized.
   List<String> linkedHabitIds;
   List<String> linkedTaskIds;
   String? linkedFinanceId;
   double progressPercent;
   bool isAutoProgress;
+  GoalProgressMode progressMode;
+  DateTime startDate;
 
   Goal({
     required this.id,
@@ -130,12 +134,19 @@ class Goal extends HiveObject {
     this.linkedFinanceId,
     this.progressPercent = 0,
     this.isAutoProgress = true,
+    this.progressMode = GoalProgressMode.auto,
+    DateTime? startDate,
   })  : milestoneIds = milestoneIds ?? [],
         milestoneTitles = milestoneTitles ?? [],
         milestoneDone = milestoneDone ?? [],
         milestoneDates = milestoneDates ?? [],
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now(),
+        startDate = DateTime(
+          (startDate ?? createdAt ?? DateTime.now()).year,
+          (startDate ?? createdAt ?? DateTime.now()).month,
+          (startDate ?? createdAt ?? DateTime.now()).day,
+        ),
         linkedHabitIds = linkedHabitIds ?? [],
         linkedTaskIds = linkedTaskIds ?? [];
 
@@ -205,13 +216,16 @@ class GoalAdapter extends TypeAdapter<Goal> {
       linkedFinanceId: fields[18] as String?,
       progressPercent: (fields[19] as num?)?.toDouble() ?? 0,
       isAutoProgress: fields[20] as bool? ?? true,
+      progressMode: GoalProgressMode.values[
+          (fields[21] as int? ?? GoalProgressMode.auto.index).clamp(0, GoalProgressMode.values.length - 1).toInt()],
+      startDate: fields[22] as DateTime?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Goal obj) {
     writer
-      ..writeByte(21)
+      ..writeByte(23)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -253,6 +267,10 @@ class GoalAdapter extends TypeAdapter<Goal> {
       ..writeByte(19)
       ..write(obj.progressPercent)
       ..writeByte(20)
-      ..write(obj.isAutoProgress);
+      ..write(obj.isAutoProgress)
+      ..writeByte(21)
+      ..write(obj.progressMode.index)
+      ..writeByte(22)
+      ..write(obj.startDate);
   }
 }

@@ -3,11 +3,18 @@ import 'package:provider/provider.dart';
 
 import '../../logic/app_state.dart';
 import '../../data/models/habit.dart';
-import '../../data/models/task.dart';
 import '../../data/models/goal.dart';
+import '../../data/models/task.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../widgets/shared_widgets.dart';
+import 'habit_detail_screen.dart';
+import 'goal_detail_screen.dart';
+import 'notes_screen.dart';
+import 'finance_screen.dart';
+import 'tasks_screen.dart';
+import 'journal_screen.dart';
+import 'schedule_screen.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -377,24 +384,33 @@ class _ResultTile extends StatelessWidget {
   void _handleTap(BuildContext context) {
     switch (result.type) {
       case _SearchType.habit:
-        // Toggle habit completion
-        state.toggleHabit(result.id);
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text('Toggled: ${result.title}'),
-                duration: const Duration(seconds: 1)),
-          );
-        }
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => HabitDetailScreen(habitId: result.id),
+          ),
+        );
       case _SearchType.task:
-        state.toggleTaskDone(result.id);
+        final task = state.tasksRepo.getById(result.id);
+        if (task != null) showEditTaskDialog(context, task);
       case _SearchType.goal:
-        Navigator.of(context).pop();
+        if (state.goalsRepo.getAll(includeArchived: true).any((g) => g.id == result.id)) {
+          Navigator.of(context).push(MaterialPageRoute(builder: (_) => GoalDetailScreen(goalId: result.id)));
+        }
       case _SearchType.journal:
+        final entry = state.journalRepo.getAll().where((e) => e.id == result.id).firstOrNull;
+        if (entry != null) {
+          showEditJournalDialog(context, entry);
+        }
       case _SearchType.note:
+        final note = state.notesRepo.getAll(includeArchived: true).where((n) => n.id == result.id).firstOrNull;
+        if (note != null) showEditNoteDialog(context, note);
       case _SearchType.finance:
+        final entry = state.financeRepo.getAll().where((e) => e.id == result.id).firstOrNull;
+        if (entry != null) showEditFinanceDialog(context, entry);
       case _SearchType.schedule:
-        Navigator.of(context).pop();
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const ScheduleScreen()),
+        );
     }
   }
 }

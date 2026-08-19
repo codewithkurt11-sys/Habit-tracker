@@ -30,6 +30,17 @@ class HabitsRepository {
     }
   }
 
+  void _validateCustomDays(HabitFrequency frequency, List<int>? customDays) {
+    if (frequency == HabitFrequency.custom) {
+      if (customDays == null || customDays.isEmpty) {
+        throw ArgumentError('customDays must not be empty for custom frequency');
+      }
+      if (customDays.any((d) => d < 1 || d > 7)) {
+        throw ArgumentError('customDays must be weekday numbers 1-7');
+      }
+    }
+  }
+
   Future<Habit> create({
     required String name,
     required HabitCategory category,
@@ -40,18 +51,7 @@ class HabitsRepository {
     int targetStreak = 0,
     String? goalId,
   }) async {
-    // Validate: custom frequency requires at least one weekday
-    if (frequency == HabitFrequency.custom &&
-        (customDays == null || customDays.isEmpty)) {
-      throw ArgumentError(
-          'Custom frequency habits require at least one selected day');
-    }
-    if (customDays != null && customDays.any((day) => day < 1 || day > 7)) {
-      throw ArgumentError('Habit weekdays must be ISO values from 1 to 7');
-    }
-    if (customDays != null && customDays.toSet().length != customDays.length) {
-      throw ArgumentError('Habit weekdays must not contain duplicates');
-    }
+    _validateCustomDays(frequency, customDays);
     final habit = Habit(
       id: _uuid.v4(),
       name: name,
@@ -68,16 +68,7 @@ class HabitsRepository {
   }
 
   Future<void> update(Habit habit) async {
-    if (habit.customDays.any((day) => day < 1 || day > 7)) {
-      throw ArgumentError('Habit weekdays must be ISO values from 1 to 7');
-    }
-    if (habit.frequency == HabitFrequency.custom && habit.customDays.isEmpty) {
-      throw ArgumentError(
-          'Custom frequency habits require at least one selected day');
-    }
-    if (habit.customDays.toSet().length != habit.customDays.length) {
-      throw ArgumentError('Habit weekdays must not contain duplicates');
-    }
+    _validateCustomDays(habit.frequency, habit.customDays);
     habit.touch();
     await _box.put(habit.id, habit);
   }

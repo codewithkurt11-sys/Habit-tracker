@@ -7,6 +7,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
+import 'tasks_screen.dart';
 
 class KanbanScreen extends StatefulWidget {
   const KanbanScreen({super.key});
@@ -48,15 +49,16 @@ class _KanbanScreenState extends State<KanbanScreen> {
             ScreenTitleBar(
               title: 'Kanban Board',
               subtitle: '${allTasks.length} tasks',
-              onMenuTap: () => Scaffold.of(context).openDrawer(),
+              onMenuTap: null,
             ),
             Expanded(
               child: allTasks.isEmpty
-                  ? const EmptyState(
+                  ? EmptyState(
                       icon: Icons.view_kanban_outlined,
                       title: 'No tasks yet',
                       subtitle: 'Add tasks and organize them in columns',
                       actionLabel: 'Add Task',
+                      onAction: () => showAddTaskDialog(context),
                     )
                   : SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
@@ -95,7 +97,10 @@ class _KanbanScreenState extends State<KanbanScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddDialog(context),
+        onPressed: () {
+          context.read<AppState>().hideQuickCapture();
+          _showAddDialog(context);
+        },
         child: const Icon(Icons.add),
       ),
     );
@@ -166,12 +171,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
             ElevatedButton(
               onPressed: () {
                 final title = _titleController.text.trim();
-                if (title.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please enter a task title')),
-                  );
-                  return;
-                }
+                if (title.isEmpty) return;
                 context.read<AppState>().addTask(
                     title: title,
                     description: _descController.text.trim(),
@@ -346,7 +346,9 @@ class _KanbanCard extends StatelessWidget {
               leading: const Icon(Icons.play_circle_outline),
               title: const Text('Move to In Progress'),
               onTap: () {
-                state.setTaskStatus(task.id, TaskStatus.inProgress);
+                task.status = TaskStatus.inProgress;
+                state.tasksRepo.update(task);
+                state.refresh();
                 Navigator.pop(ctx);
               },
             ),
@@ -362,7 +364,10 @@ class _KanbanCard extends StatelessWidget {
               leading: const Icon(Icons.undo),
               title: const Text('Move to To Do'),
               onTap: () {
-                state.setTaskStatus(task.id, TaskStatus.todo);
+                task.status = TaskStatus.todo;
+                task.completedAt = null;
+                state.tasksRepo.update(task);
+                state.refresh();
                 Navigator.pop(ctx);
               },
             ),

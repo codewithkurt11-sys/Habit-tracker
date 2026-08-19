@@ -7,7 +7,6 @@ import '../../core/theme/app_theme.dart';
 import '../screens/dashboard_screen.dart';
 import '../screens/habits_screen.dart';
 import '../screens/tasks_screen.dart';
-import '../screens/analytics_screen.dart';
 import '../screens/finance_screen.dart';
 import '../screens/focus_screen.dart';
 import '../screens/notes_screen.dart';
@@ -17,11 +16,12 @@ import '../screens/schedule_screen.dart';
 import '../screens/file_manager_screen.dart';
 import '../screens/profile_screen.dart';
 import '../screens/settings_screen.dart';
-import '../screens/export_screen.dart';
 import '../screens/kanban_screen.dart';
+import '../screens/analytics_screen.dart';
 import '../screens/calendar_screen.dart';
 import '../screens/search_screen.dart';
 import '../screens/journal_screen.dart';
+import 'shared_widgets.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -32,147 +32,108 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _bottomIndex = 0;
-  bool _showQuickCapture = false;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  final _bottomScreens = <Widget>[
-    const DashboardScreen(),
-    const HabitsScreen(),
-    const TasksScreen(),
-    const FinanceScreen(),
-    const FocusScreen(),
+  final _bottomScreens = const <Widget>[
+    DashboardScreen(),
+    HabitsScreen(),
+    TasksScreen(),
+    FinanceScreen(),
   ];
 
-  final _bottomLabels = ['Home', 'Habits', 'Tasks', 'Finance', 'Focus'];
-  final _bottomIcons = [
-    Icons.dashboard_outlined,
+  final _bottomLabels = const ['Home', 'Habits', 'Tasks', 'Finance'];
+  final _bottomIcons = const [
+    Icons.home_outlined,
     Icons.repeat_rounded,
     Icons.check_circle_outline,
     Icons.account_balance_wallet_outlined,
-    Icons.timer_outlined,
   ];
 
-  Widget _sidebarScreen(int index) {
-    switch (index) {
-      case 0:
-        return const NotesScreen();
-      case 1:
-        return const GoalsScreen();
-      case 2:
-        return const QuotesScreen();
-      case 3:
-        return const ScheduleScreen();
-      case 4:
-        return const KanbanScreen();
-      case 5:
-        return const AnalyticsScreen();
-      case 6:
-        return const CalendarScreen();
-      case 7:
-        return const FileManagerScreen();
-      case 8:
-        return const ProfileScreen();
-      case 9:
-        return const SettingsScreen();
-      case 10:
-        return const ExportScreen();
-      default:
-        return const SizedBox.shrink();
-    }
-  }
+  final _sidebarItems = const <({String label, IconData icon, Widget screen})>[
+    (label: 'Goals', icon: Icons.track_changes_outlined, screen: GoalsScreen()),
+    (label: 'Focus', icon: Icons.timer_outlined, screen: FocusScreen()),
+    (label: 'Notes', icon: Icons.sticky_note_2_outlined, screen: NotesScreen()),
+    (label: 'Journal', icon: Icons.book_outlined, screen: JournalScreen()),
+    (label: 'Schedule', icon: Icons.calendar_today_outlined, screen: ScheduleScreen()),
+    (label: 'Kanban Board', icon: Icons.view_kanban_outlined, screen: KanbanScreen()),
+    (label: 'Calendar', icon: Icons.calendar_month_outlined, screen: CalendarScreen()),
+    (label: 'Analytics', icon: Icons.analytics_outlined, screen: AnalyticsScreen()),
+    (label: 'Quotes', icon: Icons.format_quote_outlined, screen: QuotesScreen()),
+    (label: 'File Manager', icon: Icons.folder_outlined, screen: FileManagerScreen()),
+    (label: 'Profile', icon: Icons.person_outline, screen: ProfileScreen()),
+    (label: 'Settings', icon: Icons.settings_outlined, screen: SettingsScreen()),
+  ];
 
-  String _sidebarLabel(int index) {
-    const labels = [
-      'Notes',
-      'Goals',
-      'Quotes',
-      'Schedule',
-      'Kanban Board',
-      'Analytics',
-      'Calendar',
-      'File Manager',
-      'Profile',
-      'Settings',
-      'Backup & Export',
-    ];
-    return labels[index];
-  }
-
-  IconData _sidebarIcon(int index) {
-    const icons = [
-      Icons.sticky_note_2_outlined,
-      Icons.track_changes_outlined,
-      Icons.format_quote_outlined,
-      Icons.calendar_today_outlined,
-      Icons.view_kanban_outlined,
-      Icons.analytics_outlined,
-      Icons.calendar_month_outlined,
-      Icons.folder_outlined,
-      Icons.person_outline,
-      Icons.settings_outlined,
-      Icons.download_outlined,
-    ];
-    return icons[index];
-  }
-
-  void _openSidebarScreen(int index) {
-    Navigator.of(context).pop(); // close drawer
+  void _openSearch() {
+    context.read<AppState>().hideQuickCapture();
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (ctx) => Scaffold(
-          appBar: AppBar(
-            title: Text(_sidebarLabel(index)),
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () => Navigator.of(ctx).pop(),
-            ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.search),
-                onPressed: () => Navigator.of(ctx).push(
-                  MaterialPageRoute(
-                      builder: (_) => const Scaffold(body: SearchScreen())),
-                ),
-              ),
-            ],
-          ),
-          body: _sidebarScreen(index),
-          floatingActionButton: _sidebarFab(ctx, index),
-        ),
-      ),
+      MaterialPageRoute(builder: (_) => const SearchScreen()),
     );
   }
 
-  Widget? _sidebarFab(BuildContext context, int index) {
-    switch (index) {
-      case 0: // Notes
-        return FloatingActionButton(
-          onPressed: () => showAddNoteDialog(context),
-          child: const Icon(Icons.add),
-        );
-      case 1: // Goals
-        return FloatingActionButton(
-          onPressed: () => showAddGoalDialog(context),
-          child: const Icon(Icons.add),
-        );
-      case 2: // Quotes
-        return FloatingActionButton(
-          onPressed: () => showAddQuoteDialog(context),
-          child: const Icon(Icons.add),
-        );
-      case 3: // Schedule
-        return FloatingActionButton(
-          onPressed: () => showAddScheduleDialog(context),
-          child: const Icon(Icons.add),
-        );
-      case 4: // Kanban
-        return FloatingActionButton(
-          onPressed: () => showAddTaskDialog(context),
-          child: const Icon(Icons.add),
-        );
-      default:
-        return null;
+  void _openSidebarScreen(int index) {
+    final item = _sidebarItems[index];
+    final state = context.read<AppState>();
+    state.hideQuickCapture();
+    Navigator.of(context).pop();
+
+    const screensWithOwnScaffold = {
+      'Journal', 'Focus', 'Kanban Board', 'Analytics',
+    };
+    final content = AppDrawerScope(
+      onOpen: () {
+        if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+        _scaffoldKey.currentState?.openDrawer();
+      },
+      child: item.screen,
+    );
+
+    final Widget page = screensWithOwnScaffold.contains(item.label)
+        ? content
+        : Scaffold(
+            body: content,
+            floatingActionButton: _sidebarFab(context, item.label),
+          );
+
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
+  }
+
+  Widget? _sidebarFab(BuildContext context, String label) {
+    final state = context.read<AppState>();
+    VoidCallback? action;
+    switch (label) {
+      case 'Notes':
+        action = () => showAddNoteDialog(context);
+        break;
+      case 'Goals':
+        action = () => showAddGoalDialog(context);
+        break;
+      case 'Journal':
+        action = () => showAddJournalDialog(context);
+        break;
+      case 'Focus':
+        action = () => showFocusTimerDialog(context);
+        break;
+      case 'Quotes':
+        action = () => showAddQuoteDialog(context);
+        break;
+      case 'Schedule':
+        action = () => showAddScheduleDialog(context);
+        break;
+      case 'Kanban Board':
+        action = () => showAddTaskDialog(context);
+        break;
     }
+    if (action == null) return null;
+    return FloatingActionButton(
+      heroTag: 'sidebar-$label-add',
+      tooltip: 'Add $label',
+      onPressed: () {
+        state.hideQuickCapture();
+        action!();
+      },
+      child: const Icon(Icons.add),
+    );
   }
 
   Widget _buildSidebarHeader(BuildContext context) {
@@ -194,21 +155,34 @@ class _AppShellState extends State<AppShell> {
       ),
       child: SafeArea(
         bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
             CircleAvatar(
-              radius: 32,
-              backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.2),
+              radius: 30,
+              backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.12),
               child: Text(
-                name.isNotEmpty ? name[0].toUpperCase() : '?',
-                style: theme.textTheme.headlineMedium?.copyWith(
-                  color: theme.colorScheme.primary,
-                ),
+                state.settings.profileEmoji.isNotEmpty
+                    ? state.settings.profileEmoji
+                    : (name.isNotEmpty ? name[0].toUpperCase() : '?'),
+                style: const TextStyle(fontSize: 28),
               ),
             ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(name, style: theme.textTheme.titleLarge),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(name, style: theme.textTheme.titleLarge),
+                  if (state.settings.profileBio.isNotEmpty)
+                    Text(
+                      state.settings.profileBio,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall,
+                    ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -217,10 +191,10 @@ class _AppShellState extends State<AppShell> {
 
   Widget _buildSidebarItem(BuildContext context, int index) {
     final theme = Theme.of(context);
+    final item = _sidebarItems[index];
     return ListTile(
-      leading:
-          Icon(_sidebarIcon(index), color: theme.colorScheme.primary, size: 22),
-      title: Text(_sidebarLabel(index), style: theme.textTheme.bodyLarge),
+      leading: Icon(item.icon, color: theme.colorScheme.primary, size: 22),
+      title: Text(item.label, style: theme.textTheme.bodyLarge),
       trailing: Icon(Icons.chevron_right,
           color: theme.colorScheme.onSurface.withValues(alpha: 0.3)),
       contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
@@ -228,9 +202,49 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
+  void _selectBottom(int index) {
+    context.read<AppState>().hideQuickCapture();
+    setState(() => _bottomIndex = index);
+  }
+
+  Widget _bottomDestination(BuildContext context, int index) {
+    final theme = Theme.of(context);
+    final selected = _bottomIndex == index;
+    return Expanded(
+      child: InkResponse(
+        onTap: () => _selectBottom(index),
+        radius: 28,
+        child: SizedBox(
+          height: 64,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(_bottomIcons[index],
+                  color: selected
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.onSurfaceVariant),
+              const SizedBox(height: 2),
+              Text(
+                _bottomLabels[index],
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: selected
+                      ? theme.colorScheme.primary
+                      : theme.colorScheme.onSurfaceVariant,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
     final theme = Theme.of(context);
+
     return Scaffold(
       key: _scaffoldKey,
       drawer: Drawer(
@@ -242,112 +256,105 @@ class _AppShellState extends State<AppShell> {
               child: ListView(
                 padding: EdgeInsets.zero,
                 children: [
-                  for (int i = 0; i < 11; i++) _buildSidebarItem(context, i),
+                  for (int i = 0; i < _sidebarItems.length; i++)
+                    _buildSidebarItem(context, i),
                 ],
               ),
             ),
-            const SizedBox(height: AppSpacing.sm),
           ],
         ),
       ),
-      body: _bottomScreens[_bottomIndex],
-      floatingActionButton: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
+      body: Stack(
         children: [
-          // ── Quick Capture row (above the existing Add button) ──
-          if (_showQuickCapture) ...[
-            Container(
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest
-                    .withValues(alpha: 0.95),
-                borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              child: Wrap(
-                spacing: 4,
-                runSpacing: 4,
-                alignment: WrapAlignment.end,
-                children: [
-                  _quickCaptureChip(context, Icons.check_circle, 'Task',
-                      () => showAddTaskDialog(context)),
-                  _quickCaptureChip(context, Icons.sticky_note_2_outlined,
-                      'Note', () => showAddNoteDialog(context)),
-                  _quickCaptureChip(context, Icons.book_outlined, 'Journal',
-                      () => showAddJournalDialog(context)),
-                  _quickCaptureChip(context, Icons.repeat_rounded, 'Habit',
-                      () => showAddHabitDialog(context)),
-                  _quickCaptureChip(context, Icons.track_changes_outlined,
-                      'Goal', () => showAddGoalDialog(context)),
-                  _quickCaptureChip(
-                      context,
-                      Icons.account_balance_wallet_outlined,
-                      'Finance',
-                      () => showAddFinanceDialog(context)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-          ],
-          // ── Existing Add button (unchanged, now toggles Quick Capture) ──
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (_showQuickCapture)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FloatingActionButton.small(
-                    heroTag: 'quick-close',
-                    tooltip: 'Close',
-                    onPressed: () => setState(() => _showQuickCapture = false),
-                    child: const Icon(Icons.close),
-                  ),
-                ),
-              FloatingActionButton.small(
-                heroTag: 'global-note',
-                tooltip: _showQuickCapture ? 'Quick capture' : 'Quick capture',
-                onPressed: () =>
-                    setState(() => _showQuickCapture = !_showQuickCapture),
-                child:
-                    Icon(_showQuickCapture ? Icons.edit_note : Icons.flash_on),
-              ),
-            ],
+          AppDrawerScope(
+            onOpen: () => _scaffoldKey.currentState?.openDrawer(),
+            child: _bottomScreens[_bottomIndex],
           ),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _bottomIndex,
-        onDestinationSelected: (i) => setState(() => _bottomIndex = i),
-        destinations: List.generate(5, (i) {
-          return NavigationDestination(
-            icon: Icon(_bottomIcons[i]),
-            selectedIcon: Icon(_bottomIcons[i]),
-            label: _bottomLabels[i],
-          );
-        }),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: _buildQuickCapture(context, state, theme),
+      bottomNavigationBar: BottomAppBar(
+        height: 70,
+        padding: EdgeInsets.zero,
+        shape: const CircularNotchedRectangle(),
+        notchMargin: 7,
+        child: Row(
+          children: [
+            _bottomDestination(context, 0),
+            _bottomDestination(context, 1),
+            const SizedBox(width: 112),
+            _bottomDestination(context, 2),
+            _bottomDestination(context, 3),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _quickCaptureChip(
-      BuildContext context, IconData icon, String label, VoidCallback onTap) {
-    final theme = Theme.of(context);
-    return ActionChip(
-      avatar: Icon(icon, size: 16, color: theme.colorScheme.primary),
-      label: Text(label, style: theme.textTheme.labelSmall),
-      onPressed: () {
-        setState(() => _showQuickCapture = false);
-        onTap();
-      },
-      visualDensity: VisualDensity.compact,
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+  Widget _buildQuickCapture(
+      BuildContext context, AppState state, ThemeData theme) {
+    final open = state.quickCaptureOpen;
+    final actions = <({IconData icon, String label, VoidCallback action})>[
+      (icon: Icons.check_circle, label: 'Task', action: () => showAddTaskDialog(context)),
+      (icon: Icons.repeat_rounded, label: 'Habit', action: () => showAddHabitDialog(context)),
+      (icon: Icons.track_changes_outlined, label: 'Goal', action: () => showAddGoalDialog(context)),
+      (icon: Icons.sticky_note_2_outlined, label: 'Note', action: () => showAddNoteDialog(context)),
+      (icon: Icons.book_outlined, label: 'Journal', action: () => showAddJournalDialog(context)),
+      (icon: Icons.account_balance_wallet_outlined, label: 'Finance', action: () => showAddFinanceDialog(context)),
+      (icon: Icons.calendar_today_outlined, label: 'Schedule', action: () => showAddScheduleDialog(context)),
+      (icon: Icons.timer_outlined, label: 'Focus', action: () => showFocusTimerDialog(context)),
+    ];
+
+    return TapRegion(
+      onTapOutside: (_) => state.hideQuickCapture(),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+        if (open)
+          Material(
+            elevation: 8,
+            color: theme.colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 330),
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  alignment: WrapAlignment.center,
+                  children: actions.map((item) {
+                    return ActionChip(
+                      avatar: Icon(item.icon,
+                          size: 16, color: theme.colorScheme.primary),
+                      label: Text(item.label,
+                          style: theme.textTheme.labelSmall),
+                      onPressed: () {
+                        state.hideQuickCapture();
+                        item.action();
+                      },
+                      visualDensity: VisualDensity.compact,
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+          ),
+        const SizedBox(height: 8),
+        FloatingActionButton.extended(
+          heroTag: 'global-quick-capture',
+          tooltip: open ? 'Close quick actions' : 'Quick action',
+          onPressed: state.toggleQuickCapture,
+          icon: AnimatedRotation(
+            turns: open ? 0.125 : 0,
+            duration: const Duration(milliseconds: 180),
+            child: Icon(open ? Icons.close : Icons.add),
+          ),
+          label: Text(open ? 'Close' : 'Quick'),
+        ),
+        ],
+      ),
     );
   }
 }

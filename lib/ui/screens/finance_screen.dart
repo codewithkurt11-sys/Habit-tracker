@@ -37,7 +37,12 @@ class FinanceScreen extends StatelessWidget {
             ScreenTitleBar(
               title: 'Finance',
               subtitle: '$monthName ${now.year}',
-              onMenuTap: () => Scaffold.of(context).openDrawer(),
+              onMenuTap: null,
+              trailing: IconButton(
+                tooltip: 'Add transaction',
+                icon: const Icon(Icons.add_circle_outline),
+                onPressed: () { context.read<AppState>().hideQuickCapture(); showAddFinanceDialog(context); },
+              ),
             ),
             _SummaryCard(
               income: income,
@@ -63,11 +68,12 @@ class FinanceScreen extends StatelessWidget {
             const SizedBox(height: AppSpacing.sm),
             Expanded(
               child: entries.isEmpty
-                  ? const EmptyState(
+                  ? EmptyState(
                       icon: Icons.account_balance_wallet_outlined,
                       title: 'No transactions yet',
                       subtitle: 'Track your income and expenses',
                       actionLabel: 'Add Transaction',
+                      onAction: () => showAddFinanceDialog(context),
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
@@ -77,13 +83,6 @@ class FinanceScreen extends StatelessWidget {
             ),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => showDialog(
-          context: context,
-          builder: (_) => const _AddFinanceDialog(),
-        ),
-        child: const Icon(Icons.add),
       ),
     );
   }
@@ -373,26 +372,30 @@ class _FinanceTile extends StatelessWidget {
         color: theme.colorScheme.error,
         child: const Icon(Icons.delete, color: Colors.white),
       ),
+      confirmDismiss: (_) => showDeleteConfirmation(context, itemName: 'transaction', message: 'Delete "${entry.title}"?'),
       onDismissed: (_) => state.deleteFinance(entry.id),
       child: Padding(
         padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.md, vertical: AppSpacing.xs + 2),
         child: Card(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: entry.categoryColor.withValues(alpha: 0.15),
-                    borderRadius:
-                        BorderRadius.circular(AppSpacing.radiusMedium),
+          child: InkWell(
+            onTap: () => showEditFinanceDialog(context, entry),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: entry.categoryColor.withValues(alpha: 0.15),
+                      borderRadius:
+                          BorderRadius.circular(AppSpacing.radiusMedium),
+                    ),
+                    child: Icon(entry.categoryIcon,
+                        color: entry.categoryColor, size: 22),
                   ),
-                  child: Icon(entry.categoryIcon,
-                      color: entry.categoryColor, size: 22),
-                ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Column(
@@ -431,7 +434,8 @@ class _FinanceTile extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -442,20 +446,22 @@ class _FinanceTile extends StatelessWidget {
 
 /// Global dialog action — call from anywhere.
 void showAddFinanceDialog(BuildContext context) {
-  showDialog(
-    context: context,
-    builder: (_) => const _AddFinanceDialog(),
-  );
+  showDialog(context: context, builder: (_) => const _FinanceEditorDialog());
 }
 
-class _AddFinanceDialog extends StatefulWidget {
-  const _AddFinanceDialog();
+void showEditFinanceDialog(BuildContext context, FinanceEntry entry) {
+  showDialog(context: context, builder: (_) => _FinanceEditorDialog(entry: entry));
+}
+
+class _FinanceEditorDialog extends StatefulWidget {
+  final FinanceEntry? entry;
+  const _FinanceEditorDialog({this.entry});
 
   @override
-  State<_AddFinanceDialog> createState() => _AddFinanceDialogState();
+  State<_FinanceEditorDialog> createState() => _FinanceEditorDialogState();
 }
 
-class _AddFinanceDialogState extends State<_AddFinanceDialog> {
+class _FinanceEditorDialogState extends State<_FinanceEditorDialog> {
   final _titleController = TextEditingController();
   final _amountController = TextEditingController();
   final _noteController = TextEditingController();
@@ -464,6 +470,22 @@ class _AddFinanceDialogState extends State<_AddFinanceDialog> {
   int _categoryIndex = 0;
   DateTime _date = DateTime.now();
   String? _goalId;
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.entry;
+    if (e != null) {
+      _titleController.text = e.title;
+      _amountController.text = e.amount.toStringAsFixed(2);
+      _noteController.text = e.note;
+      _plannedController.text = e.plannedAmount == 0 ? '' : e.plannedAmount.toStringAsFixed(2);
+      _typeIndex = e.typeIndex;
+      _categoryIndex = e.categoryIndex;
+      _date = e.date;
+      _goalId = e.goalId;
+    }
+  }
 
   @override
   void dispose() {
@@ -495,7 +517,7 @@ class _AddFinanceDialogState extends State<_AddFinanceDialog> {
     final theme = Theme.of(context);
     final ext = theme.extension<AppThemeExtension>()!;
     return AlertDialog(
-      title: const Text('New Transaction'),
+      title: Text(widget.entry == null ? 'New Transaction' : 'Edit Transaction'),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -593,7 +615,7 @@ class _AddFinanceDialogState extends State<_AddFinanceDialog> {
                     .read<AppState>()
                     .goalsRepo
                     .getActive()
-                    .where((goal) => goal.category.name == 'finance')
+                    
                     .map(
                       (goal) => DropdownMenuItem<String?>(
                         value: goal.id,
@@ -616,6 +638,11 @@ class _AddFinanceDialogState extends State<_AddFinanceDialog> {
               ),
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
+            ),
+            TextField(
+              controller: _noteController,
+              decoration: const InputDecoration(labelText: 'Note (optional)'),
+              maxLines: 2,
             ),
             const SizedBox(height: AppSpacing.md),
             // Category
@@ -689,21 +716,19 @@ class _AddFinanceDialogState extends State<_AddFinanceDialog> {
           child: const Text('Cancel'),
         ),
         ElevatedButton(
-          onPressed: () {
+          onPressed: () async {
             final title = _titleController.text.trim();
             final amount = double.tryParse(_amountController.text.trim());
             if (title.isEmpty || amount == null || amount <= 0) return;
-            context.read<AppState>().addFinance(
-                  title: title,
-                  amount: amount,
-                  typeIndex: _typeIndex,
-                  categoryIndex: _categoryIndex,
-                  date: _date,
-                  note: _noteController.text.trim(),
-                  goalId: _goalId,
-                  plannedAmount:
-                      double.tryParse(_plannedController.text.trim()) ?? 0,
-                );
+            final state = context.read<AppState>();
+            final planned = double.tryParse(_plannedController.text.trim()) ?? 0;
+            if (widget.entry == null) {
+              await state.addFinance(title: title, amount: amount, typeIndex: _typeIndex, categoryIndex: _categoryIndex, date: _date, note: _noteController.text.trim(), goalId: _goalId, plannedAmount: planned);
+            } else {
+              final e = widget.entry!;
+              e.title = title; e.amount = amount; e.typeIndex = _typeIndex; e.categoryIndex = _categoryIndex; e.date = _date; e.note = _noteController.text.trim(); e.goalId = _goalId; e.linkedGoalId = null; e.plannedAmount = planned;
+              await state.updateFinance(e);
+            }
             Navigator.pop(context);
           },
           child: const Text('Add'),
@@ -1034,7 +1059,7 @@ class _AddSavingsGoalDialogState extends State<_AddSavingsGoalDialog> {
                     .read<AppState>()
                     .goalsRepo
                     .getActive()
-                    .where((goal) => goal.category.name == 'finance')
+                    
                     .map(
                       (goal) => DropdownMenuItem<String?>(
                         value: goal.id,

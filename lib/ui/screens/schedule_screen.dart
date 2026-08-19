@@ -41,10 +41,12 @@ class ScheduleScreen extends StatelessWidget {
         ),
         Expanded(
           child: items.isEmpty
-              ? const EmptyState(
+              ? EmptyState(
                   icon: Icons.calendar_today_outlined,
                   title: 'No scheduled items',
                   subtitle: 'Add a one-off event or reminder',
+                  actionLabel: 'Add schedule',
+                  onAction: () => showAddScheduleDialog(context),
                 )
               : ListView.builder(
                   padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
@@ -63,16 +65,19 @@ class _ScheduleTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.read<AppState>();
+    final state = context.watch<AppState>();
     final theme = Theme.of(context);
+    // Re-read the item from state so checkbox toggles reflect immediately.
+    final freshItem = state.scheduleRepo.getAll()
+        .where((s) => s.id == item.id).firstOrNull ?? item;
     final now = DateTime.now();
-    final isToday = item.dateTime.day == now.day &&
-        item.dateTime.month == now.month &&
-        item.dateTime.year == now.year;
-    final isPast = item.dateTime.isBefore(now) && !isToday;
+    final isToday = freshItem.dateTime.day == now.day &&
+        freshItem.dateTime.month == now.month &&
+        freshItem.dateTime.year == now.year;
+    final isPast = freshItem.dateTime.isBefore(now) && !isToday;
 
     return Dismissible(
-      key: ValueKey(item.id),
+      key: ValueKey(freshItem.id),
       direction: DismissDirection.endToStart,
       background: Container(
         alignment: Alignment.centerRight,
@@ -80,13 +85,14 @@ class _ScheduleTile extends StatelessWidget {
         color: theme.colorScheme.error,
         child: const Icon(Icons.delete, color: Colors.white),
       ),
-      onDismissed: (_) => state.deleteSchedule(item.id),
+      confirmDismiss: (_) => showDeleteConfirmation(context, itemName: 'schedule item', message: 'Delete \"${freshItem.title}\"?'),
+      onDismissed: (_) => state.deleteSchedule(freshItem.id),
       child: Padding(
         padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.md, vertical: AppSpacing.xs + 2),
         child: Card(
           child: InkWell(
-            onTap: () => state.toggleSchedule(item.id),
+            onTap: () => showEditScheduleDialog(context, freshItem),
             borderRadius: BorderRadius.circular(AppSpacing.radiusLarge),
             child: Padding(
               padding: const EdgeInsets.all(AppSpacing.md),
@@ -106,8 +112,8 @@ class _ScheduleTile extends StatelessWidget {
                     child: Column(
                       children: [
                         Text(
-                          '${item.dateTime.hour.toString().padLeft(2, '0')}:'
-                          '${item.dateTime.minute.toString().padLeft(2, '0')}',
+                          '${freshItem.dateTime.hour.toString().padLeft(2, '0')}:'
+                          '${freshItem.dateTime.minute.toString().padLeft(2, '0')}',
                           style: theme.textTheme.labelMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: isPast
@@ -120,7 +126,7 @@ class _ScheduleTile extends StatelessWidget {
                         Text(
                           isToday
                               ? 'Today'
-                              : '${item.dateTime.month}/${item.dateTime.day}',
+                              : '${freshItem.dateTime.month}/${freshItem.dateTime.day}',
                           style: theme.textTheme.bodySmall?.copyWith(
                             fontSize: 10,
                             color: isPast
@@ -135,25 +141,22 @@ class _ScheduleTile extends StatelessWidget {
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Text(
-                      item.title,
+                      freshItem.title,
                       style: theme.textTheme.titleSmall?.copyWith(
                         decoration:
-                            item.done ? TextDecoration.lineThrough : null,
-                        color: item.done
+                            freshItem.done ? TextDecoration.lineThrough : null,
+                        color: freshItem.done
                             ? theme.colorScheme.onSurface.withValues(alpha: 0.4)
                             : null,
                       ),
                     ),
                   ),
-                  Icon(
-                    item.done
-                        ? Icons.check_circle
-                        : Icons.radio_button_unchecked,
-                    size: 22,
-                    color: item.done
-                        ? theme.extension<AppThemeExtension>()!.success
-                        : theme.colorScheme.onSurface.withValues(alpha: 0.3),
+                  Checkbox(
+                    value: freshItem.done,
+                    activeColor: theme.extension<AppThemeExtension>()!.success,
+                    onChanged: (_) => state.toggleSchedule(freshItem.id),
                   ),
+                  IconButton(tooltip: 'Edit', icon: const Icon(Icons.edit_outlined, size: 18), onPressed: () => showEditScheduleDialog(context, freshItem)),
                 ],
               ),
             ),
@@ -165,7 +168,8 @@ class _ScheduleTile extends StatelessWidget {
 }
 
 class _AddScheduleDialog extends StatefulWidget {
-  const _AddScheduleDialog();
+  final ScheduleItem? item;
+  const _AddScheduleDialog({this.item});
 
   @override
   State<_AddScheduleDialog> createState() => _AddScheduleDialogState();
@@ -174,6 +178,15 @@ class _AddScheduleDialog extends StatefulWidget {
 class _AddScheduleDialogState extends State<_AddScheduleDialog> {
   final _titleController = TextEditingController();
   DateTime _dateTime = DateTime.now().add(const Duration(hours: 1));
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.item != null) {
+      _titleController.text = widget.item!.title;
+      _dateTime = widget.item!.dateTime;
+    }
+  }
 
   @override
   void dispose() {
@@ -185,7 +198,7 @@ class _AddScheduleDialogState extends State<_AddScheduleDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return AlertDialog(
-      title: const Text('New Schedule Item'),
+      title: Text(widget.item == null ? 'New Schedule Item' : 'Edit Schedule Item'),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -265,21 +278,21 @@ class _AddScheduleDialogState extends State<_AddScheduleDialog> {
           child: const Text('Cancel'),
         ),
         ElevatedButton(
-          onPressed: () {
+          onPressed: () async {
             final title = _titleController.text.trim();
-            if (title.isEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Please enter a title')),
-              );
-              return;
+            if (title.isEmpty) return;
+            final state = context.read<AppState>();
+            if (widget.item == null) {
+              await state.addSchedule(title: title, dateTime: _dateTime);
+            } else {
+              final item = widget.item!;
+              item.title = title;
+              item.dateTime = _dateTime;
+              await state.updateSchedule(item);
             }
-            context.read<AppState>().addSchedule(
-                  title: title,
-                  dateTime: _dateTime,
-                );
             Navigator.pop(context);
           },
-          child: const Text('Add'),
+          child: Text(widget.item == null ? 'Add' : 'Save'),
         ),
       ],
     );
@@ -288,8 +301,9 @@ class _AddScheduleDialogState extends State<_AddScheduleDialog> {
 
 /// Global FAB action — call from the parent Scaffold.
 void showAddScheduleDialog(BuildContext context) {
-  showDialog(
-    context: context,
-    builder: (_) => const _AddScheduleDialog(),
-  );
+  showDialog(context: context, builder: (_) => const _AddScheduleDialog());
+}
+
+void showEditScheduleDialog(BuildContext context, ScheduleItem item) {
+  showDialog(context: context, builder: (_) => _AddScheduleDialog(item: item));
 }

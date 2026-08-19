@@ -66,12 +66,16 @@ class UserSettings extends HiveObject {
   AppThemeMode themeMode;
   bool onboardingComplete;
   DashboardConfig dashboardConfig;
+  String profileEmoji;
+  String profileBio;
 
   UserSettings({
     this.userName,
     this.themeMode = AppThemeMode.system,
     this.onboardingComplete = false,
     DashboardConfig? dashboardConfig,
+    this.profileEmoji = '🙂',
+    this.profileBio = '',
   }) : dashboardConfig = dashboardConfig ?? DashboardConfig();
 }
 
@@ -93,13 +97,15 @@ class UserSettingsAdapter extends TypeAdapter<UserSettings> {
       dashboardConfig: dashMap != null
           ? DashboardConfig.fromMap(dashMap)
           : DashboardConfig(),
+      profileEmoji: fields[4] as String? ?? '🙂',
+      profileBio: fields[5] as String? ?? '',
     );
   }
 
   @override
   void write(BinaryWriter writer, UserSettings obj) {
     writer
-      ..writeByte(4)
+      ..writeByte(6)
       ..writeByte(0)
       ..write(obj.userName)
       ..writeByte(1)
@@ -107,6 +113,10 @@ class UserSettingsAdapter extends TypeAdapter<UserSettings> {
       ..writeByte(2)
       ..write(obj.onboardingComplete)
       ..writeByte(3)
-      ..write(obj.dashboardConfig.toMap());
+      ..write(obj.dashboardConfig.toMap())
+      ..writeByte(4)
+      ..write(obj.profileEmoji)
+      ..writeByte(5)
+      ..write(obj.profileBio);
   }
 }

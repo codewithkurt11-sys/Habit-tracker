@@ -37,7 +37,8 @@ class ProfileScreen extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.md),
       children: [
-        const SizedBox(height: AppSpacing.lg),
+        Padding(padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0), child: Align(alignment: Alignment.centerLeft, child: Text('Profile', style: Theme.of(context).textTheme.headlineSmall))),
+        const SizedBox(height: AppSpacing.md),
         // Avatar + name
         Center(
           child: Column(
@@ -47,25 +48,27 @@ class ProfileScreen extends StatelessWidget {
                 backgroundColor:
                     theme.colorScheme.primary.withValues(alpha: 0.15),
                 child: Text(
-                  name.isNotEmpty ? name[0].toUpperCase() : '?',
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    color: theme.colorScheme.primary,
-                  ),
+                  state.settings.profileEmoji.isNotEmpty
+                      ? state.settings.profileEmoji
+                      : (name.isNotEmpty ? name[0].toUpperCase() : '?'),
+                  style: const TextStyle(fontSize: 40),
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(name, style: theme.textTheme.headlineSmall),
+              if (state.settings.profileBio.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(state.settings.profileBio, textAlign: TextAlign.center, style: theme.textTheme.bodySmall),
+              ],
             ],
           ),
         ),
         const SizedBox(height: AppSpacing.xl),
-        // Edit name button
         Center(
-          child: OutlinedButton.icon(
-            onPressed: () => _showEditNameDialog(context, name),
-            icon: const Icon(Icons.edit_outlined, size: 18),
-            label: const Text('Edit Name'),
-          ),
+          child: Wrap(spacing: 8, alignment: WrapAlignment.center, children: [
+            OutlinedButton.icon(onPressed: () => _showEditNameDialog(context, name), icon: const Icon(Icons.edit_outlined, size: 18), label: const Text('Edit Profile')),
+            OutlinedButton.icon(onPressed: () => _showEmojiDialog(context, state.settings.profileEmoji, state.settings.profileBio), icon: const Icon(Icons.mood_outlined, size: 18), label: const Text('Avatar & Bio')),
+          ]),
         ),
         const SizedBox(height: AppSpacing.xl),
         // Stats grid
@@ -163,54 +166,52 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
+  void _showEmojiDialog(BuildContext context, String currentEmoji, String currentBio) {
+    final emoji = TextEditingController(text: currentEmoji);
+    final bio = TextEditingController(text: currentBio);
+    showDialog(context: context, builder: (_) => AlertDialog(
+      title: const Text('Customize Profile'),
+      content: Column(mainAxisSize: MainAxisSize.min, children: [
+        TextField(controller: emoji, decoration: const InputDecoration(labelText: 'Avatar emoji', hintText: '🙂')),
+        const SizedBox(height: 8),
+        TextField(controller: bio, decoration: const InputDecoration(labelText: 'Short bio'), maxLines: 2, maxLength: 80),
+      ]),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(onPressed: () { context.read<AppState>().updateProfile(emoji: emoji.text.trim().isEmpty ? '🙂' : emoji.text.trim(), bio: bio.text.trim()); Navigator.pop(context); }, child: const Text('Save')),
+      ],
+    ));
+  }
+
   void _showEditNameDialog(BuildContext context, String currentName) {
     final controller = TextEditingController(text: currentName);
     showDialog(
       context: context,
-      // Dispose the controller when the dialog is dismissed by any means.
-      builder: (_) => StatefulBuilder(
-        builder: (dialogContext, setSt) {
-          return AlertDialog(
-            title: const Text('Edit Name'),
-            content: TextField(
-              controller: controller,
-              decoration: const InputDecoration(labelText: 'Your name'),
-              autofocus: true,
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  controller.dispose();
-                  Navigator.pop(dialogContext);
-                },
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  final name = controller.text.trim();
-                  if (name.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Please enter a name.'),
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                    return;
-                  }
-                  context.read<AppState>().completeOnboarding(name);
-                  controller.dispose();
-                  Navigator.pop(dialogContext);
-                },
-                child: const Text('Save'),
-              ),
-            ],
-          );
-        },
+      builder: (_) => AlertDialog(
+        title: const Text('Edit Name'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(labelText: 'Your name'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final name = controller.text.trim();
+              if (name.isNotEmpty) {
+                context.read<AppState>().completeOnboarding(name);
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
       ),
-    ).then((_) {
-      // Ensure disposal if dialog was dismissed by barrier tap or back button.
-      controller.dispose();
-    });
+    );
   }
 }
 

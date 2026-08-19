@@ -103,9 +103,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(Icons.eco, size: 80, color: theme.colorScheme.secondary),
-        const SizedBox(height: AppSpacing.lg),
-        Text('Welcome to\nHabit Tracker',
+        Image.asset('assets/branding/yourself_logo.png', width: 260, height: 260, fit: BoxFit.contain),
+        const SizedBox(height: AppSpacing.sm),
+        Text('Welcome to\nYourself',
             textAlign: TextAlign.center, style: theme.textTheme.displayMedium),
         const SizedBox(height: AppSpacing.md),
         Text(

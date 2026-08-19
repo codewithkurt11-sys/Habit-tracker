@@ -83,7 +83,7 @@ class Habit extends HiveObject {
   int? colorValue;
   int targetStreak;
   String? goalId;
-  String? linkedGoalId; // schema-only: future cross-linking
+  String? linkedGoalId; // Legacy-compatible relationship field; canonical linking uses goalId.
   DateTime updatedAt;
 
   Habit({
@@ -101,25 +101,22 @@ class Habit extends HiveObject {
     this.goalId,
     this.linkedGoalId,
     DateTime? updatedAt,
-  })  : customDays = _validateCustomDays(frequency, customDays ?? []),
+  })  : customDays = customDays ?? [],
         completionLog = completionLog ?? [],
         skipLog = skipLog ?? [],
         createdAt = createdAt ?? DateTime.now(),
-        updatedAt = updatedAt ?? DateTime.now();
-
-  static List<int> _validateCustomDays(
-      HabitFrequency frequency, List<int> days) {
-    if (frequency == HabitFrequency.custom && days.isEmpty) {
-      throw ArgumentError(
-          'Custom frequency habits require at least one selected day');
+        updatedAt = updatedAt ?? DateTime.now() {
+    if (frequency == HabitFrequency.custom) {
+      if (customDays == null || customDays!.isEmpty) {
+        throw ArgumentError('customDays must not be empty for custom frequency');
+      }
+      if (customDays!.any((d) => d < 1 || d > 7)) {
+        throw ArgumentError('customDays must be weekday numbers 1-7');
+      }
+      if (customDays!.toSet().length != customDays!.length) {
+        throw ArgumentError('customDays must not contain duplicate weekdays');
+      }
     }
-    if (days.any((day) => day < 1 || day > 7)) {
-      throw ArgumentError('Habit weekdays must be ISO values from 1 to 7');
-    }
-    if (days.toSet().length != days.length) {
-      throw ArgumentError('Habit weekdays must not contain duplicates');
-    }
-    return List<int>.from(days);
   }
 
   /// Touch [updatedAt] to now. Called by repositories on every mutation.
@@ -180,12 +177,13 @@ class Habit extends HiveObject {
 
     while (!cursor.isBefore(firstDay)) {
       if (isDueOn(cursor)) {
-        // Skipped days don't break streaks — just skip over them
-        if (isSkippedOn(cursor)) {
-          cursor = DateTime(cursor.year, cursor.month, cursor.day - 1);
-          continue;
+        if (!isCompletedOn(cursor)) {
+          if (isSkippedOn(cursor)) {
+            cursor = DateTime(cursor.year, cursor.month, cursor.day - 1);
+            continue;
+          }
+          break;
         }
-        if (!isCompletedOn(cursor)) break;
         streak++;
       }
       cursor = DateTime(cursor.year, cursor.month, cursor.day - 1);
@@ -211,14 +209,11 @@ class Habit extends HiveObject {
     final completed = completedDays.toSet();
     while (!cursor.isAfter(last)) {
       if (isDueOn(cursor)) {
-        // Skipped days don't break streaks — just skip over them
-        if (isSkippedOn(cursor)) {
-          cursor = DateTime(cursor.year, cursor.month, cursor.day + 1);
-          continue;
-        }
         if (completed.contains(cursor)) {
           current++;
           if (current > best) best = current;
+        } else if (isSkippedOn(cursor)) {
+          // skipped day doesn't break streak, just continue
         } else {
           current = 0;
         }

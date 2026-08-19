@@ -21,13 +21,18 @@ class FocusScreen extends StatelessWidget {
     final pomodorosToday = state.focusRepo.getCompletedPomodorosToday();
 
     return Scaffold(
+      floatingActionButton: FloatingActionButton(
+        tooltip: 'Start focus timer',
+        onPressed: () => showFocusTimerDialog(context),
+        child: const Icon(Icons.add),
+      ),
       body: SafeArea(
         child: Column(
           children: [
             ScreenTitleBar(
               title: 'Focus',
               subtitle: '$pomodorosToday pomodoros today',
-              onMenuTap: () => Scaffold.of(context).openDrawer(),
+              onMenuTap: null,
             ),
             _FocusStats(
               todayMinutes: todayMinutes,
@@ -37,11 +42,12 @@ class FocusScreen extends StatelessWidget {
             const SizedBox(height: AppSpacing.sm),
             Expanded(
               child: sessions.isEmpty
-                  ? const EmptyState(
+                  ? EmptyState(
                       icon: Icons.timer_outlined,
                       title: 'No focus sessions yet',
                       subtitle: 'Start a timer to begin focusing',
                       actionLabel: 'Start Timer',
+                      onAction: () => showFocusTimerDialog(context),
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
@@ -52,15 +58,15 @@ class FocusScreen extends StatelessWidget {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => showDialog(
-          context: context,
-          builder: (_) => const _FocusTimerDialog(),
-        ),
-        child: const Icon(Icons.play_arrow),
-      ),
     );
   }
+}
+
+void showFocusTimerDialog(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (_) => const _FocusTimerDialog(),
+  );
 }
 
 class _FocusStats extends StatelessWidget {
