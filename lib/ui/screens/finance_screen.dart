@@ -927,14 +927,29 @@ class _SavingsGoalCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: FilledButton.icon(
-                      onPressed: savingsGoal.isConfirmedToday
-                          ? null
-                          : () =>
-                              state.confirmSavingsContribution(savingsGoal.id),
+                      // Disabled when today's contribution is already logged or
+                      // today falls outside the savings window — contributions
+                      // can only be recorded for valid, non-future days.
+                      onPressed: savingsGoal.canConfirm(DateTime.now())
+                          ? () async {
+                              final ok = await state
+                                  .confirmSavingsContribution(savingsGoal.id);
+                              if (!ok && context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                        'This contribution could not be recorded for today.'),
+                                  ),
+                                );
+                              }
+                            }
+                          : null,
                       icon: const Icon(Icons.check, size: 18),
                       label: Text(savingsGoal.isConfirmedToday
                           ? 'Confirmed today'
-                          : 'Confirm ₱${savingsGoal.dailyAmount.toStringAsFixed(0)}'),
+                          : savingsGoal.canConfirm(DateTime.now())
+                              ? 'Confirm ₱${savingsGoal.dailyAmount.toStringAsFixed(0)}'
+                              : 'Window closed'),
                       style: FilledButton.styleFrom(
                         padding:
                             const EdgeInsets.symmetric(vertical: AppSpacing.sm),

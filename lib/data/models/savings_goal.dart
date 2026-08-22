@@ -58,8 +58,72 @@ class SavingsGoal extends HiveObject {
 
   void touch() => updatedAt = DateTime.now();
 
+  /// Date-only helper so time-of-day never creates comparison edge cases.
+  static DateTime dayOf(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  /// Start of the savings window (date-only).
+  DateTime get startDay => dayOf(startDate);
+
+  /// Last day of the savings window (inclusive, date-only).
+  /// A `targetDays` of 5 starting on the 1st ends on the 5th.
+  DateTime get endDay => DateTime(
+        startDate.year,
+        startDate.month,
+        startDate.day + (targetDays > 0 ? targetDays - 1 : 0),
+      );
+
+  /// Number of valid (date, amount) contribution pairs.
+  ///
+  /// Legacy or imported records can have mismatched list lengths; every
+  /// aggregate below is derived from this bound so `confirmedCount` and
+  /// `totalContributed` can never disagree because of corrupted data.
+  int get _pairCount => contributionDates.length < contributionAmounts.length
+      ? contributionDates.length
+      : contributionAmounts.length;
+
+  /// Repairs mismatched/duplicated contribution lists in place.
+  ///
+  /// - truncates both lists to the shorter length
+  /// - normalizes every stored date to date-only
+  /// - drops duplicate dates (keeping the first occurrence)
+  /// - drops negative/non-finite amounts
+  ///
+  /// Returns true when something had to be changed.
+  bool normalizeContributions() {
+    final pairs = _pairCount;
+    final dates = <DateTime>[];
+    final amounts = <double>[];
+    final seen = <String>{};
+    for (var i = 0; i < pairs; i++) {
+      final d = dayOf(contributionDates[i]);
+      final key = '${d.year}-${d.month}-${d.day}';
+      if (!seen.add(key)) continue;
+      final a = contributionAmounts[i];
+      if (a.isNaN || a.isInfinite || a < 0) continue;
+      dates.add(d);
+      amounts.add(a);
+    }
+    final changed = dates.length != contributionDates.length ||
+        amounts.length != contributionAmounts.length ||
+        !List.generate(dates.length, (i) => contributionDates[i] == dates[i])
+            .every((ok) => ok);
+    if (changed) {
+      contributionDates = dates;
+      contributionAmounts = amounts;
+    }
+    return changed;
+  }
+
   /// Total amount contributed so far.
-  double get totalContributed => contributionAmounts.fold(0.0, (s, a) => s + a);
+  double get totalContributed {
+    var sum = 0.0;
+    for (var i = 0; i < _pairCount; i++) {
+      final a = contributionAmounts[i];
+      if (a.isNaN || a.isInfinite) continue;
+      sum += a;
+    }
+    return sum;
+  }
 
   /// Remaining amount to reach [targetAmount].
   double get remainingAmount =>
@@ -85,7 +149,9 @@ class SavingsGoal extends HiveObject {
   }
 
   /// Number of confirmed contributions logged.
-  int get confirmedCount => contributionDates.length;
+  /// Derived from the same bound as [totalContributed] so the two can never
+  /// disagree when a legacy record has mismatched list lengths.
+  int get confirmedCount => _pairCount;
 
   /// Progress fraction (0.0 – 1.0).
   double get progressFraction =>
@@ -98,10 +164,13 @@ class SavingsGoal extends HiveObject {
   bool get isConfirmedToday {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    return contributionDates.any(
-      (d) =>
-          d.year == today.year && d.month == today.month && d.day == today.day,
-    );
+    for (var i = 0; i < _pairCount; i++) {
+      final d = contributionDates[i];
+      if (d.year == today.year && d.month == today.month && d.day == today.day) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /// Ahead / on-track / behind based on confirmed vs expected contributions.
@@ -113,16 +182,28 @@ class SavingsGoal extends HiveObject {
     return VarianceStatus.behind;
   }
 
-  /// Returns true if a contribution can be logged for [date]
-  /// (not already confirmed and date is within the window).
-  bool canConfirm(DateTime date) {
-    final d = DateTime(date.year, date.month, date.day);
-    if (d.isBefore(DateTime(startDate.year, startDate.month, startDate.day))) {
-      return false;
+  /// Returns true if a contribution can be logged for [date].
+  ///
+  /// Savings contributions record what actually happened, so scheduling ahead
+  /// is not supported. A date is only valid when it is, using date-only
+  /// comparisons:
+  ///   * not before [startDate]
+  ///   * not after today (no future contributions)
+  ///   * inside the savings window (`startDate .. startDate + targetDays - 1`)
+  ///   * not already confirmed (no duplicate contribution dates)
+  bool canConfirm(DateTime date, {DateTime? today}) {
+    final d = dayOf(date);
+    final todayDay = dayOf(today ?? DateTime.now());
+    if (d.isBefore(startDay)) return false;
+    if (d.isAfter(todayDay)) return false;
+    if (targetDays > 0 && d.isAfter(endDay)) return false;
+    for (var i = 0; i < _pairCount; i++) {
+      final e = contributionDates[i];
+      if (e.year == d.year && e.month == d.month && e.day == d.day) {
+        return false;
+      }
     }
-    return !contributionDates.any(
-      (e) => e.year == d.year && e.month == d.month && e.day == d.day,
-    );
+    return true;
   }
 }
 
@@ -136,18 +217,29 @@ class SavingsGoalAdapter extends TypeAdapter<SavingsGoal> {
     final fields = <int, dynamic>{
       for (int i = 0; i < n; i++) reader.readByte(): reader.read(),
     };
-    return SavingsGoal(
+    final goal = SavingsGoal(
       id: fields[0] as String,
       title: fields[1] as String,
       targetAmount: (fields[2] as num).toDouble(),
       targetDays: fields[3] as int,
       startDate: fields[4] as DateTime? ?? DateTime.now(),
-      contributionDates: (fields[5] as List?)?.cast<DateTime>() ?? [],
-      contributionAmounts: (fields[6] as List?)?.cast<double>() ?? [],
+      contributionDates: (fields[5] as List?)
+              ?.whereType<DateTime>()
+              .toList() ??
+          [],
+      contributionAmounts: (fields[6] as List?)
+              ?.whereType<num>()
+              .map((v) => v.toDouble())
+              .toList() ??
+          [],
       goalId: fields[7] as String?,
       createdAt: fields[8] as DateTime? ?? DateTime.now(),
       updatedAt: fields[9] as DateTime? ?? DateTime.now(),
     );
+    // Repair malformed legacy/imported records on read so the two contribution
+    // lists can never be observed with different lengths.
+    goal.normalizeContributions();
+    return goal;
   }
 
   @override

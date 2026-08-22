@@ -242,7 +242,7 @@ class _KeyMetricsRow extends StatelessWidget {
           Expanded(
               child: _MetricCard(
             icon: Icons.local_fire_department_outlined,
-            label: 'Best Streak',
+            label: 'Longest Run',
             value: '$bestStreak',
             sub: 'days',
             color: const Color(0xFFE8946F),

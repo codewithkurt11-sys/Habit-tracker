@@ -348,28 +348,56 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// Synchronizes the reverse links on **every** goal so that an entity can
+  /// only ever belong to a single goal.
+  ///
+  /// The canonical relationship is `Habit.goalId` / `Task.goalId` /
+  /// `FinanceEntry.goalId` / `SavingsGoal.goalId`. `Goal.linkedHabitIds`,
+  /// `Goal.linkedTaskIds` and `Goal.linkedFinanceId` are legacy reverse arrays
+  /// kept for Hive/backup compatibility and are *derived* from the canonical
+  /// field here. Passing a null [newGoalId] removes the entity from all goals.
+  ///
+  /// Previously only the old and new goal were visited, so a stale reverse link
+  /// on any third goal (e.g. after an earlier reassignment) survived and made
+  /// the progress engine count one entity toward multiple goals.
   Future<void> _syncGoalReverseLink({
     String? oldGoalId,
     String? newGoalId,
     required String entityId,
     required String kind,
   }) async {
-    final ids = {if (oldGoalId != null) oldGoalId, if (newGoalId != null) newGoalId};
-    for (final id in ids) {
-      final goal = goalsRepo.getAll(includeArchived: true).where((g) => g.id == id).firstOrNull;
-      if (goal == null) continue;
+    for (final goal in goalsRepo.getAll(includeArchived: true)) {
+      final isTarget = newGoalId != null && goal.id == newGoalId;
+      var changed = false;
       if (kind == 'habit') {
-        goal.linkedHabitIds.remove(entityId);
-        if (newGoalId == id) goal.linkedHabitIds.add(entityId);
+        if (goal.linkedHabitIds.remove(entityId)) changed = true;
+        // Drop any accidental duplicates left by older versions.
+        while (goal.linkedHabitIds.remove(entityId)) {}
+        if (isTarget) {
+          goal.linkedHabitIds.add(entityId);
+          changed = true;
+        }
       } else if (kind == 'task') {
-        goal.linkedTaskIds.remove(entityId);
-        if (newGoalId == id) goal.linkedTaskIds.add(entityId);
+        if (goal.linkedTaskIds.remove(entityId)) changed = true;
+        while (goal.linkedTaskIds.remove(entityId)) {}
+        if (isTarget) {
+          goal.linkedTaskIds.add(entityId);
+          changed = true;
+        }
       } else if (kind == 'finance') {
-        if (goal.linkedFinanceId == entityId || oldGoalId == id) goal.linkedFinanceId = null;
-        if (newGoalId == id) goal.linkedFinanceId = entityId;
+        if (goal.linkedFinanceId == entityId) {
+          goal.linkedFinanceId = null;
+          changed = true;
+        }
+        if (isTarget) {
+          goal.linkedFinanceId = entityId;
+          changed = true;
+        }
       }
-      goal.touch();
-      await goalsRepo.update(goal);
+      if (changed) {
+        goal.touch();
+        await goalsRepo.update(goal);
+      }
     }
   }
 
@@ -456,8 +484,84 @@ class AppState extends ChangeNotifier {
     goal.linkedFinanceId = selectedFinance;
     goal.isAutoProgress = goal.progressMode != GoalProgressMode.manual;
     await goalsRepo.update(goal);
+    // Reassigning an entity to this goal must strip it from whichever goal
+    // previously owned it, otherwise the stale reverse link would let the
+    // progress engine count it twice.
+    final affected = await rebuildGoalReverseLinks(skipGoalId: goal.id);
     await syncGoalProgress(goal.id);
+    for (final id in affected) {
+      if (id != goal.id) await syncGoalProgress(id);
+    }
     notifyListeners();
+  }
+
+  /// Derives every goal's legacy reverse arrays from the canonical
+  /// `goalId` fields, removing stale links left behind by reassignment.
+  ///
+  /// Entities that have *no* canonical owner at all (legacy Hive data written
+  /// before `goalId` existed) keep their existing reverse-array membership so
+  /// old backups are not silently unlinked.
+  ///
+  /// Returns the IDs of the goals that were modified.
+  Future<Set<String>> rebuildGoalReverseLinks({String? skipGoalId}) async {
+    final habits = habitsRepo.getAll();
+    final tasks = tasksRepo.getAll(includeArchived: true);
+    final finance = financeRepo.getAll();
+    final changedGoals = <String>{};
+
+    for (final goal in goalsRepo.getAll(includeArchived: true)) {
+      final habitIds = <String>[];
+      for (final h in habits) {
+        if (h.goalId != null) {
+          if (h.goalId == goal.id) habitIds.add(h.id);
+        } else if (h.linkedGoalId != null) {
+          if (h.linkedGoalId == goal.id) habitIds.add(h.id);
+        } else if (goal.linkedHabitIds.contains(h.id)) {
+          habitIds.add(h.id);
+        }
+      }
+      final taskIds = <String>[];
+      for (final t in tasks) {
+        if (t.goalId != null) {
+          if (t.goalId == goal.id) taskIds.add(t.id);
+        } else if (t.linkedGoalId != null) {
+          if (t.linkedGoalId == goal.id) taskIds.add(t.id);
+        } else if (goal.linkedTaskIds.contains(t.id)) {
+          taskIds.add(t.id);
+        }
+      }
+      String? financeId;
+      for (final f in finance) {
+        if (f.goalId == goal.id || f.linkedGoalId == goal.id) {
+          financeId = f.id;
+          break;
+        }
+      }
+      if (financeId == null &&
+          goal.linkedFinanceId != null &&
+          finance.any((f) => f.id == goal.linkedFinanceId &&
+              f.goalId == null &&
+              f.linkedGoalId == null)) {
+        financeId = goal.linkedFinanceId;
+      }
+
+      final changed = !_sameIds(goal.linkedHabitIds, habitIds) ||
+          !_sameIds(goal.linkedTaskIds, taskIds) ||
+          goal.linkedFinanceId != financeId;
+      if (!changed) continue;
+      goal.linkedHabitIds = habitIds;
+      goal.linkedTaskIds = taskIds;
+      goal.linkedFinanceId = financeId;
+      goal.touch();
+      await goalsRepo.update(goal);
+      if (goal.id != skipGoalId) changedGoals.add(goal.id);
+    }
+    return changedGoals;
+  }
+
+  bool _sameIds(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    return a.toSet().containsAll(b);
   }
 
   Future<void> updateGoalProgress(String id, double value) async {
@@ -692,14 +796,33 @@ class AppState extends ChangeNotifier {
     await syncGoalProgress(goalId);
   }
 
+  /// Resolves the habits that belong to [goal].
+  ///
+  /// The canonical owner is `Habit.goalId`. A habit whose canonical field points
+  /// at a *different* goal is never included, even if a stale legacy reverse
+  /// link still names it — that is what previously let one habit count toward
+  /// several goals. The legacy `linkedGoalId` / `linkedHabitIds` fallbacks are
+  /// only consulted for habits that have no canonical owner yet (old Hive data).
+  List<Habit> habitsForGoal(Goal goal) => habitsRepo.getAll().where((h) {
+        if (h.goalId != null) return h.goalId == goal.id;
+        if (h.linkedGoalId != null) return h.linkedGoalId == goal.id;
+        return goal.linkedHabitIds.contains(h.id);
+      }).toList();
+
+  /// Resolves the tasks that belong to [goal]. See [habitsForGoal].
+  List<Task> tasksForGoal(Goal goal) =>
+      tasksRepo.getAll(includeArchived: true).where((t) {
+        if (t.goalId != null) return t.goalId == goal.id;
+        if (t.linkedGoalId != null) return t.linkedGoalId == goal.id;
+        return goal.linkedTaskIds.contains(t.id);
+      }).toList();
+
   /// Recalculates goal progress from its canonical linked entities.
   Future<void> syncGoalProgress(String goalId) async {
     final goal = goalsRepo.getAll(includeArchived: true).where((g) => g.id == goalId).firstOrNull;
     if (goal == null || !goal.isAutoProgress) return;
-    final habits = habitsRepo.getAll().where((h) =>
-        goal.linkedHabitIds.contains(h.id) || h.goalId == goalId || h.linkedGoalId == goalId).toList();
-    final tasks = tasksRepo.getAll(includeArchived: true).where((t) =>
-        goal.linkedTaskIds.contains(t.id) || t.goalId == goalId || t.linkedGoalId == goalId).toList();
+    final habits = habitsForGoal(goal);
+    final tasks = tasksForGoal(goal);
     final finance = financeRepo.getForGoal(goalId);
     final savings = savingsGoalsRepo.getForGoal(goalId);
     final snapshot = GoalProgressEngine.compute(
@@ -717,14 +840,10 @@ class AppState extends ChangeNotifier {
   double computeGoalProgress(String goalId) {
     final goal = goalsRepo.getAll(includeArchived: true).where((g) => g.id == goalId).firstOrNull;
     if (goal == null) return 0;
-    final habits = habitsRepo.getAll().where((h) =>
-        goal.linkedHabitIds.contains(h.id) || h.goalId == goalId || h.linkedGoalId == goalId).toList();
-    final tasks = tasksRepo.getAll(includeArchived: true).where((t) =>
-        goal.linkedTaskIds.contains(t.id) || t.goalId == goalId || t.linkedGoalId == goalId).toList();
     final snapshot = GoalProgressEngine.compute(
       goal: goal,
-      habits: habits,
-      tasks: tasks,
+      habits: habitsForGoal(goal),
+      tasks: tasksForGoal(goal),
       finance: financeRepo.getForGoal(goalId),
       savings: savingsGoalsRepo.getForGoal(goalId),
     );
@@ -755,12 +874,15 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<void> confirmSavingsContribution(String id) async {
+  /// Confirms today's savings contribution. Returns false when the
+  /// contribution was rejected (already confirmed, or outside the window).
+  Future<bool> confirmSavingsContribution(String id, {DateTime? date}) async {
     final sg = savingsGoalsRepo.getById(id);
-    if (sg == null) return;
-    await savingsGoalsRepo.confirmContribution(sg);
-    if (sg.goalId != null) await syncGoalProgress(sg.goalId!);
+    if (sg == null) return false;
+    final ok = await savingsGoalsRepo.confirmContribution(sg, date: date);
+    if (ok && sg.goalId != null) await syncGoalProgress(sg.goalId!);
     notifyListeners();
+    return ok;
   }
 
   Future<void> recalculateSavingsGoal(String id) async {
@@ -1136,9 +1258,19 @@ class AppState extends ChangeNotifier {
   /// Parses ALL data into local lists first; only if every collection
   /// parses successfully are existing boxes cleared and new data written.
   /// If parsing fails at any point, existing data is left untouched.
-  Future<void> importAllData(Map<String, dynamic> data) async {
-    if (data['format'] != 'yourself-backup' || data['version'] is! num) {
-      throw const FormatException('This is not a valid Yourself backup file.');
+  /// Validates the shape of a decoded backup without touching stored data.
+  ///
+  /// Throws a [FormatException] with a user-facing message when the map is not
+  /// a compatible Yourself backup. Call this before showing the destructive
+  /// restore confirmation so the dialog never implies that arbitrary valid
+  /// JSON is a valid backup.
+  static void validateBackup(Map<String, dynamic> data) {
+    if (data['format'] != 'yourself-backup') {
+      throw const FormatException(
+          'This file is not a Yourself backup (missing "yourself-backup" marker).');
+    }
+    if (data['version'] is! num) {
+      throw const FormatException('Backup is missing a version number.');
     }
     final version = (data['version'] as num).toInt();
     if (version < 1 || version > 5) {
@@ -1148,7 +1280,46 @@ class AppState extends ChangeNotifier {
       if (data[key] is! List) {
         throw FormatException('Backup is missing the $key collection.');
       }
+      // Every record must be a JSON object with a string id.
+      for (final raw in data[key] as List) {
+        if (raw is! Map) {
+          throw FormatException('Backup contains a malformed $key record.');
+        }
+        if (raw['id'] is! String || (raw['id'] as String).isEmpty) {
+          throw FormatException('A $key record is missing its id.');
+        }
+      }
     }
+    // Optional collections may be absent (v1–v3 backups), but when present they
+    // must still be well-formed lists of objects.
+    for (final key in [
+      'savingsGoals',
+      'journal',
+      'schedule',
+      'quotes',
+      'focusSessions',
+    ]) {
+      final value = data[key];
+      if (value == null) continue;
+      if (value is! List) {
+        throw FormatException('Backup has a malformed $key collection.');
+      }
+      for (final raw in value) {
+        if (raw is! Map) {
+          throw FormatException('Backup contains a malformed $key record.');
+        }
+      }
+    }
+    if (data['settings'] != null && data['settings'] is! Map) {
+      throw const FormatException('Backup has malformed settings.');
+    }
+    if (data['financeBudget'] != null && data['financeBudget'] is! Map) {
+      throw const FormatException('Backup has a malformed finance budget.');
+    }
+  }
+
+  Future<void> importAllData(Map<String, dynamic> data) async {
+    validateBackup(data);
     // Optional collections are only replaced when present. This keeps older
     // v1-v3 backups from silently deleting data introduced in newer versions.
     final hasSavings = data['savingsGoals'] is List;
@@ -1346,21 +1517,33 @@ class AppState extends ChangeNotifier {
     if (data['savingsGoals'] is List) {
       for (final raw in data['savingsGoals'] as List) {
         final item = Map<String, dynamic>.from(raw as Map);
-        savingsGoals.add(SavingsGoal(
+        // Contribution arrays can be malformed in hand-edited or older
+        // backups. Parse defensively, then normalize so the date/amount lists
+        // are always the same length with no duplicate days.
+        final rawDates = (item['contributionDates'] as List? ?? [])
+            .map((v) => v is String ? DateTime.tryParse(v) : null)
+            .whereType<DateTime>()
+            .toList();
+        final rawAmounts = (item['contributionAmounts'] as List? ?? [])
+            .whereType<num>()
+            .map((v) => v.toDouble())
+            .toList();
+        final pairs =
+            rawDates.length < rawAmounts.length ? rawDates.length : rawAmounts.length;
+        final imported = SavingsGoal(
           id: item['id'] as String,
           title: item['title'] as String,
-          targetAmount: (item['targetAmount'] as num).toDouble(),
-          targetDays: item['targetDays'] as int,
+          targetAmount: (item['targetAmount'] as num?)?.toDouble() ?? 0,
+          targetDays: (item['targetDays'] as num?)?.toInt() ?? 0,
           startDate: _date(item['startDate']) ?? DateTime.now(),
-          contributionDates: (item['contributionDates'] as List? ?? [])
-              .map((v) => DateTime.parse(v as String))
-              .toList(),
-          contributionAmounts:
-              (item['contributionAmounts'] as List?)?.cast<double>() ?? [],
+          contributionDates: rawDates.sublist(0, pairs),
+          contributionAmounts: rawAmounts.sublist(0, pairs),
           goalId: item['goalId'] as String?,
           createdAt: _date(item['createdAt']) ?? DateTime.now(),
           updatedAt: _date(item['updatedAt']),
-        ));
+        );
+        imported.normalizeContributions();
+        savingsGoals.add(imported);
       }
     }
 
@@ -1616,6 +1799,22 @@ class AppState extends ChangeNotifier {
     } catch (_) {
       await restoreSnapshot();
       rethrow;
+    }
+
+    // Rebuild the notification schedule from the imported data. Notifications
+    // scheduled for pre-import tasks/schedule items are cancelled by
+    // refreshAll(), which cancels every pending ID that is no longer active.
+    // Never let a notification/permission failure fail an otherwise
+    // successful restore.
+    try {
+      await notificationService.refreshAll(
+        tasks: tasksRepo.getAll(includeArchived: true),
+        schedule: scheduleRepo.getAll(),
+      );
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint('Notification refresh after import failed: $error');
+      }
     }
 
     notifyListeners();

@@ -69,8 +69,8 @@ class _GoalTile extends StatelessWidget {
     final state = context.read<AppState>();
     final theme = Theme.of(context);
     final progress = state.computeGoalProgress(goal.id);
-    final linkedHabits = state.habitsRepo.getAll().where((h) => goal.linkedHabitIds.contains(h.id) || h.goalId == goal.id || h.linkedGoalId == goal.id).length;
-    final linkedTasks = state.tasksRepo.getAll(includeArchived: true).where((t) => goal.linkedTaskIds.contains(t.id) || t.goalId == goal.id || t.linkedGoalId == goal.id).length;
+    final linkedHabits = state.habitsForGoal(goal).length;
+    final linkedTasks = state.tasksForGoal(goal).length;
     final linkedNotes = state.notesRepo.getForEntity('goal', goal.id).length;
 
     return Padding(
@@ -154,8 +154,14 @@ class _GoalEditorDialogState extends State<_GoalEditorDialog> {
     _deadline = g?.deadline;
     _mode = g?.progressMode ?? GoalProgressMode.auto;
     final state = context.read<AppState>();
-    _habitIds = {...(g?.linkedHabitIds ?? []), ...state.habitsRepo.getAll().where((h) => h.goalId == g?.id || h.linkedGoalId == g?.id).map((h) => h.id)};
-    _taskIds = {...(g?.linkedTaskIds ?? []), ...state.tasksRepo.getAll(includeArchived: true).where((t) => (t.goalId == g?.id || t.linkedGoalId == g?.id) && !t.isRecurring).map((t) => t.id)};
+    // Preselect from the canonical relationship (falling back to the legacy
+    // reverse array only for entities that have no canonical owner).
+    _habitIds = g == null
+        ? <String>{}
+        : state.habitsForGoal(g).map((h) => h.id).toSet();
+    _taskIds = g == null
+        ? <String>{}
+        : state.tasksForGoal(g).where((t) => !t.isRecurring).map((t) => t.id).toSet();
     final linkedFinance = g == null
         ? null
         : state.financeRepo.getAll().where((e) => e.goalId == g.id || e.linkedGoalId == g.id).firstOrNull;

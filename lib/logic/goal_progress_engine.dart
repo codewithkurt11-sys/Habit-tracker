@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import '../data/models/finance_entry.dart';
 import '../data/models/goal.dart';
 import '../data/models/habit.dart';
@@ -103,9 +105,19 @@ class GoalProgressEngine {
 
     final target = goal.targetValue <= 0 ? 1.0 : goal.targetValue;
     double current;
-    double financialAmount = 0;
     int completedTasks = 0;
     final habitFraction = completed.length / target;
+
+    // Finance/savings contribution is always computed so that `mixed` goals can
+    // include it. Previously this only ran inside the `financeAmount` branch,
+    // which silently treated linked finance as 0 for mixed goals.
+    final financialAmount = _financeContribution(
+      finance: finance,
+      savings: savings,
+      start: start,
+      end: end,
+    );
+    final hasFinanceSource = finance.isNotEmpty || savings.isNotEmpty;
     final taskCompleted = tasks.where((task) {
       final completedAt = task.completedAt;
       if (task.status != TaskStatus.done || completedAt == null) return false;
@@ -123,20 +135,6 @@ class GoalProgressEngine {
         current = completedTasks.toDouble();
         break;
       case GoalProgressMode.financeAmount:
-        financialAmount = finance
-            .where((entry) {
-              final day = _day(entry.date);
-              return entry.isIncome && !day.isBefore(start) && !day.isAfter(end);
-            })
-            .fold(0.0, (sum, entry) => sum + entry.amount);
-        for (final item in savings) {
-          for (var i = 0; i < item.contributionAmounts.length; i++) {
-            final date = i < item.contributionDates.length ? _day(item.contributionDates[i]) : null;
-            if (date != null && !date.isBefore(start) && !date.isAfter(end)) {
-              financialAmount += item.contributionAmounts[i];
-            }
-          }
-        }
         current = financialAmount;
         break;
       case GoalProgressMode.manual:
@@ -146,11 +144,20 @@ class GoalProgressEngine {
         current = goal.currentValue;
         break;
       case GoalProgressMode.mixed:
+        // Average the fraction of every applicable source. Each linked source
+        // (habits, tasks, finance/savings) contributes equally; a source that
+        // is not linked at all is excluded rather than counted as 0%.
         final sources = <double>[];
         if (habits.isNotEmpty) sources.add(habitFraction);
         if (tasks.isNotEmpty) sources.add(taskFraction);
-        if (finance.isNotEmpty || savings.isNotEmpty) sources.add(financialAmount / target);
-        current = sources.isEmpty ? goal.currentValue : sources.reduce((a, b) => a + b) / sources.length * target;
+        if (hasFinanceSource) sources.add(financialAmount / target);
+        current = sources.isEmpty
+            ? goal.currentValue
+            : sources
+                    .map((f) => f.clamp(0.0, 1.0))
+                    .reduce((a, b) => a + b) /
+                sources.length *
+                target;
         break;
     }
 
@@ -167,6 +174,36 @@ class GoalProgressEngine {
       completedTasks: completedTasks,
       financialAmount: financialAmount,
     );
+  }
+
+  /// Sums income finance entries and savings contributions that fall inside
+  /// the goal window. Savings contribution lists are read defensively so a
+  /// malformed legacy record (mismatched date/amount lengths) cannot throw.
+  static double _financeContribution({
+    required List<FinanceEntry> finance,
+    required List<SavingsGoal> savings,
+    required DateTime start,
+    required DateTime end,
+  }) {
+    var total = finance
+        .where((entry) {
+          final day = _day(entry.date);
+          return entry.isIncome && !day.isBefore(start) && !day.isAfter(end);
+        })
+        .fold(0.0, (sum, entry) => sum + entry.amount);
+    for (final item in savings) {
+      final pairs = math.min(
+        item.contributionDates.length,
+        item.contributionAmounts.length,
+      );
+      for (var i = 0; i < pairs; i++) {
+        final date = _day(item.contributionDates[i]);
+        if (!date.isBefore(start) && !date.isAfter(end)) {
+          total += item.contributionAmounts[i];
+        }
+      }
+    }
+    return total;
   }
 
   static DateTime _day(DateTime d) => DateTime(d.year, d.month, d.day);

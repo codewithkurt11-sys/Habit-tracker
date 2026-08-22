@@ -5,6 +5,7 @@ import '../../logic/app_state.dart';
 import '../../data/models/habit.dart';
 import '../../data/models/goal.dart';
 import '../../data/models/task.dart';
+import '../../data/models/focus_session.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../widgets/shared_widgets.dart';
@@ -15,6 +16,8 @@ import 'finance_screen.dart';
 import 'tasks_screen.dart';
 import 'journal_screen.dart';
 import 'schedule_screen.dart';
+import 'quotes_screen.dart';
+import 'focus_screen.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -96,9 +99,10 @@ class _SearchScreenState extends State<SearchScreen> {
         }
       }
       // Notes
-      for (final n in state.notesRepo.getAll()) {
+      for (final n in state.notesRepo.getAll(includeArchived: true)) {
         if (n.title.toLowerCase().contains(q) ||
-            n.body.toLowerCase().contains(q)) {
+            n.body.toLowerCase().contains(q) ||
+            n.tags.any((t) => t.toLowerCase().contains(q))) {
           results.add(_SearchResult(
               type: _SearchType.note,
               title: n.title,
@@ -135,6 +139,49 @@ class _SearchScreenState extends State<SearchScreen> {
               id: s.id));
         }
       }
+      // Savings goals
+      for (final sg in state.savingsGoalsRepo.getAll()) {
+        if (sg.title.toLowerCase().contains(q)) {
+          results.add(_SearchResult(
+              type: _SearchType.savings,
+              title: sg.title,
+              subtitle:
+                  'Savings • ${sg.totalContributed.toStringAsFixed(0)}/${sg.targetAmount.toStringAsFixed(0)}',
+              icon: Icons.savings_outlined,
+              color: const Color(0xFF6B9080),
+              id: sg.id));
+        }
+      }
+      // Quotes
+      for (final quote in state.quotesRepo.getAll()) {
+        if (quote.text.toLowerCase().contains(q) ||
+            quote.author.toLowerCase().contains(q)) {
+          results.add(_SearchResult(
+              type: _SearchType.quote,
+              title: quote.text,
+              subtitle: quote.author.isEmpty
+                  ? 'Quote'
+                  : 'Quote • ${quote.author}',
+              icon: Icons.format_quote_outlined,
+              color: const Color(0xFFE8946F),
+              id: quote.id));
+        }
+      }
+      // Focus sessions (searchable by the linked task title)
+      for (final session in state.focusRepo.getAll()) {
+        final title = session.taskTitle ?? '';
+        if (title.toLowerCase().contains(q) ||
+            session.type.name.toLowerCase().contains(q)) {
+          results.add(_SearchResult(
+              type: _SearchType.focus,
+              title: title.isEmpty ? session.type.label : title,
+              subtitle:
+                  'Focus • ${session.type.label} • ${(session.completedSeconds / 60).round()} min',
+              icon: Icons.timer_outlined,
+              color: const Color(0xFF7B93B5),
+              id: session.id));
+        }
+      }
     }
 
     // Group by type
@@ -162,7 +209,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       controller: _controller,
                       onChanged: (v) => setState(() => _query = v),
                       decoration: InputDecoration(
-                        hintText: 'Search habits, tasks, notes, journal...',
+                        hintText: 'Search habits, tasks, goals, notes, finance...',
                         prefixIcon: const Icon(Icons.search),
                         suffixIcon: _query.isNotEmpty
                             ? IconButton(
@@ -208,7 +255,7 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 }
 
-enum _SearchType { habit, task, goal, journal, note, finance, schedule }
+enum _SearchType { habit, task, goal, journal, note, finance, schedule, savings, quote, focus }
 
 extension _SearchTypeExt on _SearchType {
   String get label {
@@ -227,6 +274,12 @@ extension _SearchTypeExt on _SearchType {
         return 'Finance';
       case _SearchType.schedule:
         return 'Schedule';
+      case _SearchType.savings:
+        return 'Savings Goals';
+      case _SearchType.quote:
+        return 'Quotes';
+      case _SearchType.focus:
+        return 'Focus';
     }
   }
 }
@@ -260,13 +313,16 @@ class _SearchHints extends StatelessWidget {
       ),
       (Icons.track_changes, 'Goals', 'Search by title or description'),
       (Icons.book_outlined, 'Journal', 'Search by title, body, or tags'),
-      (Icons.sticky_note_2_outlined, 'Notes', 'Search by title or content'),
+      (Icons.sticky_note_2_outlined, 'Notes', 'Search by title, content, or tags'),
       (
         Icons.account_balance_wallet_outlined,
         'Finance',
         'Search by title, note, or category'
       ),
       (Icons.calendar_today, 'Schedule', 'Search by event title'),
+      (Icons.savings_outlined, 'Savings Goals', 'Search by savings goal title'),
+      (Icons.format_quote_outlined, 'Quotes', 'Search by quote text or author'),
+      (Icons.timer_outlined, 'Focus', 'Search by session task or type'),
     ];
     return Center(
       child: Padding(
@@ -410,6 +466,18 @@ class _ResultTile extends StatelessWidget {
       case _SearchType.schedule:
         Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => const ScheduleScreen()),
+        );
+      case _SearchType.savings:
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const FinanceScreen()),
+        );
+      case _SearchType.quote:
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const QuotesScreen()),
+        );
+      case _SearchType.focus:
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const FocusScreen()),
         );
     }
   }
