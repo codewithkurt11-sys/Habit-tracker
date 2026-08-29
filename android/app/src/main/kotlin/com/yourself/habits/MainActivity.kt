@@ -1,0 +1,6 @@
+package com.yourself.habits
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity : FlutterActivity()
+
