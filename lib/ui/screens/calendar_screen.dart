@@ -143,17 +143,28 @@ class _HeatmapView extends StatelessWidget {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Day labels
+                      // Day labels. One slot per grid row so the label lines up
+                      // with the matching weekday: row 0 = Mon .. row 6 = Sun.
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: ['Mon', 'Wed', 'Fri']
-                            .map((d) => SizedBox(
-                                height: 14,
-                                width: 24,
-                                child: Text(d,
-                                    style: theme.textTheme.bodySmall
-                                        ?.copyWith(fontSize: 9))))
-                            .toList(),
+                        children: [
+                          for (final label in const [
+                            'Mon',
+                            '',
+                            'Wed',
+                            '',
+                            'Fri',
+                            '',
+                            'Sun'
+                          ])
+                            SizedBox(
+                              height: 14,
+                              width: 24,
+                              child: Text(label,
+                                  style: theme.textTheme.bodySmall
+                                      ?.copyWith(fontSize: 9)),
+                            ),
+                        ],
                       ),
                       // Weeks
                       Row(

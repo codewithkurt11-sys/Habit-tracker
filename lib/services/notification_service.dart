@@ -160,5 +160,14 @@ class NotificationService {
     }
   }
 
+  /// Derives a stable 31-bit notification ID from a namespaced key such as
+  /// `task:<uuid>`.
+  ///
+  /// This scheme is deliberately left unchanged: notification IDs already
+  /// scheduled on user devices were generated with it, and swapping in a
+  /// different hash would orphan those pending notifications (they could no
+  /// longer be cancelled or replaced). Collisions are extremely unlikely for
+  /// UUID-based keys, and [refreshAll] additionally cancels every pending ID
+  /// that is no longer active, which self-heals any stale entry.
   int _id(String value) => value.hashCode & 0x7fffffff;
 }

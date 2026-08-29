@@ -43,16 +43,28 @@ class SavingsGoalRepository {
     return goal;
   }
 
-  Future<void> confirmContribution(SavingsGoal goal,
+  /// Logs a contribution for [date] (defaults to today).
+  ///
+  /// Returns true when a contribution was recorded. Invalid dates (before the
+  /// start date, in the future, outside the savings window, or already
+  /// confirmed) are rejected so progress/variance can't be inflated.
+  Future<bool> confirmContribution(SavingsGoal goal,
       {DateTime? date, double? amount}) async {
-    final target = date ?? DateTime.now();
-    final d = DateTime(target.year, target.month, target.day);
-    if (!goal.canConfirm(d)) return;
+    final d = SavingsGoal.dayOf(date ?? DateTime.now());
+    // Repair any malformed legacy lists before appending to them.
+    goal.normalizeContributions();
+    if (!goal.canConfirm(d)) {
+      await _box.put(goal.id, goal);
+      return false;
+    }
     final amt = amount ?? goal.dailyAmount;
+    if (amt.isNaN || amt.isInfinite || amt < 0) return false;
+    // Append to both lists together so their lengths always match.
     goal.contributionDates.add(d);
     goal.contributionAmounts.add(amt);
     goal.touch();
     await _box.put(goal.id, goal);
+    return true;
   }
 
   /// Recalculates the savings window: resets [startDate] to today and
@@ -74,6 +86,7 @@ class SavingsGoalRepository {
   }
 
   Future<void> update(SavingsGoal goal) async {
+    goal.normalizeContributions();
     goal.touch();
     await _box.put(goal.id, goal);
   }

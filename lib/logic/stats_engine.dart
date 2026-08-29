@@ -123,7 +123,7 @@ class StatsEngine {
     return score;
   }
 
-  /// Best streak across all habits.
+  /// Longest recorded run of consecutive completions across all habits.
   static int bestStreakAcross(List<Habit> habits) {
     if (habits.isEmpty) return 0;
     return habits.fold(
@@ -152,13 +152,33 @@ class StatsEngine {
     return 4;
   }
 
-  /// Builds a list of (date, level) pairs for the last [days] days.
+  /// Builds a list of (date, level) pairs covering roughly the last [days]
+  /// days, **week-aligned to Monday**.
+  ///
+  /// The UI renders these cells as columns of 7 with Mon/Wed/Fri row labels, so
+  /// the first cell must be a Monday and the last a Sunday. Simply emitting
+  /// `today - days + 1 .. today` put an arbitrary weekday in row 0, which made
+  /// every row label wrong. Instead we start on the Monday of the week that is
+  /// `ceil(days / 7) - 1` weeks before the current week and always emit whole
+  /// Mon–Sun weeks. Future days in the current week are included so the grid
+  /// stays rectangular; they simply have level 0.
   static List<HeatCell> heatMap(List<Habit> habits, int days) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
+    final weeks = (days / 7).ceil().clamp(1, 520).toInt();
+    // Monday of the current week (DateTime.weekday: Mon=1 .. Sun=7).
+    final thisMonday =
+        DateTime(today.year, today.month, today.day - (today.weekday - 1));
+    final firstMonday = DateTime(
+      thisMonday.year,
+      thisMonday.month,
+      thisMonday.day - 7 * (weeks - 1),
+    );
+    final total = weeks * 7;
     final result = <HeatCell>[];
-    for (int i = days - 1; i >= 0; i--) {
-      final date = DateTime(today.year, today.month, today.day - i);
+    for (int i = 0; i < total; i++) {
+      final date =
+          DateTime(firstMonday.year, firstMonday.month, firstMonday.day + i);
       result.add(HeatCell(
         date: date,
         level: heatLevel(habits, date),
@@ -387,14 +407,14 @@ class StatsEngine {
   }) {
     final insights = <HabitInsight>[];
 
-    // Best streak insight
+    // Longest run insight (neutral, factual — no streak pressure copy).
     final best = bestStreakAcross(habits);
     if (best > 0) {
       insights.add(HabitInsight(
         icon: '',
-        title: 'Best Streak: $best days',
+        title: 'Longest Run: $best days',
         description:
-            'Your longest habit streak is $best consecutive days. Keep it going!',
+            'Your longest recorded run of consecutive completions is $best days.',
         type: InsightType.achievement,
       ));
     }
@@ -404,9 +424,9 @@ class StatsEngine {
     if (current > 0) {
       insights.add(HabitInsight(
         icon: '',
-        title: 'Current Streak: $current days',
+        title: 'Current Run: $current days',
         description:
-            'You\'re on a $current-day streak. Don\'t break the chain!',
+            'You have completed habits on $current consecutive days so far.',
         type: InsightType.streak,
       ));
     }
@@ -418,11 +438,8 @@ class StatsEngine {
       insights.add(HabitInsight(
         icon: '',
         title: '30-Day Completion: $pct%',
-        description: pct >= 80
-            ? 'Excellent consistency! You\'re completing $pct% of your habits.'
-            : pct >= 50
-                ? 'Good progress at $pct%. Push for 80% to level up!'
-                : 'You\'re at $pct%. Every check-in counts — keep going!',
+        description:
+            'You completed $pct% of your scheduled habit days in the last 30 days.',
         type: InsightType.progress,
       ));
     }

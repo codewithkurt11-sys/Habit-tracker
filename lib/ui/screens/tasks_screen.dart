@@ -418,6 +418,18 @@ class _TaskEditorDialogState extends State<_TaskEditorDialog> {
                     DropdownMenuItem(value: 'monthly', child: Text('Monthly'))
                   ],
                   onChanged: (v) => setState(() => _pattern = v ?? 'daily')),
+            // Recurrence is intentionally completion-date based: a recurring
+            // task without a due date anchors the next occurrence on the
+            // completion date, so no due date is required. Make that explicit.
+            if (_recurring && _dueDate == null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  'No due date set — the next occurrence will be scheduled '
+                  'from the day you complete this task.',
+                  style: theme.textTheme.bodySmall,
+                ),
+              ),
             const SizedBox(height: 4),
             Text('Completing this task updates connected goals immediately.',
                 style: theme.textTheme.bodySmall?.copyWith(color: ext.success)),

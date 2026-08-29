@@ -107,6 +107,10 @@ class TasksRepository {
   /// is completed. Prevents duplicates by checking if a task with the
   /// same title + due date already exists.
   Future<Task?> _generateNextOccurrence(Task original) async {
+    // Recurrence anchor, by design (documented behaviour): prefer the explicit
+    // due date, otherwise fall back to the completion date. This means a
+    // recurring task does NOT require a due date — completion-date based
+    // recurrence is intentionally supported, so no extra validation is applied.
     final baseDate = original.dueDate ?? original.completedAt ?? DateTime.now();
     DateTime? nextDue;
 

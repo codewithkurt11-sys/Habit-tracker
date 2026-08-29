@@ -30,10 +30,8 @@ class GoalDetailScreen extends StatelessWidget {
       );
     }
 
-    final habits = state.habitsRepo.getAll().where((h) =>
-        goal.linkedHabitIds.contains(h.id) || h.goalId == goal.id || h.linkedGoalId == goal.id).toList();
-    final tasks = state.tasksRepo.getAll(includeArchived: true).where((t) =>
-        goal.linkedTaskIds.contains(t.id) || t.goalId == goal.id || t.linkedGoalId == goal.id).toList();
+    final habits = state.habitsForGoal(goal);
+    final tasks = state.tasksForGoal(goal);
     final finance = state.financeRepo.getForGoal(goal.id);
     final savings = state.savingsGoalsRepo.getForGoal(goal.id);
     final notes = state.notesRepo.getForEntity('goal', goal.id);
@@ -263,10 +261,8 @@ class _ConnectionsCard extends StatelessWidget {
     final theme = Theme.of(context);
     final state = context.watch<AppState>();
     // Re-read linked entities so checkbox toggles reflect immediately.
-    final freshHabits = state.habitsRepo.getAll().where((h) =>
-        goal.linkedHabitIds.contains(h.id) || h.goalId == goal.id || h.linkedGoalId == goal.id).toList();
-    final freshTasks = state.tasksRepo.getAll(includeArchived: true).where((t) =>
-        goal.linkedTaskIds.contains(t.id) || t.goalId == goal.id || t.linkedGoalId == goal.id).toList();
+    final freshHabits = state.habitsForGoal(goal);
+    final freshTasks = state.tasksForGoal(goal);
     final freshFinance = state.financeRepo.getForGoal(goal.id);
     final freshSavings = state.savingsGoalsRepo.getForGoal(goal.id);
     final freshNotes = state.notesRepo.getForEntity('goal', goal.id);

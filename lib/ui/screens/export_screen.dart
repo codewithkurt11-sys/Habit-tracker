@@ -251,7 +251,7 @@ class ExportScreen extends StatelessWidget {
       final habits = state.habitsRepo.getAll();
       final csv = StringBuffer();
       csv.writeln(
-          'Name,Category,Frequency,Total Completions,Current Streak,Best Streak,Completion Rate (30d),Created At');
+          'Name,Category,Frequency,Total Completions,Current Run,Longest Run,Completion Rate (30d),Created At');
       for (final h in habits) {
         csv.writeln(
             '${_csvEscape(h.name)},${h.category.name},${h.frequency.name},${h.totalCompletions},${h.currentStreak()},${h.bestStreak()},${(h.completionRate() * 100).toStringAsFixed(1)}%,${h.createdAt.toIso8601String().split('T').first}');
@@ -299,15 +299,19 @@ class ExportScreen extends StatelessWidget {
         throw const FormatException('Backup content must be a JSON object.');
       }
       final data = Map<String, dynamic>.from(decoded);
+      // Verify this is actually a compatible Yourself backup BEFORE offering a
+      // destructive restore. Throws a FormatException with a clear message.
+      AppState.validateBackup(data);
       final summary = data['_summary'] as Map?;
+      final version = (data['version'] as num).toInt();
       if (!context.mounted) return;
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (dialogContext) => AlertDialog(
           title: const Text('Restore local backup?'),
           content: Text(
-            'The file passed basic JSON validation. Restoring will replace your '
-            'current goals, habits, tasks, notes, and finance entries.\n\n'
+            'Verified Yourself backup (version $version). Restoring will replace '
+            'your current goals, habits, tasks, notes, and finance entries.\n\n'
             'Backup summary: ${summary ?? 'not available'}',
           ),
           actions: [
@@ -317,7 +321,7 @@ class ExportScreen extends StatelessWidget {
             ),
             FilledButton(
               onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Validate & Restore'),
+              child: const Text('Restore'),
             ),
           ],
         ),

@@ -134,7 +134,7 @@ class HabitDetailScreen extends StatelessWidget {
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                   child: _StatBox(
-                      label: 'Best Streak',
+                      label: 'Longest Run',
                       value: '$bestStreak',
                       unit: 'days',
                       color: const Color(0xFFE8946F))),
