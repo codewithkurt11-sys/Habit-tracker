@@ -220,7 +220,28 @@ class RecurrenceRule {
       case RecurrenceType.yearlyDate:
         return date.month == (month ?? 1) && date.day == (dayOfMonth ?? 1);
       case RecurrenceType.interval:
-        return false;
+        // Used by _firstOnOrAfter when the base date is before the rule's
+        // startDate (e.g. after editing the start date, or importing a
+        // backup). Previously this always returned false, which made
+        // _firstOnOrAfter scan 3660 days and return null, silently
+        // terminating "every X days/weeks/months" recurring tasks forever.
+        switch (intervalUnit) {
+          case RecurrenceIntervalUnit.days:
+            final diff = date.difference(anchor).inDays;
+            return diff >= 0 && diff % interval == 0;
+          case RecurrenceIntervalUnit.weeks:
+            final diff = date.difference(anchor).inDays;
+            return diff >= 0 && diff % (interval * 7) == 0;
+          case RecurrenceIntervalUnit.months:
+            if (date.day != anchor.day &&
+                !(date.day == DateTime(date.year, date.month + 1, 0).day &&
+                    anchor.day > date.day)) {
+              return false;
+            }
+            final monthDiff =
+                (date.year - anchor.year) * 12 + (date.month - anchor.month);
+            return monthDiff >= 0 && monthDiff % interval == 0;
+        }
       case RecurrenceType.timesPerPeriod:
         return true;
       case RecurrenceType.alternate:
