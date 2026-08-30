@@ -181,6 +181,7 @@ class RecurrenceRule {
     if (start != null && candidate.isBefore(start)) {
       candidate = _firstOnOrAfter(start, end: end);
     }
+    if (candidate == null) return null;
     if (end != null && candidate.isAfter(end)) return null;
     return candidate;
   }
@@ -205,7 +206,11 @@ class RecurrenceRule {
         final diffWeeks = date.difference(_startOfWeek(anchor)).inDays ~/ 7;
         return diffWeeks >= 0 && diffWeeks % interval == 0;
       case RecurrenceType.monthlyDates:
-        if (monthDays.isNotEmpty && !monthDays.contains(date.day)) return false;
+        if (monthDays.isNotEmpty) {
+          final last = DateTime(date.year, date.month + 1, 0).day;
+          final clamped = monthDays.map((d) => d > last ? last : d).toSet();
+          if (!clamped.contains(date.day)) return false;
+        }
         if (nthWeekday != null && nthWeekdayDay != null &&
             !_isNthWeekdayOfMonth(date, nthWeekdayDay!, nthWeekday!)) {
           return false;
@@ -241,7 +246,13 @@ class RecurrenceRule {
         final sorted = monthDays.where((d) => d >= 1 && d <= 31).toSet().toList()..sort();
         for (final day in sorted) {
           final last = DateTime(cursor.year, cursor.month + 1, 0).day;
-          if (day <= last) return DateTime(cursor.year, cursor.month, day);
+          if (day <= last) {
+            return DateTime(cursor.year, cursor.month, day);
+          } else {
+            // Day exceeds the month's length (e.g., 31 in February).
+            // Clamp to the last day of this month.
+            return DateTime(cursor.year, cursor.month, last);
+          }
         }
       }
       if (nthWeekday != null && nthWeekdayDay != null) {
@@ -369,12 +380,16 @@ class RecurrenceRule {
     final lastDay = DateTime(year, month + 1, 0).day;
     if (ordinal == -1) {
       var d = DateTime(year, month, lastDay);
-      while (d.weekday != weekday) d = _datePlus(d, -1);
+      while (d.weekday != weekday) {
+        d = _datePlus(d, -1);
+      }
       return d;
     }
     if (ordinal < 1 || ordinal > 5) return null;
     var d = DateTime(year, month, 1);
-    while (d.weekday != weekday) d = _datePlus(d, 1);
+    while (d.weekday != weekday) {
+      d = _datePlus(d, 1);
+    }
     d = _datePlus(d, (ordinal - 1) * 7);
     return d.month == month ? d : null;
   }

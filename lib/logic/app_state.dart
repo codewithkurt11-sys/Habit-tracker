@@ -1928,6 +1928,7 @@ class AppState extends ChangeNotifier {
     try {
       await notificationService.refreshAll(
         tasks: tasksRepo.getAll(includeArchived: true),
+        habits: habitsRepo.getAll(),
         schedule: scheduleRepo.getAll(),
       );
     } catch (error) {

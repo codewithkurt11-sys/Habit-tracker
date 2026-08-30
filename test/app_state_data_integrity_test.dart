@@ -11,6 +11,9 @@ import 'package:flutter_app/data/models/quote.dart';
 import 'package:flutter_app/data/models/savings_goal.dart';
 import 'package:flutter_app/data/models/schedule_item.dart';
 import 'package:flutter_app/data/models/task.dart';
+import 'package:flutter_app/data/models/task_category.dart';
+import 'package:flutter_app/data/models/recurrence_rule.dart';
+import 'package:flutter_app/data/models/reminder_rule.dart';
 import 'package:flutter_app/data/models/user_settings.dart';
 import 'package:flutter_app/logic/app_state.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -37,6 +40,7 @@ void main() {
       Hive.openBox<Goal>(HiveBoxes.goals),
       Hive.openBox<FocusSession>(HiveBoxes.focus),
       Hive.openBox<SavingsGoal>(HiveBoxes.savingsGoals),
+      Hive.openBox<TaskCategoryModel>(HiveBoxes.taskCategories),
     ]);
     state = AppState();
   });
@@ -171,6 +175,9 @@ void _registerAdapters() {
   _register<Goal>(GoalAdapter());
   _register<FocusSession>(FocusSessionAdapter());
   _register<SavingsGoal>(SavingsGoalAdapter());
+  _register<RecurrenceRule>(RecurrenceRuleAdapter());
+  _register<TaskCategoryModel>(TaskCategoryAdapter());
+  _register<ReminderRule>(ReminderRuleAdapter());
 }
 
 void _register<T>(TypeAdapter<T> adapter) {

@@ -178,7 +178,7 @@ void main() {
 
 
   test('times-per-period respects the period limit', () async {
-    final rule = const RecurrenceRule(
+    const rule = RecurrenceRule(
       type: RecurrenceType.timesPerPeriod,
       occurrencesPerPeriod: 2,
       period: RecurrencePeriod.week,

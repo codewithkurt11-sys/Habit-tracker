@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../../logic/app_state.dart';
 import '../../data/models/task.dart';
 import '../../data/models/recurrence_rule.dart';
-import '../../data/models/task_category.dart';
 import '../../data/models/reminder_rule.dart';
 import '../widgets/reminder_editor_dialog.dart';
 import '../widgets/recurrence_editor_dialog.dart';
