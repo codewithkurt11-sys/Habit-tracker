@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:developer' as developer;
-import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -56,7 +56,23 @@ class HabitTrackerApp extends StatelessWidget {
       create: (context) {
         final state = AppState();
         state.seedQuotes();
-        unawaited(state.processRecurringTasks().then((_) => state.initNotifications()).catchError((_) {}));
+        // These two startup steps are intentionally independent: recurring
+        // task catch-up must never prevent the notification schedule from
+        // being rebuilt (and vice versa). Previously they were chained with
+        // .then(), so a thrown error in processRecurringTasks() silently
+        // skipped initNotifications() entirely on that launch, leaving
+        // stale/cancelled notifications un-cleaned and new reminders
+        // unscheduled until the next successful restart.
+        unawaited(state.processRecurringTasks().catchError((error) {
+          if (kDebugMode) {
+            debugPrint('processRecurringTasks failed on startup: $error');
+          }
+        }));
+        unawaited(state.initNotifications().catchError((error) {
+          if (kDebugMode) {
+            debugPrint('initNotifications failed on startup: $error');
+          }
+        }));
         return state;
       },
       child: Consumer<AppState>(
