@@ -178,7 +178,7 @@ void main() {
 
 
   test('times-per-period respects the period limit', () async {
-    final rule = const RecurrenceRule(
+    const rule = RecurrenceRule(
       type: RecurrenceType.timesPerPeriod,
       occurrencesPerPeriod: 2,
       period: RecurrencePeriod.week,
@@ -224,4 +224,53 @@ void main() {
     expect(next, isNull);
   });
 
+  test(
+      'interval recurrence (every X days/weeks/months) still advances when '
+      'the completion date is before the rule start date', () async {
+    // Regression test: RecurrenceRule._matches() for RecurrenceType.interval
+    // always returned false, which made _firstOnOrAfter() scan up to 3660
+    // days and return null whenever the base date was before startDate
+    // (e.g. after editing the recurrence's start date, or restoring a
+    // backup where the task's dueDate lags behind the rule's startDate).
+    // This silently and permanently stopped "every X days/weeks/months"
+    // recurring tasks from ever generating another occurrence.
+    final task = await repo.create(
+      title: 'Every 3 days',
+      dueDate: DateTime(2026, 1, 1),
+      isRecurring: true,
+      recurrenceRule: RecurrenceRule(
+        type: RecurrenceType.interval,
+        interval: 3,
+        intervalUnit: RecurrenceIntervalUnit.days,
+        startDate: DateTime(2026, 1, 10),
+      ),
+      recurringPattern: 'advanced',
+    );
+    final next = await repo.markDone(task);
+    expect(next, isNotNull);
+    expect(next!.dueDate, DateTime(2026, 1, 10));
+  });
+
+  test('interval recurrence in weeks advances correctly from a future start date', () async {
+    const rule = RecurrenceRule(
+      type: RecurrenceType.interval,
+      interval: 2,
+      intervalUnit: RecurrenceIntervalUnit.weeks,
+      startDate: null,
+    );
+    final ruleWithStart = rule.copyWith(startDate: DateTime(2026, 1, 10));
+    final next = ruleWithStart.nextOccurrenceAfter(DateTime(2026, 1, 1));
+    expect(next, DateTime(2026, 1, 10));
+  });
+
+  test('interval recurrence in months advances correctly from a future start date', () async {
+    const rule = RecurrenceRule(
+      type: RecurrenceType.interval,
+      interval: 1,
+      intervalUnit: RecurrenceIntervalUnit.months,
+    );
+    final ruleWithStart = rule.copyWith(startDate: DateTime(2026, 3, 15));
+    final next = ruleWithStart.nextOccurrenceAfter(DateTime(2026, 1, 1));
+    expect(next, DateTime(2026, 3, 15));
+  });
 }

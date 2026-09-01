@@ -33,7 +33,7 @@ class _ReminderEditorDialogState extends State<ReminderEditorDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final dayNames = const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return AlertDialog(
       title: Text(widget.forHabit ? 'Habit reminder' : 'Task reminder'),
       content: SingleChildScrollView(

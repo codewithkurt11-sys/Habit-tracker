@@ -195,7 +195,7 @@ class _RecurrenceEditorDialogState extends State<RecurrenceEditorDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final dayNames = const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return AlertDialog(
       title: const Text('Recurrence schedule'),
       content: SizedBox(

@@ -7,7 +7,6 @@ import 'package:timezone/timezone.dart' as tz;
 import '../data/models/schedule_item.dart';
 import '../data/models/task.dart';
 import '../data/models/habit.dart';
-import '../data/models/reminder_rule.dart';
 
 /// Central local-notification scheduler.
 ///
@@ -154,7 +153,9 @@ class NotificationService {
       }
       for (final reminder in enabled) {
         if (reminder.weekdays.isNotEmpty &&
-            !reminder.weekdays.contains(date.weekday)) continue;
+            !reminder.weekdays.contains(date.weekday)) {
+          continue;
+        }
         final when = DateTime(
           date.year,
           date.month,
