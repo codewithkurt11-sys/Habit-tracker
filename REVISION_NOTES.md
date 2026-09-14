@@ -63,8 +63,9 @@ Build: `2.0.0+5`
 - Task/schedule notification scheduling is intentionally non-blocking for UI state changes.
 
 ### Backup compatibility
-- Backup format is now version `5`.
+- Backup format is now version `7`. Prior revisions shipped version `5`; the current code exports `version: 7` (`app_state.dart`) and imports versions 1–6.
 - Added Goal progress mode/start date, Task recurrence series ID, Note pin/archive/update metadata and Profile fields to export/import.
+- Newer revisions additionally added Task recurrence rules (`recurrenceRule`), custom category references, Task/Habit `ReminderRule` lists, Task/Habit categories and Category name/color/icon to export/import.
 - Older backups remain readable with defaults for new fields.
 - Existing rollback protection remains in place for destructive imports.
 

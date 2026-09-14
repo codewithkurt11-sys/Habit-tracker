@@ -47,6 +47,32 @@ Future<void> main() async {
   });
 }
 
+/// Catch up recurrence before rebuilding notifications from the final state.
+/// Each step reports its own failure without preventing the next startup step.
+Future<void> initializeStartup(AppState state) async {
+  try {
+    await state.processRecurringTasks();
+  } catch (error, stackTrace) {
+    developer.log(
+      'Recurring task processing failed on startup',
+      name: 'Yourself.Startup',
+      error: error,
+      stackTrace: stackTrace,
+    );
+  }
+
+  try {
+    await state.initNotifications();
+  } catch (error, stackTrace) {
+    developer.log(
+      'Notification initialization failed on startup',
+      name: 'Yourself.Startup',
+      error: error,
+      stackTrace: stackTrace,
+    );
+  }
+}
+
 class HabitTrackerApp extends StatelessWidget {
   const HabitTrackerApp({super.key});
 
@@ -56,23 +82,7 @@ class HabitTrackerApp extends StatelessWidget {
       create: (context) {
         final state = AppState();
         state.seedQuotes();
-        // These two startup steps are intentionally independent: recurring
-        // task catch-up must never prevent the notification schedule from
-        // being rebuilt (and vice versa). Previously they were chained with
-        // .then(), so a thrown error in processRecurringTasks() silently
-        // skipped initNotifications() entirely on that launch, leaving
-        // stale/cancelled notifications un-cleaned and new reminders
-        // unscheduled until the next successful restart.
-        unawaited(state.processRecurringTasks().catchError((error) {
-          if (kDebugMode) {
-            debugPrint('processRecurringTasks failed on startup: $error');
-          }
-        }));
-        unawaited(state.initNotifications().catchError((error) {
-          if (kDebugMode) {
-            debugPrint('initNotifications failed on startup: $error');
-          }
-        }));
+        unawaited(initializeStartup(state));
         return state;
       },
       child: Consumer<AppState>(

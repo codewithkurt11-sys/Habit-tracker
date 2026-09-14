@@ -24,7 +24,7 @@ class RecurrenceRule {
   final int interval;
   final RecurrenceIntervalUnit intervalUnit;
   final List<int> weekdays; // ISO: 1 = Monday ... 7 = Sunday.
-  final List<int> monthDays; // 1 ... 31.
+  final List<int> monthDays; // 1 ... 31; skip months without the selected date.
   final int? month; // 1 ... 12, used by yearlyDate.
   final int? dayOfMonth; // used by yearlyDate.
   final int? nthWeekday; // 1 ... 5, -1 = last; used by monthlyDates.
@@ -207,9 +207,7 @@ class RecurrenceRule {
         return diffWeeks >= 0 && diffWeeks % interval == 0;
       case RecurrenceType.monthlyDates:
         if (monthDays.isNotEmpty) {
-          final last = DateTime(date.year, date.month + 1, 0).day;
-          final clamped = monthDays.map((d) => d > last ? last : d).toSet();
-          if (!clamped.contains(date.day)) return false;
+          if (!monthDays.contains(date.day)) return false;
         }
         if (nthWeekday != null && nthWeekdayDay != null &&
             !_isNthWeekdayOfMonth(date, nthWeekdayDay!, nthWeekday!)) {
@@ -261,19 +259,18 @@ class RecurrenceRule {
   }
 
   DateTime? _nextMonthlyDate(DateTime base) {
-    var cursor = DateTime(base.year, base.month + 1, 1);
+    // Explicit dates may include another selected day in the current month.
+    // Keep the existing next-month behavior for nth/last-weekday rules.
+    var cursor = DateTime(base.year, base.month + (monthDays.isEmpty ? 1 : 0), 1);
     for (var m = 0; m < 121; m++) {
       if (monthDays.isNotEmpty) {
         final sorted = monthDays.where((d) => d >= 1 && d <= 31).toSet().toList()..sort();
         for (final day in sorted) {
           final last = DateTime(cursor.year, cursor.month + 1, 0).day;
-          if (day <= last) {
-            return DateTime(cursor.year, cursor.month, day);
-          } else {
-            // Day exceeds the month's length (e.g., 31 in February).
-            // Clamp to the last day of this month.
-            return DateTime(cursor.year, cursor.month, last);
-          }
+          // A selected 31st is not a request for the last day of the month.
+          if (day > last) continue;
+          final candidate = DateTime(cursor.year, cursor.month, day);
+          if (candidate.isAfter(base)) return candidate;
         }
       }
       if (nthWeekday != null && nthWeekdayDay != null) {

@@ -244,7 +244,11 @@ class _RecurrenceEditorDialogState extends State<RecurrenceEditorDialog> {
                 TextField(
                   controller: _monthDaysController,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Day number(s)', hintText: '1, 15, 30'),
+                  decoration: const InputDecoration(
+                    labelText: 'Day number(s)',
+                    hintText: '1, 15, 30',
+                    helperText: 'Months without a selected date are skipped.',
+                  ),
                   onChanged: (v) => _monthDaysText = v,
                 ),
                 const SizedBox(height: AppSpacing.sm),

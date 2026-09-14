@@ -153,13 +153,14 @@ class ReminderListEditor extends StatelessWidget {
             ),
           ],
         ),
-        if (reminders.isEmpty)
+        if (!reminders.any((r) => r.enabled))
           Text(
-            forHabit ? 'No habit reminders set.' : 'No reminders set. Tasks keep the default due-time notification.',
+            forHabit
+                ? 'No active habit reminders. No habit notifications will be scheduled.'
+                : 'Default due-time notification: on the due date at the selected time (9:00 AM if unset). No notification without a due date.',
             style: theme.textTheme.bodySmall,
-          )
-        else
-          ...reminders.map((r) => ListTile(
+          ),
+        ...reminders.map((r) => ListTile(
                 contentPadding: EdgeInsets.zero,
                 dense: true,
                 leading: Icon(r.enabled ? Icons.notifications_active_outlined : Icons.notifications_off_outlined),
