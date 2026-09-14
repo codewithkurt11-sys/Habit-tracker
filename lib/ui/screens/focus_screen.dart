@@ -317,11 +317,12 @@ class _FocusTimerDialogState extends State<_FocusTimerDialog> {
       _running = false;
       _saving = true;
     });
+    final appState = context.read<AppState>();
     if (_sound) await SystemSound.play(SystemSoundType.alert);
     if (_vibration) await HapticFeedback.mediumImpact();
 
     final taskTitle = _taskController.text.trim();
-    await context.read<AppState>().saveFocusSession(
+    await appState.saveFocusSession(
           typeIndex: _typeIndex,
           durationSeconds: _isStopwatch ? elapsed : _durationSeconds,
           completedSeconds: elapsed,
@@ -395,7 +396,6 @@ class _FocusTimerDialogState extends State<_FocusTimerDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final ext = theme.extension<AppThemeExtension>()!;
     final selected = FocusType.values[_typeIndex];
     final displaySeconds = _isStopwatch ? _elapsedSeconds : _remainingSeconds;
     return AlertDialog(

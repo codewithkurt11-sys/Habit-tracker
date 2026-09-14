@@ -50,7 +50,15 @@ class AppState extends ChangeNotifier {
   final settingsRepo = SettingsRepository();
   final savingsGoalsRepo = SavingsGoalRepository();
 
-  final notificationService = NotificationService();
+  final NotificationService notificationService;
+
+  /// [notificationService] is injectable (defaults to a real
+  /// [NotificationService]) purely so tests can substitute a fake that
+  /// simulates plugin-initialization failures without touching platform
+  /// channels, e.g. to verify that a failure in one startup step never
+  /// silently skips the other (see main.dart's startup wiring).
+  AppState({NotificationService? notificationService})
+      : notificationService = notificationService ?? NotificationService();
 
   bool _busy = false;
   bool quickCaptureOpen = false;
@@ -1928,6 +1936,7 @@ class AppState extends ChangeNotifier {
     try {
       await notificationService.refreshAll(
         tasks: tasksRepo.getAll(includeArchived: true),
+        habits: habitsRepo.getAll(),
         schedule: scheduleRepo.getAll(),
       );
     } catch (error) {

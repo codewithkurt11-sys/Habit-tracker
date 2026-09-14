@@ -195,7 +195,7 @@ class _RecurrenceEditorDialogState extends State<RecurrenceEditorDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final dayNames = const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return AlertDialog(
       title: const Text('Recurrence schedule'),
       content: SizedBox(
@@ -244,7 +244,11 @@ class _RecurrenceEditorDialogState extends State<RecurrenceEditorDialog> {
                 TextField(
                   controller: _monthDaysController,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Day number(s)', hintText: '1, 15, 30'),
+                  decoration: const InputDecoration(
+                    labelText: 'Day number(s)',
+                    hintText: '1, 15, 30',
+                    helperText: 'Months without a selected date are skipped.',
+                  ),
                   onChanged: (v) => _monthDaysText = v,
                 ),
                 const SizedBox(height: AppSpacing.sm),

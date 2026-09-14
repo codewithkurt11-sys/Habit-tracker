@@ -190,7 +190,7 @@ The codebase and CI are prepared for those checks.
 | File Manager | Permission path retained/improved |
 | Profile | Customizable |
 | Settings | Expanded + backup access |
-| Backup/Export | Settings-only access + v5 data fields |
+| Backup/Export | Settings-only access + v7 data fields (imports versions 1–6) |
 | Notifications | Permission/scheduling path improved |
 | Quick Action | Centralized |
 | Navigation | New 5-slot bottom bar |
@@ -199,4 +199,4 @@ The codebase and CI are prepared for those checks.
 
 `2.0.0+5`
 
-Backup format: `v5`
+Backup format: `v7` (import remains compatible with versions 1–6)

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:developer' as developer;
-import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -47,6 +47,32 @@ Future<void> main() async {
   });
 }
 
+/// Catch up recurrence before rebuilding notifications from the final state.
+/// Each step reports its own failure without preventing the next startup step.
+Future<void> initializeStartup(AppState state) async {
+  try {
+    await state.processRecurringTasks();
+  } catch (error, stackTrace) {
+    developer.log(
+      'Recurring task processing failed on startup',
+      name: 'Yourself.Startup',
+      error: error,
+      stackTrace: stackTrace,
+    );
+  }
+
+  try {
+    await state.initNotifications();
+  } catch (error, stackTrace) {
+    developer.log(
+      'Notification initialization failed on startup',
+      name: 'Yourself.Startup',
+      error: error,
+      stackTrace: stackTrace,
+    );
+  }
+}
+
 class HabitTrackerApp extends StatelessWidget {
   const HabitTrackerApp({super.key});
 
@@ -56,7 +82,7 @@ class HabitTrackerApp extends StatelessWidget {
       create: (context) {
         final state = AppState();
         state.seedQuotes();
-        unawaited(state.processRecurringTasks().then((_) => state.initNotifications()).catchError((_) {}));
+        unawaited(initializeStartup(state));
         return state;
       },
       child: Consumer<AppState>(

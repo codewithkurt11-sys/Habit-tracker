@@ -24,7 +24,7 @@ class RecurrenceRule {
   final int interval;
   final RecurrenceIntervalUnit intervalUnit;
   final List<int> weekdays; // ISO: 1 = Monday ... 7 = Sunday.
-  final List<int> monthDays; // 1 ... 31.
+  final List<int> monthDays; // 1 ... 31; skip months without the selected date.
   final int? month; // 1 ... 12, used by yearlyDate.
   final int? dayOfMonth; // used by yearlyDate.
   final int? nthWeekday; // 1 ... 5, -1 = last; used by monthlyDates.
@@ -181,6 +181,7 @@ class RecurrenceRule {
     if (start != null && candidate.isBefore(start)) {
       candidate = _firstOnOrAfter(start, end: end);
     }
+    if (candidate == null) return null;
     if (end != null && candidate.isAfter(end)) return null;
     return candidate;
   }
@@ -205,7 +206,9 @@ class RecurrenceRule {
         final diffWeeks = date.difference(_startOfWeek(anchor)).inDays ~/ 7;
         return diffWeeks >= 0 && diffWeeks % interval == 0;
       case RecurrenceType.monthlyDates:
-        if (monthDays.isNotEmpty && !monthDays.contains(date.day)) return false;
+        if (monthDays.isNotEmpty) {
+          if (!monthDays.contains(date.day)) return false;
+        }
         if (nthWeekday != null && nthWeekdayDay != null &&
             !_isNthWeekdayOfMonth(date, nthWeekdayDay!, nthWeekday!)) {
           return false;
@@ -215,7 +218,28 @@ class RecurrenceRule {
       case RecurrenceType.yearlyDate:
         return date.month == (month ?? 1) && date.day == (dayOfMonth ?? 1);
       case RecurrenceType.interval:
-        return false;
+        // Used by _firstOnOrAfter when the base date is before the rule's
+        // startDate (e.g. after editing the start date, or importing a
+        // backup). Previously this always returned false, which made
+        // _firstOnOrAfter scan 3660 days and return null, silently
+        // terminating "every X days/weeks/months" recurring tasks forever.
+        switch (intervalUnit) {
+          case RecurrenceIntervalUnit.days:
+            final diff = date.difference(anchor).inDays;
+            return diff >= 0 && diff % interval == 0;
+          case RecurrenceIntervalUnit.weeks:
+            final diff = date.difference(anchor).inDays;
+            return diff >= 0 && diff % (interval * 7) == 0;
+          case RecurrenceIntervalUnit.months:
+            if (date.day != anchor.day &&
+                !(date.day == DateTime(date.year, date.month + 1, 0).day &&
+                    anchor.day > date.day)) {
+              return false;
+            }
+            final monthDiff =
+                (date.year - anchor.year) * 12 + (date.month - anchor.month);
+            return monthDiff >= 0 && monthDiff % interval == 0;
+        }
       case RecurrenceType.timesPerPeriod:
         return true;
       case RecurrenceType.alternate:
@@ -235,13 +259,18 @@ class RecurrenceRule {
   }
 
   DateTime? _nextMonthlyDate(DateTime base) {
-    var cursor = DateTime(base.year, base.month + 1, 1);
+    // Explicit dates may include another selected day in the current month.
+    // Keep the existing next-month behavior for nth/last-weekday rules.
+    var cursor = DateTime(base.year, base.month + (monthDays.isEmpty ? 1 : 0), 1);
     for (var m = 0; m < 121; m++) {
       if (monthDays.isNotEmpty) {
         final sorted = monthDays.where((d) => d >= 1 && d <= 31).toSet().toList()..sort();
         for (final day in sorted) {
           final last = DateTime(cursor.year, cursor.month + 1, 0).day;
-          if (day <= last) return DateTime(cursor.year, cursor.month, day);
+          // A selected 31st is not a request for the last day of the month.
+          if (day > last) continue;
+          final candidate = DateTime(cursor.year, cursor.month, day);
+          if (candidate.isAfter(base)) return candidate;
         }
       }
       if (nthWeekday != null && nthWeekdayDay != null) {
@@ -369,12 +398,16 @@ class RecurrenceRule {
     final lastDay = DateTime(year, month + 1, 0).day;
     if (ordinal == -1) {
       var d = DateTime(year, month, lastDay);
-      while (d.weekday != weekday) d = _datePlus(d, -1);
+      while (d.weekday != weekday) {
+        d = _datePlus(d, -1);
+      }
       return d;
     }
     if (ordinal < 1 || ordinal > 5) return null;
     var d = DateTime(year, month, 1);
-    while (d.weekday != weekday) d = _datePlus(d, 1);
+    while (d.weekday != weekday) {
+      d = _datePlus(d, 1);
+    }
     d = _datePlus(d, (ordinal - 1) * 7);
     return d.month == month ? d : null;
   }
